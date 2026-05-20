@@ -1,0 +1,70 @@
+{
+  "name": "Expense",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Expense title"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Rent",
+        "Salary",
+        "Utilities",
+        "Marketing",
+        "Maintenance",
+        "Transport",
+        "Raw Material",
+        "Equipment",
+        "Loan EMI",
+        "Miscellaneous"
+      ],
+      "default": "Miscellaneous"
+    },
+    "amount": {
+      "type": "number",
+      "default": 0
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "paid_to": {
+      "type": "string"
+    },
+    "payment_mode": {
+      "type": "string",
+      "enum": [
+        "Cash",
+        "Bank Transfer",
+        "UPI",
+        "Cheque",
+        "Credit Card"
+      ],
+      "default": "Cash"
+    },
+    "reference_no": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "is_recurring": {
+      "type": "boolean",
+      "default": false
+    },
+    "gst_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "receipt_url": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "amount",
+    "date"
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "name": "Purchase",
+  "type": "object",
+  "properties": {
+    "purchase_number": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "vendor_name": {
+      "type": "string"
+    },
+    "vendor_gstin": {
+      "type": "string"
+    },
+    "vendor_phone": {
+      "type": "string"
+    },
+    "vendor_invoice_no": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "hsn": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "rate": {
+            "type": "number"
+          },
+          "gst_rate": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "discount": {
+      "type": "number",
+      "default": 0
+    },
+    "grand_total": {
+      "type": "number",
+      "default": 0
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "purchase_number",
+    "vendor_name",
+    "date"
+  ]
+}

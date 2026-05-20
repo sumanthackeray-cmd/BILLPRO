@@ -1,0 +1,66 @@
+{
+  "name": "Employee",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "designation": {
+      "type": "string"
+    },
+    "department": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "join_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "basic_salary": {
+      "type": "number",
+      "default": 0
+    },
+    "hra": {
+      "type": "number",
+      "default": 0
+    },
+    "allowances": {
+      "type": "number",
+      "default": 0
+    },
+    "pf_deduction": {
+      "type": "number",
+      "default": 0
+    },
+    "tds_deduction": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Inactive",
+        "On Leave"
+      ],
+      "default": "Active"
+    },
+    "pan": {
+      "type": "string"
+    },
+    "bank_account": {
+      "type": "string"
+    },
+    "ifsc": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

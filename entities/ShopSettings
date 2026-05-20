@@ -1,0 +1,77 @@
+{
+  "name": "ShopSettings",
+  "type": "object",
+  "properties": {
+    "shop_name": {
+      "type": "string"
+    },
+    "owner_name": {
+      "type": "string"
+    },
+    "gstin": {
+      "type": "string"
+    },
+    "pan": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "pincode": {
+      "type": "string"
+    },
+    "invoice_prefix": {
+      "type": "string",
+      "default": "INV-"
+    },
+    "bank_name": {
+      "type": "string"
+    },
+    "account_no": {
+      "type": "string"
+    },
+    "ifsc": {
+      "type": "string"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "upi_id": {
+      "type": "string"
+    },
+    "terms": {
+      "type": "string"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "Uploaded shop logo URL"
+    },
+    "signature_url": {
+      "type": "string",
+      "description": "Uploaded digital signature URL"
+    },
+    "invoice_counter": {
+      "type": "number",
+      "default": 0
+    },
+    "purchase_counter": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "shop_name"
+  ]
+}

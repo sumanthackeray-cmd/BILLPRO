@@ -1,0 +1,67 @@
+{
+  "name": "UserSubscription",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "plan": {
+      "type": "string",
+      "enum": [
+        "free",
+        "starter",
+        "professional",
+        "enterprise"
+      ],
+      "default": "free"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "trial",
+        "active",
+        "expired",
+        "cancelled"
+      ],
+      "default": "trial"
+    },
+    "trial_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "trial_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "billing_cycle": {
+      "type": "string",
+      "enum": [
+        "monthly",
+        "yearly"
+      ],
+      "default": "monthly"
+    },
+    "razorpay_order_id": {
+      "type": "string"
+    },
+    "razorpay_payment_id": {
+      "type": "string"
+    },
+    "amount_paid": {
+      "type": "number",
+      "default": 0
+    },
+    "next_billing_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "expiry_notification_sent": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "user_email",
+    "plan"
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "name": "Loan",
+  "type": "object",
+  "properties": {
+    "lender_name": {
+      "type": "string"
+    },
+    "loan_type": {
+      "type": "string",
+      "enum": [
+        "Business Loan",
+        "Personal Loan",
+        "Vehicle Loan",
+        "Equipment Loan",
+        "Working Capital",
+        "MSME Loan"
+      ],
+      "default": "Business Loan"
+    },
+    "principal_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "interest_rate": {
+      "type": "number",
+      "default": 0,
+      "description": "Annual interest rate %"
+    },
+    "tenure_months": {
+      "type": "number",
+      "default": 12
+    },
+    "emi_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "disbursement_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "next_emi_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "amount_paid": {
+      "type": "number",
+      "default": 0
+    },
+    "outstanding_balance": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Closed",
+        "Overdue"
+      ],
+      "default": "Active"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "lender_name",
+    "principal_amount"
+  ]
+}

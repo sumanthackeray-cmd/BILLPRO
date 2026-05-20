@@ -1,0 +1,225 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* Light Mode Variables */
+    --background: 220 20% 97%;
+    --foreground: 222 47% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 8%;
+    --primary: 36 90% 55%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 220 15% 94%;
+    --secondary-foreground: 222 30% 20%;
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 10% 40%;
+    --accent: 220 15% 90%;
+    --accent-foreground: 222 47% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 15% 85%;
+    --input: 220 15% 92%;
+    --ring: 36 90% 55%;
+    
+    --chart-1: 36 90% 55%;
+    --chart-2: 160 72% 39%;
+    --chart-3: 217 91% 60%;
+    --chart-4: 263 70% 65%;
+    --chart-5: 174 72% 41%;
+    --radius: 0.75rem;
+
+    --gold: 36 90% 55%;
+    --gold-glow: 36 90% 55%;
+    --success: 160 72% 39%;
+    --info: 217 91% 60%;
+    --warning: 38 92% 50%;
+    --purple: 263 70% 65%;
+    --teal: 174 72% 41%;
+
+    --sidebar-background: 220 20% 98%;
+    --sidebar-foreground: 222 30% 25%;
+    --sidebar-primary: 36 90% 55%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 220 15% 93%;
+    --sidebar-accent-foreground: 222 47% 8%;
+    --sidebar-border: 220 15% 88%;
+    --sidebar-ring: 36 90% 55%;
+  }
+
+  .dark {
+    /* Dark Mode Variables */
+    --background: 222 47% 4%;
+    --foreground: 220 30% 93%;
+    --card: 222 40% 7%;
+    --card-foreground: 220 30% 93%;
+    --popover: 222 40% 7%;
+    --popover-foreground: 220 30% 93%;
+    --primary: 36 90% 55%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 222 30% 12%;
+    --secondary-foreground: 220 20% 70%;
+    --muted: 222 25% 14%;
+    --muted-foreground: 220 15% 55%;
+    --accent: 222 30% 16%;
+    --accent-foreground: 220 30% 93%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 25% 18%;
+    --input: 222 25% 14%;
+    --ring: 36 90% 55%;
+    
+    --chart-1: 36 90% 55%;
+    --chart-2: 160 72% 39%;
+    --chart-3: 217 91% 60%;
+    --chart-4: 263 70% 65%;
+    --chart-5: 174 72% 41%;
+
+    --sidebar-background: 222 40% 5%;
+    --sidebar-foreground: 220 20% 70%;
+    --sidebar-primary: 36 90% 55%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 222 30% 12%;
+    --sidebar-accent-foreground: 220 30% 93%;
+    --sidebar-border: 222 25% 15%;
+    --sidebar-ring: 36 90% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  .gold-gradient {
+    background: linear-gradient(135deg, hsl(36, 90%, 55%), hsl(20, 90%, 50%));
+  }
+
+  .gold-text {
+    background: linear-gradient(135deg, hsl(36, 90%, 55%), hsl(20, 90%, 50%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gold-glow {
+    box-shadow: 0 0 24px hsla(36, 90%, 55%, 0.2);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(222, 40%, 7%);
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(222, 25%, 18%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(222, 25%, 25%);
+}
+
+@media print {
+  /* 1. Hide everything else in the body */
+  #root,
+  [data-radix-portal] > div:not([role="dialog"]),
+  .print\:hidden,
+  .no-print {
+    display: none !important;
+  }
+
+  /* 2. Style body and html to be clean and minimal */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* 3. Style the dialog container itself to behave as a standard block */
+  div[role="dialog"] {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    display: block !important;
+    transform: none !important;
+    animation: none !important;
+    opacity: 1 !important;
+    max-height: none !important;
+    max-width: none !important;
+  }
+
+  /* Hide Radix Close button and other sibling elements inside DialogContent */
+  div[role="dialog"] button,
+  div[role="dialog"] > div:not(.thermal-receipt-print-area),
+  div[role="dialog"] > footer,
+  div[role="dialog"] > h2,
+  div[role="dialog"] > p {
+    display: none !important;
+  }
+
+  /* 4. Style the print area specifically */
+  .thermal-receipt-print-area {
+    display: block !important;
+    visibility: visible !important;
+    position: relative !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+    font-family: 'Courier New', Courier, monospace !important;
+  }
+
+  .printer-58mm {
+    width: 58mm !important;
+    max-width: 58mm !important;
+  }
+
+  .printer-80mm {
+    width: 80mm !important;
+    max-width: 80mm !important;
+  }
+
+  /* Prevent split page */
+  tr, img, svg {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}

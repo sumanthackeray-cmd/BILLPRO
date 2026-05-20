@@ -1,0 +1,155 @@
+{
+  "name": "Invoice",
+  "type": "object",
+  "properties": {
+    "invoice_number": {
+      "type": "string",
+      "description": "Auto-generated invoice number"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "sale",
+        "credit_note",
+        "debit_note"
+      ],
+      "default": "sale"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_phone": {
+      "type": "string"
+    },
+    "customer_gstin": {
+      "type": "string"
+    },
+    "bill_address": {
+      "type": "string"
+    },
+    "bill_city": {
+      "type": "string"
+    },
+    "bill_pincode": {
+      "type": "string"
+    },
+    "ship_address": {
+      "type": "string"
+    },
+    "ship_city": {
+      "type": "string"
+    },
+    "ship_pincode": {
+      "type": "string"
+    },
+    "place_of_supply": {
+      "type": "string"
+    },
+    "po_number": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "hsn": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "rate": {
+            "type": "number"
+          },
+          "gst_rate": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "discount": {
+      "type": "number",
+      "default": 0
+    },
+    "subtotal": {
+      "type": "number",
+      "default": 0
+    },
+    "tax_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "grand_total": {
+      "type": "number",
+      "default": 0
+    },
+    "paid_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "unpaid",
+        "partial",
+        "paid"
+      ],
+      "default": "unpaid"
+    },
+    "is_interstate": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": "string"
+    },
+    "transport_mode": {
+      "type": "string"
+    },
+    "transporter": {
+      "type": "string"
+    },
+    "vehicle_no": {
+      "type": "string"
+    },
+    "lr_no": {
+      "type": "string"
+    },
+    "waybill_no": {
+      "type": "string"
+    },
+    "waybill_date": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "invoice_number",
+    "customer_name",
+    "date"
+  ]
+}

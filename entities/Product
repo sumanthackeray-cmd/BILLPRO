@@ -1,0 +1,73 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "sku": {
+      "type": "string"
+    },
+    "hsn": {
+      "type": "string",
+      "description": "HSN/SAC code"
+    },
+    "category": {
+      "type": "string"
+    },
+    "brand": {
+      "type": "string"
+    },
+    "gst_rate": {
+      "type": "number",
+      "default": 18,
+      "description": "GST rate percentage"
+    },
+    "mrp": {
+      "type": "number",
+      "default": 0
+    },
+    "rate": {
+      "type": "number",
+      "default": 0,
+      "description": "Selling price"
+    },
+    "stock": {
+      "type": "number",
+      "default": 0
+    },
+    "min_stock": {
+      "type": "number",
+      "default": 10
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "PCS",
+        "KG",
+        "LTR",
+        "MTR",
+        "BOX",
+        "BAG",
+        "SET",
+        "PAIR",
+        "DOZEN"
+      ],
+      "default": "PCS"
+    },
+    "barcode": {
+      "type": "string"
+    },
+    "batch_no": {
+      "type": "string"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "name",
+    "rate"
+  ]
+}

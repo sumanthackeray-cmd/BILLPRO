@@ -1,0 +1,64 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Customer/business name"
+    },
+    "contact_person": {
+      "type": "string",
+      "description": "Contact person name"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "gstin": {
+      "type": "string",
+      "description": "15-char GSTIN"
+    },
+    "address": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "pincode": {
+      "type": "string"
+    },
+    "credit_limit": {
+      "type": "number",
+      "default": 0
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Retail",
+        "Wholesale",
+        "Distributor",
+        "Other"
+      ],
+      "default": "Retail"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "total_purchases": {
+      "type": "number",
+      "default": 0
+    },
+    "last_purchase_date": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
