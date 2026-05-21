@@ -12,19 +12,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { 
   Zap, Search, ShoppingCart, User, Plus, Minus, Trash2, 
-  Printer, ArrowLeft, RotateCcw, CreditCard, Sparkles, AlertTriangle,
+  Printer, ArrowLeft, RotateCcw, CreditCard, Sparkles, AlertTriangle, Edit,
   Utensils, Pill, Shirt, Store, Package, Check, Keyboard, Scan, ChevronRight, Scale,
   History, Mic, MicOff, X, FileText, RefreshCw, Eye, Camera, ClipboardList,
   TrendingUp, Calendar, Filter, ChevronDown, Clock, IndianRupee, BarChart2,
   Moon, Sun
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Link } from "react-router-dom";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useAuth } from "@/lib/AuthContext";
 import { useTheme } from "next-themes";
-import { generateAndUploadInvoicePDF, downloadInvoicePDF, getInvoicePDFBlob } from "@/lib/pdf-share-utils";
+import { generateAndUploadInvoicePDF, downloadInvoicePDF, getInvoicePDFBlob, generateThermalHTML } from "@/lib/pdf-share-utils";
+import InvoicePrintPreview from "@/components/invoices/InvoicePrintPreview";
 import { 
   sendEscPosToPrinter, 
   generateEscPosPayload, 
@@ -33,6 +34,8 @@ import {
   addToOfflinePrintQueue 
 } from "@/lib/escpos-utils";
 import { getCategoriesByShopType } from "@/lib/shopCategories";
+import { subscribeToBranchInventory, updateInventory } from "@/api/inventorySyncService";
+import { INDIAN_STATES } from "@/lib/gst-utils";
 
 // Auto-generate SKU
 const generateSKU = (name = "") => {
@@ -104,6 +107,32 @@ export default function POS() {
   const queryClient = useQueryClient();
   const { language, setLanguage, voiceEnabled, setVoiceEnabled, t, speak } = useLanguage();
   const { theme, setTheme } = useTheme();
+
+  // Multi-Outlet Branch Tracking & Stock Sync
+  const [activeBranchId, setActiveBranchId] = useState(() => localStorage.getItem('selectedBranch') || '');
+  const [branchInventory, setBranchInventory] = useState([]);
+
+  useEffect(() => {
+    const handleBranchChange = () => {
+      setActiveBranchId(localStorage.getItem('selectedBranch') || '');
+    };
+    window.addEventListener('branchChanged', handleBranchChange);
+    return () => window.removeEventListener('branchChanged', handleBranchChange);
+  }, []);
+
+  useEffect(() => {
+    let unsubscribe;
+    if (activeBranchId) {
+      unsubscribe = subscribeToBranchInventory(activeBranchId, (data) => {
+        setBranchInventory(data);
+      });
+    } else {
+      setBranchInventory([]);
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [activeBranchId]);
   const [layout, setLayout] = useState("retail"); // retail, restaurant, medical, fashion, grocery
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -143,6 +172,17 @@ export default function POS() {
   const [variantColor, setVariantColor] = useState("");
 
   // ── SUBSYSTEM A: Multi-Counter Shift & Cash Drawer Control States ──
+  // Load staff list from Settings (stored in localStorage by Settings page)
+  const staffList = (() => {
+    try { return JSON.parse(localStorage.getItem("gst_shop_staff_list") || "[]"); }
+    catch { return []; }
+  })();
+
+  // Device-persistent counter selection: which counter is THIS device?
+  const [myDeviceCounter, setMyDeviceCounter] = useState(() =>
+    localStorage.getItem("gst_pos_my_device_counter") || ""
+  );
+
   const [isShiftActive, setIsShiftActive] = useState(() => {
     return localStorage.getItem("gst_pos_shift_active") === "true";
   });
@@ -163,7 +203,43 @@ export default function POS() {
     }
   });
   const [isShiftCloseDialogOpen, setIsShiftCloseDialogOpen] = useState(false);
+  const [isShiftOpenDialogOpen, setIsShiftOpenDialogOpen] = useState(false);
+  // Pre-fill from the device-persisted counter/cashier, or from first matching staff member
+  const [openCashierInput, setOpenCashierInput] = useState(() => {
+    const saved = localStorage.getItem("gst_pos_shift_cashier");
+    if (saved) return saved;
+    const staffArr = (() => { try { return JSON.parse(localStorage.getItem("gst_shop_staff_list") || "[]"); } catch { return []; } })();
+    const devCounter = localStorage.getItem("gst_pos_my_device_counter") || "";
+    const match = devCounter ? staffArr.find(s => s.counter === devCounter) : null;
+    return match ? match.name : "";
+  });
+  const [openCounterInput, setOpenCounterInput] = useState(() => {
+    const devCounter = localStorage.getItem("gst_pos_my_device_counter") || "";
+    return devCounter || "Counter 1";
+  });
+  const [openStartingCashInput, setOpenStartingCashInput] = useState("1000");
+  const [openShiftInput, setOpenShiftInput] = useState(() => {
+    const staffArr = (() => { try { return JSON.parse(localStorage.getItem("gst_shop_staff_list") || "[]"); } catch { return []; } })();
+    const devCounter = localStorage.getItem("gst_pos_my_device_counter") || "";
+    const match = devCounter ? staffArr.find(s => s.counter === devCounter) : null;
+    return match ? match.shift : "Morning";
+  });
   const [physicalCashCounted, setPhysicalCashCounted] = useState(0);
+  const [isCounterPickerOpen, setIsCounterPickerOpen] = useState(false);
+
+  // Auto-fill cashier name from Firebase user on first load
+  useEffect(() => {
+    if (user?.full_name && !openCashierInput) {
+      setOpenCashierInput(user.full_name);
+    }
+  }, [user, openCashierInput]);
+
+  // Show counter picker on first load if no device counter is set
+  useEffect(() => {
+    if (!myDeviceCounter) {
+      setIsCounterPickerOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("gst_pos_shift_active", isShiftActive ? "true" : "false");
@@ -231,6 +307,35 @@ export default function POS() {
     setIsShiftCloseDialogOpen(false);
     setPhysicalCashCounted(0);
     toast.success("Shift closed and drawer locked successfully!");
+  };
+
+  const handleOpenShift = () => {
+    if (!openCashierInput.trim()) {
+      toast.error(language === "hi" ? "कृपया कैशियर का नाम दर्ज करें" : "Please enter cashier name");
+      return;
+    }
+    if (!openCounterInput.trim()) {
+      toast.error(language === "hi" ? "कृपया काउंटर संख्या दर्ज करें" : "Please enter counter number");
+      return;
+    }
+    const startingCash = parseFloat(openStartingCashInput) || 0;
+
+    // 🔒 Permanently save this device's counter (persists across sessions)
+    localStorage.setItem("gst_pos_my_device_counter", openCounterInput);
+    setMyDeviceCounter(openCounterInput);
+
+    setCurrentCounter(openCounterInput);
+    setCurrentCashier(openCashierInput);
+    setStartingDrawerCash(startingCash);
+    setShiftInvoices([]);
+    setIsShiftActive(true);
+    setIsShiftOpenDialogOpen(false);
+    setIsCounterPickerOpen(false);
+    toast.success(
+      language === "hi"
+        ? `कैशियर शिफ्ट शुरू हो गई है! ₹${startingCash.toLocaleString("en-IN")} के साथ कैश ड्रावर खुल गया है।`
+        : `Shift activated! Cash drawer unlocked with ₹${startingCash.toLocaleString("en-IN")}`
+    );
   };
 
   // ── SUBSYSTEM B: Queue Management Ticker ──
@@ -376,6 +481,15 @@ export default function POS() {
   const [newCustPhone, setNewCustPhone] = useState("");
   const [newCustGstin, setNewCustGstin] = useState("");
   const [editingCustomerId, setEditingCustomerId] = useState(null);
+  const [newCustContactPerson, setNewCustContactPerson] = useState("");
+  const [newCustEmail, setNewCustEmail] = useState("");
+  const [newCustAddress, setNewCustAddress] = useState("");
+  const [newCustCity, setNewCustCity] = useState("");
+  const [newCustState, setNewCustState] = useState("");
+  const [newCustPincode, setNewCustPincode] = useState("");
+  const [newCustCreditLimit, setNewCustCreditLimit] = useState(0);
+  const [newCustCategory, setNewCustCategory] = useState("Retail");
+  const [newCustNotes, setNewCustNotes] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [billingType, setBillingType] = useState("B2C"); // B2C or B2B
   const [custSearchInput, setCustSearchInput] = useState("");
@@ -429,10 +543,23 @@ export default function POS() {
   const recognitionRef = useRef(null);
 
   // Query Data
-  const { data: products = [], isLoading: isLoadingProd } = useQuery({
+  const { data: rawProducts = [], isLoading: isLoadingProd } = useQuery({
     queryKey: ["products"],
     queryFn: () => base44.entities.Product.list(),
   });
+
+  const products = useMemo(() => {
+    if (!activeBranchId || branchInventory.length === 0) {
+      return rawProducts;
+    }
+    return rawProducts.map(p => {
+      const branchInv = branchInventory.find(inv => inv.productId === p.id);
+      return {
+        ...p,
+        stock: branchInv ? branchInv.quantity : 0
+      };
+    });
+  }, [rawProducts, branchInventory, activeBranchId]);
 
   const { data: customers = [] } = useQuery({
     queryKey: ["customers"],
@@ -779,21 +906,30 @@ export default function POS() {
     e.preventDefault();
     if (!newCustName) return;
     try {
+      const payload = {
+        name: newCustName,
+        phone: newCustPhone,
+        gstin: newCustGstin,
+        whatsapp_number: newCustPhone,
+      };
+
+      if (billingType === "B2B") {
+        payload.contact_person = newCustContactPerson;
+        payload.email = newCustEmail;
+        payload.address = newCustAddress;
+        payload.city = newCustCity;
+        payload.state = newCustState;
+        payload.pincode = newCustPincode;
+        payload.credit_limit = Number(newCustCreditLimit) || 0;
+        payload.category = newCustCategory;
+        payload.notes = newCustNotes;
+      }
+
       if (editingCustomerId) {
-        await base44.entities.Customer.update(editingCustomerId, {
-          name: newCustName,
-          phone: newCustPhone,
-          gstin: newCustGstin,
-          whatsapp_number: newCustPhone,
-        });
+        await base44.entities.Customer.update(editingCustomerId, payload);
         toast.success("Customer updated!");
       } else {
-        const newCust = await base44.entities.Customer.create({
-          name: newCustName,
-          phone: newCustPhone,
-          gstin: newCustGstin,
-          whatsapp_number: newCustPhone,
-        });
+        const newCust = await base44.entities.Customer.create(payload);
         setSelectedCustomerId(newCust.id);
         toast.success("Customer added!");
       }
@@ -802,6 +938,15 @@ export default function POS() {
       setNewCustName("");
       setNewCustPhone("");
       setNewCustGstin("");
+      setNewCustContactPerson("");
+      setNewCustEmail("");
+      setNewCustAddress("");
+      setNewCustCity("");
+      setNewCustState("");
+      setNewCustPincode("");
+      setNewCustCreditLimit(0);
+      setNewCustCategory("Retail");
+      setNewCustNotes("");
       setEditingCustomerId(null);
     } catch (e) {
       toast.error("Failed to save customer");
@@ -851,9 +996,16 @@ export default function POS() {
       toast.error("Cart is empty");
       return;
     }
+    // Auto-activate shift silently if not active (shift is optional tracking — never block checkout)
     if (!isShiftActive) {
-      toast.error("Please activate shift and cashier drawer before checkout");
-      return;
+      const defaultCashier = currentCashier || myDeviceCounter || "Cashier";
+      const defaultCounter = currentCounter || myDeviceCounter || "Counter 1";
+      setCurrentCashier(defaultCashier);
+      setCurrentCounter(defaultCounter);
+      setIsShiftActive(true);
+      localStorage.setItem("gst_pos_shift_active", "true");
+      localStorage.setItem("gst_pos_shift_cashier", defaultCashier);
+      localStorage.setItem("gst_pos_shift_counter", defaultCounter);
     }
     try {
       setIsCheckingOut(true);
@@ -868,9 +1020,9 @@ export default function POS() {
           id: `off-${Date.now()}`,
           invoice_number: invoiceNum,
           date: new Date().toISOString().slice(0, 10),
-          customer_name: customer ? customer.name : "Walk-in Customer",
-          customer_gstin: customer ? customer.gstin : "",
-          customer_phone: customer ? customer.phone : "",
+          customer_name: customer?.name || "Walk-in Customer",
+          customer_gstin: customer?.gstin || "",
+          customer_phone: customer?.phone || "",
           subtotal: cartSubtotal,
           tax_amount: cartTax,
           grand_total: parseFloat(finalTotal.toFixed(2)),
@@ -898,7 +1050,8 @@ export default function POS() {
           payment_method: paymentMethod,
           payment_split: paymentMethod === 'split' ? { cash: splitCash, card: splitCard, upi: splitUPI } : null,
           notes: layout === "restaurant" ? `Restaurant Table: ${selectedTable} (Offline)` : "Offline Generated",
-          isOfflinePending: true
+          isOfflinePending: true,
+          branchId: activeBranchId
         };
 
         // Decrement stock in react-query cache locally
@@ -923,9 +1076,9 @@ export default function POS() {
         if (editingInvoiceId) {
           // Edit mode: update existing invoice
           const updatedInvoice = {
-            customer_name: customer ? customer.name : "Walk-in Customer",
-            customer_gstin: customer ? customer.gstin : "",
-            customer_phone: customer ? customer.phone : "",
+            customer_name: customer?.name || "Walk-in Customer",
+            customer_gstin: customer?.gstin || "",
+            customer_phone: customer?.phone || "",
             subtotal: cartSubtotal,
             tax_amount: cartTax,
             grand_total: parseFloat(finalTotal.toFixed(2)),
@@ -949,12 +1102,13 @@ export default function POS() {
             billing_type: billingType,
             payment_method: paymentMethod,
             payment_split: paymentMethod === 'split' ? { cash: splitCash, card: splitCard, upi: splitUPI } : null,
-            notes: layout === "restaurant" ? `Restaurant Table: ${selectedTable} (Edited)` : "Edited Bill"
+            notes: layout === "restaurant" ? `Restaurant Table: ${selectedTable} (Edited)` : "Edited Bill",
+            branchId: activeBranchId
           };
 
           createdInvoice = await base44.entities.Invoice.update(editingInvoiceId, updatedInvoice);
 
-          // Combined Stock Adjustment logic:
+          // Combined Stock Adjustment logic (branch specific and global catalog):
           const stockAdjustments = {};
           for (const item of editingInvoiceOriginalItems) {
             stockAdjustments[item.product_id] = (stockAdjustments[item.product_id] || 0) - item.qty;
@@ -967,9 +1121,22 @@ export default function POS() {
             if (delta !== 0) {
               const prod = products.find(p => p.id === prodId);
               if (prod) {
-                const currentStock = prod.stock || 0;
-                const newStock = Math.max(0, currentStock - delta);
-                await base44.entities.Product.update(prodId, { stock: newStock });
+                // 1. Branch specific inventory update
+                if (activeBranchId) {
+                  try {
+                    await updateInventory(prodId, activeBranchId, -delta, 'pos_edit');
+                  } catch (err) {
+                    console.error(`Error updating branch inventory for ${prodId} during edit:`, err);
+                  }
+                }
+                // 2. Global product catalog stock update
+                try {
+                  const currentStock = prod.stock || 0;
+                  const newStock = Math.max(0, currentStock - delta);
+                  await base44.entities.Product.update(prodId, { stock: newStock });
+                } catch (err) {
+                  console.error(`Error updating global stock for product ${prodId} during edit:`, err);
+                }
               }
             }
           }
@@ -983,9 +1150,9 @@ export default function POS() {
           const newInvoice = {
             invoice_number: invoiceNum,
             date: new Date().toISOString().slice(0, 10),
-            customer_name: customer ? customer.name : "Walk-in Customer",
-            customer_gstin: customer ? customer.gstin : "",
-            customer_phone: customer ? customer.phone : "",
+            customer_name: customer?.name || "Walk-in Customer",
+            customer_gstin: customer?.gstin || "",
+            customer_phone: customer?.phone || "",
             subtotal: cartSubtotal,
             tax_amount: cartTax,
             grand_total: parseFloat(finalTotal.toFixed(2)),
@@ -1012,17 +1179,31 @@ export default function POS() {
             billing_type: billingType,
             payment_method: paymentMethod,
             payment_split: paymentMethod === 'split' ? { cash: splitCash, card: splitCard, upi: splitUPI } : null,
-            notes: layout === "restaurant" ? `Restaurant Table: ${selectedTable}` : ""
+            notes: layout === "restaurant" ? `Restaurant Table: ${selectedTable}` : "",
+            branchId: activeBranchId
           };
 
           createdInvoice = await base44.entities.Invoice.create(newInvoice);
 
-          // Decrement stock in database
+          // Decrement stock in database (branch specific and global catalog)
           for (const item of cart) {
             const prod = products.find(p => p.id === item.id);
             if (prod) {
-              const newStock = Math.max(0, (prod.stock || 0) - item.qty);
-              await base44.entities.Product.update(item.id, { stock: newStock });
+              // 1. Decrement specific branch inventory
+              if (activeBranchId) {
+                try {
+                  await updateInventory(item.id, activeBranchId, -item.qty, 'pos_sale');
+                } catch (err) {
+                  console.error(`Error updating branch inventory for ${item.id}:`, err);
+                }
+              }
+              // 2. Decrement global product catalog stock
+              try {
+                const newStock = Math.max(0, (prod.stock || 0) - item.qty);
+                await base44.entities.Product.update(item.id, { stock: newStock });
+              } catch (err) {
+                console.error(`Error updating global catalog stock for product ${item.id}:`, err);
+              }
             }
           }
           toast.success("Bill generated successfully!");
@@ -1080,7 +1261,7 @@ export default function POS() {
       }
     } catch (e) {
       console.error(e);
-      toast.error("Checkout failed");
+      toast.error("Checkout failed: " + (e.message || e));
     } finally {
       setIsCheckingOut(false);
     }
@@ -1302,7 +1483,7 @@ export default function POS() {
       const q = historySearchTerm.toLowerCase();
       if (!q) return true;
       const customer = customers.find(c => c.id === hold.customerId);
-      const custName = customer ? customer.name : "Walk-in Customer";
+      const custName = customer?.name || "Walk-in Customer";
       return hold.label.toLowerCase().includes(q) || custName.toLowerCase().includes(q);
     });
   }, [parkedCarts, historySearchTerm, customers]);
@@ -1489,6 +1670,31 @@ export default function POS() {
         </div>
 
         <div className="flex items-center gap-1.5 md:gap-2 h-full">
+          {/* Shift Management Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (isShiftActive) {
+                setIsShiftCloseDialogOpen(true);
+              } else {
+                setIsShiftOpenDialogOpen(true);
+              }
+            }}
+            className={cn(
+              "flex items-center gap-1 h-5 md:h-7 px-1.5 md:px-2.5 rounded-lg border text-[8px] md:text-[9px] font-black uppercase tracking-wide shadow-sm transition-all duration-150",
+              isShiftActive
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+                : "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 animate-pulse"
+            )}
+          >
+            <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" />
+            <span>
+              {isShiftActive 
+                ? `${t("pos.cashier") || "Cashier"}: ${currentCounter}` 
+                : t("pos.open_shift") || "Open Shift"}
+            </span>
+          </button>
+
           {/* History Button - hidden on mobile, visible on md+ */}
           <button
             type="button"
@@ -1820,6 +2026,15 @@ export default function POS() {
                   setNewCustName("");
                   setNewCustPhone("");
                   setNewCustGstin("");
+                  setNewCustContactPerson("");
+                  setNewCustEmail("");
+                  setNewCustAddress("");
+                  setNewCustCity("");
+                  setNewCustState("");
+                  setNewCustPincode("");
+                  setNewCustCreditLimit(0);
+                  setNewCustCategory("Retail");
+                  setNewCustNotes("");
                   setEditingCustomerId(null);
                   setIsCustomerModalOpen(true);
                 }}
@@ -1842,6 +2057,15 @@ export default function POS() {
                       setNewCustName(selectedCustomer.name);
                       setNewCustPhone(selectedCustomer.phone || "");
                       setNewCustGstin(selectedCustomer.gstin || "");
+                      setNewCustContactPerson(selectedCustomer.contact_person || "");
+                      setNewCustEmail(selectedCustomer.email || "");
+                      setNewCustAddress(selectedCustomer.address || "");
+                      setNewCustCity(selectedCustomer.city || "");
+                      setNewCustState(selectedCustomer.state || "");
+                      setNewCustPincode(selectedCustomer.pincode || "");
+                      setNewCustCreditLimit(selectedCustomer.credit_limit || 0);
+                      setNewCustCategory(selectedCustomer.category || "Retail");
+                      setNewCustNotes(selectedCustomer.notes || "");
                       setEditingCustomerId(selectedCustomer.id);
                       setIsCustomerModalOpen(true);
                     }}
@@ -2281,46 +2505,172 @@ export default function POS() {
 
       {/* QUICK ADD CUSTOMER MODAL */}
       <Dialog open={isCustomerModalOpen} onOpenChange={setIsCustomerModalOpen}>
-        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-[#0f111e] border-slate-300 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-200">
+        <DialogContent className={`${billingType === 'B2B' ? 'max-w-lg' : 'sm:max-w-[425px]'} w-full h-full sm:h-auto max-h-[90vh] min-h-0 overflow-x-hidden bg-white dark:bg-[#0f111e] border-slate-300 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-200`}>
           <DialogHeader>
             <DialogTitle className="flex gap-2 items-center text-slate-900 dark:text-slate-100">
-              <User className="w-5 h-5 text-amber-500 dark:text-amber-400" /> {editingCustomerId ? "Edit Customer" : "Register Customer"}
+              <User className="w-5 h-5 text-amber-500 dark:text-amber-400" /> {editingCustomerId ? (billingType === 'B2B' ? "Edit B2B Customer" : "Edit Customer") : (billingType === 'B2B' ? "Register B2B Customer" : "Register Customer")}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-600 dark:text-slate-400">
-              {editingCustomerId ? "Update contact details for this account." : "Fill name and contact details to register this account immediately."}
+              {editingCustomerId ? (billingType === 'B2B' ? "Update company and tax details for this B2B account." : "Update contact details for this account.") : (billingType === 'B2B' ? "Fill company name, GSTIN, and contact details to register this B2B account immediately." : "Fill name and contact details to register this account immediately.")}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreateCustomer} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="name" className="text-xs font-bold text-slate-700 dark:text-slate-300">Customer Name *</Label>
-              <Input 
-                id="name" 
-                value={newCustName}
-                onChange={(e) => setNewCustName(e.target.value)}
-                placeholder="Type customer full name"
-                className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="phone" className="text-xs font-bold text-slate-700 dark:text-slate-300">WhatsApp Number</Label>
-              <Input 
-                id="phone" 
-                value={newCustPhone}
-                onChange={(e) => setNewCustPhone(e.target.value)}
-                placeholder="+91 99999 99999"
-                className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="gstin" className="text-xs font-bold text-slate-700 dark:text-slate-300">GSTIN (Optional)</Label>
-              <Input 
-                id="gstin" 
-                value={newCustGstin}
-                onChange={(e) => setNewCustGstin(e.target.value)}
-                placeholder="27AAAAA0000A1Z5"
-                className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-mono uppercase"
-              />
+          <form onSubmit={handleCreateCustomer} className="flex flex-col gap-4 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+              {billingType === "B2B" ? (
+                <div className="space-y-3">
+                <div>
+                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.business_name")} *</Label>
+                  <Input 
+                    placeholder={t("customers.business_name")} 
+                    value={newCustName} 
+                    onChange={e => setNewCustName(e.target.value)} 
+                    className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.contact_person")}</Label>
+                  <Input 
+                    placeholder="Mr. Ramesh Kumar" 
+                    value={newCustContactPerson} 
+                    onChange={e => setNewCustContactPerson(e.target.value)} 
+                    className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("common.phone")}</Label>
+                    <Input 
+                      placeholder="9876543210" 
+                      value={newCustPhone} 
+                      onChange={e => setNewCustPhone(e.target.value)} 
+                      className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("common.email")}</Label>
+                    <Input 
+                      placeholder="email@example.com" 
+                      value={newCustEmail} 
+                      onChange={e => setNewCustEmail(e.target.value)} 
+                      className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.gstin")}</Label>
+                  <Input 
+                    placeholder="15-char GSTIN" 
+                    value={newCustGstin} 
+                    onChange={e => setNewCustGstin(e.target.value)} 
+                    className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-mono uppercase"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.address")}</Label>
+                  <Input 
+                    placeholder="Shop No, Street" 
+                    value={newCustAddress} 
+                    onChange={e => setNewCustAddress(e.target.value)} 
+                    className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.city")}</Label>
+                    <Input 
+                      placeholder="City" 
+                      value={newCustCity} 
+                      onChange={e => setNewCustCity(e.target.value)} 
+                      className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.state")}</Label>
+                    <SearchableSelect
+                      options={INDIAN_STATES}
+                      value={newCustState}
+                      onValueChange={v => setNewCustState(v)}
+                      placeholder={t("customers.state")}
+                      searchPlaceholder={t("common.search")}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.pincode")}</Label>
+                    <Input 
+                      placeholder="110001" 
+                      value={newCustPincode} 
+                      onChange={e => setNewCustPincode(e.target.value)} 
+                      className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.credit_limit")} ₹</Label>
+                    <Input 
+                      type="number" 
+                      value={newCustCreditLimit} 
+                      onChange={e => setNewCustCreditLimit(Number(e.target.value))} 
+                      className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.category")}</Label>
+                    <SearchableSelect
+                      options={["Retail", "Wholesale", "Distributor", "Other"]}
+                      value={newCustCategory}
+                      onValueChange={v => setNewCustCategory(v)}
+                      placeholder={t("customers.category")}
+                      searchPlaceholder={t("common.search")}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.notes")}</Label>
+                  <Input 
+                    placeholder="..." 
+                    value={newCustNotes} 
+                    onChange={e => setNewCustNotes(e.target.value)} 
+                    className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name" className="text-xs font-bold text-slate-700 dark:text-slate-300">Customer Name *</Label>
+                  <Input 
+                    id="name" 
+                    value={newCustName}
+                    onChange={(e) => setNewCustName(e.target.value)}
+                    placeholder="Type customer full name"
+                    className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone" className="text-xs font-bold text-slate-700 dark:text-slate-300">WhatsApp Number</Label>
+                  <Input 
+                    id="phone" 
+                    value={newCustPhone}
+                    onChange={(e) => setNewCustPhone(e.target.value)}
+                    placeholder="+91 99999 99999"
+                    className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="gstin" className="text-xs font-bold text-slate-700 dark:text-slate-300">GSTIN (Optional)</Label>
+                  <Input 
+                    id="gstin" 
+                    value={newCustGstin}
+                    onChange={(e) => setNewCustGstin(e.target.value)}
+                    placeholder="27AAAAA0000A1Z5"
+                    className="rounded-xl border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-mono uppercase"
+                  />
+                </div>
+              </>
+            )}
             </div>
             <DialogFooter className="pt-2 gap-2">
               <Button type="button" variant="outline" onClick={() => setIsCustomerModalOpen(false)} className="rounded-xl border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300">Cancel</Button>
@@ -2330,367 +2680,165 @@ export default function POS() {
         </DialogContent>
       </Dialog>
 
-      {/* THERMAL RECEIPT PRINT MODAL */}
-      <Dialog open={isPrintOpen} onOpenChange={setIsPrintOpen}>
-        <DialogContent className={`bg-white text-slate-950 p-4 rounded-2xl font-mono text-[11px] leading-tight overflow-y-auto max-h-[90vh] transition-all duration-200 ${selectedPrintSize === "80mm" ? "sm:max-w-[400px]" : "sm:max-w-[340px]"}`}>
-          {/* Roll Size Toggle Selection */}
-          <div className="flex gap-2 mb-3 border-b border-gray-200 pb-2.5 print:hidden">
-            <button 
-              type="button" 
-              onClick={() => setSelectedPrintSize("58mm")}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedPrintSize === "58mm" ? "bg-slate-900 text-white shadow" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
-            >
-              58mm Roll
-            </button>
-            <button 
-              type="button" 
-              onClick={() => setSelectedPrintSize("80mm")}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedPrintSize === "80mm" ? "bg-slate-900 text-white shadow" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
-            >
-              80mm Roll
-            </button>
-          </div>
-
-          {/* Connection / Print Status Indicator */}
-          {shopSettings?.printer_type && shopSettings?.printer_type !== "browser" && (
-            <div className="bg-slate-50 border border-slate-200 p-2 rounded-xl text-[10px] text-slate-700 space-y-1 mb-2 print:hidden">
-              <div className="flex justify-between items-center">
-                <span className="font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                  Active Printer:
-                </span>
-                <span className="font-mono bg-slate-200 px-1.5 py-0.5 rounded font-black text-slate-800">
-                  {shopSettings.paired_printer_name || shopSettings.printer_ip || "Handheld POS"}
-                </span>
-              </div>
-              {printingStatus && (
-                <div className="text-[9px] text-amber-600 animate-pulse font-bold">
-                  Status: {printingStatus}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Printable Area Wrapper */}
-          <div className={`thermal-receipt-print-area printer-${selectedPrintSize} mx-auto bg-white p-1.5 relative overflow-hidden`}>
-            {/* Watermark for duplicate copy */}
-            {isDuplicate && (
-              <div 
-                className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden"
-                style={{ 
-                  transform: "rotate(-30deg)",
-                  opacity: 0.08
-                }}
+      {/* INVOICE PRINT PREVIEWS (B2B vs B2C) */}
+      {latestInvoice?.billing_type === "B2B" ? (
+        <InvoicePrintPreview 
+          open={isPrintOpen} 
+          onOpenChange={setIsPrintOpen} 
+          invoice={latestInvoice} 
+          shopSettings={shopSettings} 
+        />
+      ) : (
+        /* THERMAL RECEIPT PRINT MODAL FOR B2C */
+        <Dialog open={isPrintOpen} onOpenChange={setIsPrintOpen}>
+          <DialogContent className={`bg-white text-slate-950 p-0 gap-0 rounded-2xl overflow-hidden transition-all duration-200 flex flex-col ${selectedPrintSize === "80mm" ? "sm:max-w-[420px]" : "sm:max-w-[360px]"} max-h-[92vh]`}>
+            {/* ── Top controls bar — always visible ── */}
+            <div className="flex gap-2 px-4 pt-4 pb-3 border-b border-gray-100 print:hidden shrink-0">
+              <button 
+                type="button" 
+                onClick={() => setSelectedPrintSize("58mm")}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedPrintSize === "58mm" ? "bg-slate-900 text-white shadow" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
               >
-                <span className="text-[32px] font-black text-slate-800 uppercase tracking-widest whitespace-nowrap">
-                  DUPLICATE COPY
-                </span>
+                58mm Roll
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setSelectedPrintSize("80mm")}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedPrintSize === "80mm" ? "bg-slate-900 text-white shadow" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+              >
+                80mm Roll
+              </button>
+            </div>
+
+
+            {/* ── Connection / Print Status Indicator — always visible ── */}
+            {shopSettings?.printer_type && shopSettings?.printer_type !== "browser" && (
+              <div className="bg-slate-50 border border-slate-200 p-2 mx-4 rounded-xl text-[10px] text-slate-700 space-y-1 mb-0 print:hidden shrink-0">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    Active Printer:
+                  </span>
+                  <span className="font-mono bg-slate-200 px-1.5 py-0.5 rounded font-black text-slate-800">
+                    {shopSettings.paired_printer_name || shopSettings.printer_ip || "Handheld POS"}
+                  </span>
+                </div>
+                {printingStatus && (
+                  <div className="text-[9px] text-amber-600 animate-pulse font-bold">
+                    Status: {printingStatus}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* 1. Shop Header block */}
-            <div className="relative z-10 text-center pb-2.5 border-b border-dashed border-gray-300 flex flex-col items-center justify-center">
-              {/* Logo (48px circle) or initials fallback */}
-              {shopSettings.logo_url ? (
-                <div className="flex justify-center mb-1.5">
-                  <img 
-                    src={shopSettings.logo_url} 
-                    alt="Shop Logo" 
-                    className="w-12 h-12 rounded-full object-cover border border-gray-200 shadow-sm" 
-                  />
-                </div>
-              ) : (
-                <div className="flex justify-center mb-1.5">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 text-gray-700 font-extrabold text-[11px] flex items-center justify-center uppercase shadow-sm">
-                    {getInitials(shopSettings.shop_name)}
-                  </div>
-                </div>
-              )}
-              {/* Shop Name — bold, 15px, uppercase */}
-              {shopSettings.shop_name && shopSettings.shop_name !== "Vogats" && (
-                <h3 className="font-extrabold text-[15px] leading-tight uppercase tracking-tight text-slate-950">
-                  {shopSettings.shop_name}
-                </h3>
-              )}
-              {/* Shop Address — 10px, gray */}
-              {shopSettings.address && (
-                <p className="text-[10px] text-gray-500 mt-0.5 leading-normal max-w-[90%] font-medium">
-                  {shopSettings.address}
-                </p>
-              )}
-              {/* Shop Phone — 10px, gray */}
-              {shopSettings.phone && (
-                <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-                  Mob: {shopSettings.phone}
-                </p>
-              )}
-              {/* GSTIN (if available) — 9px, gray */}
-              {shopSettings.gstin && (
-                <p className="text-[9px] text-gray-400 font-semibold tracking-wider mt-0.5 uppercase">
-                  GSTIN: {shopSettings.gstin}
-                </p>
-              )}
+            {/* ── Scrollable receipt content ── */}
+            <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 bg-[#1a1a2e] flex justify-center">
+               <div dangerouslySetInnerHTML={{ __html: generateThermalHTML(latestInvoice, shopSettings, selectedPrintSize) }} />
             </div>
 
-            {/* 2. Invoice Meta 2-col block */}
-            <div className="relative z-10 border-y border-dashed border-gray-300 py-1.5 my-2">
-              <table className="w-full text-[10px]">
-                <tbody>
-                  {/* Invoice No. */}
-                  <tr>
-                    <td className="text-[9px] text-gray-500 font-medium text-left py-0.5 pr-2 w-[40%] align-middle">Invoice No.</td>
-                    <td className="text-[10px] text-slate-950 font-extrabold text-right py-0.5 align-middle font-mono">
-                      {latestInvoice?.invoice_number}
-                    </td>
-                  </tr>
+            {/* WhatsApp Share Panel */}
+            <div className="py-2 px-4 border-t border-dashed border-gray-300 print:hidden text-left space-y-1 shrink-0">
+              <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">WhatsApp Share</label>
+              <div className="flex gap-1.5">
+                <Input 
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  placeholder="Customer Phone (10 digits)"
+                  className="h-8 bg-gray-50 border-gray-350 text-slate-900 placeholder-gray-405 text-xs rounded-xl focus-visible:ring-1 focus-visible:ring-emerald-500"
+                />
+                <Button 
+                  onClick={handleSendWhatsApp}
+                  type="button" 
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-8 px-3 font-bold text-xs gap-1.5 shrink-0 flex items-center shadow-md shadow-emerald-600/10 active:scale-95"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.458L0 24zm6.292-4.148c1.681.998 3.363 1.581 5.377 1.582 5.568 0 10.099-4.537 10.1-10.111.002-2.701-1.047-5.24-2.953-7.149C16.906 2.265 14.372 1.01 11.998 1.01 6.55 1.01 2.118 5.541 2.11 11.118c-.001 2.052.547 4.054 1.587 5.792L2.686 20.39l4.582-1.202c-.919-.533-1.68-1.026-1.68-1.026-.002-.001-.002-.001 0 0z" />
+                  </svg>
+                  Send
+                </Button>
+              </div>
+            </div>
 
-                  {/* Date */}
-                  <tr>
-                    <td className="text-[9px] text-gray-500 font-medium text-left py-0.5 pr-2 align-middle">Date</td>
-                    <td className="text-[10px] text-slate-950 font-extrabold text-right py-0.5 align-middle">
-                      {formatReceiptDate(latestInvoice?.date)}
-                    </td>
-                  </tr>
-
-                  {/* Customer */}
-                  <tr>
-                    <td className="text-[9px] text-gray-500 font-medium text-left py-0.5 pr-2 align-middle">Customer</td>
-                    <td className="text-[10px] text-slate-950 font-extrabold text-right py-0.5 align-middle flex items-center justify-end gap-1">
-                      {(() => {
-                        const name = latestInvoice?.customer_name || "Walk-in Customer";
-                        const isWalkin = name.toLowerCase().includes("walk-in");
-                        if (isWalkin) {
-                          return (
-                            <>
-                              <span>Walk-in Customer</span>
-                              <span className="px-1 py-0.5 bg-gray-100 border border-gray-200 text-gray-500 rounded text-[7px] font-bold uppercase tracking-wider leading-none">
-                                Walk-in
-                              </span>
-                            </>
-                          );
+            {/* Offline Queue Sync Manager */}
+            {offlineQueueCount > 0 && (
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-800 print:hidden space-y-1.5 shrink-0">
+                <div className="flex justify-between items-center font-bold">
+                  <span>⚠️ {offlineQueueCount} Offline Print Jobs Queued</span>
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      const queue = getOfflinePrintQueue();
+                      let successCount = 0;
+                      const newQueue = [];
+                      for (const job of queue) {
+                        try {
+                          const payload = generateEscPosPayload(job.invoice, job.printerSettings, false);
+                          const ok = await sendEscPosToPrinter(payload, job.printerSettings);
+                          if (ok) successCount++;
+                          else newQueue.push(job);
+                        } catch (e) {
+                          newQueue.push(job);
                         }
-                        return <span>{name}</span>;
-                      })()}
-                    </td>
-                  </tr>
-
-                  {/* Mobile (Only if real customer) */}
-                  {(() => {
-                    const name = latestInvoice?.customer_name || "Walk-in Customer";
-                    const isWalkin = name.toLowerCase().includes("walk-in");
-                    if (!isWalkin && latestInvoice?.customer_phone) {
-                      return (
-                        <tr>
-                          <td className="text-[9px] text-gray-500 font-medium text-left py-0.5 pr-2 align-middle">Mobile</td>
-                          <td className="text-[10px] text-slate-950 font-extrabold text-right py-0.5 align-middle font-mono">
-                            {latestInvoice.customer_phone}
-                          </td>
-                        </tr>
-                      );
-                    }
-                    return null;
-                  })()}
-
-                  {/* Payment Mode */}
-                  <tr>
-                    <td className="text-[9px] text-gray-500 font-medium text-left py-0.5 pr-2 align-middle">Payment Mode</td>
-                    <td className="text-[10px] text-slate-950 font-extrabold text-right py-0.5 align-middle uppercase">
-                      {latestInvoice?.payment_method}
-                    </td>
-                  </tr>
-
-                  {/* Type */}
-                  <tr>
-                    <td className="text-[9px] text-gray-500 font-medium text-left py-0.5 pr-2 align-middle">Type</td>
-                    <td className="text-[10px] text-slate-950 font-extrabold text-right py-0.5 align-middle font-mono">
-                      {latestInvoice?.billing_type || "B2C"}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              {latestInvoice?.notes && (
-                <div className="text-gray-900 italic text-[9.5px] font-bold mt-1 text-center">
-                  {latestInvoice.notes}
+                      }
+                      saveOfflinePrintQueue(newQueue);
+                      setOfflineQueueCount(newQueue.length);
+                      if (successCount > 0) {
+                        toast.success(`Successfully printed ${successCount} queued receipts!`);
+                      } else {
+                        toast.error("Could not sync offline queue. Check connection.");
+                      }
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-black px-2 py-0.5 rounded text-[9px] active:scale-95 transition-all"
+                  >
+                    Retry/Sync
+                  </button>
                 </div>
-              )}
-            </div>
-
-            {/* 3. Items Table */}
-            <table className="relative z-10 w-full mt-2 border-b border-dashed border-gray-300 text-[10px] leading-normal">
-              <thead>
-                <tr className="border-b border-dashed border-gray-300">
-                  <th className="text-left font-bold py-1">Item</th>
-                  <th className="text-right font-bold py-1">Qty</th>
-                  <th className="text-right font-bold py-1">Rate</th>
-                  <th className="text-right font-bold py-1">Amt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {latestInvoice?.items?.map((item, idx) => (
-                  <tr key={idx} className="border-b border-dashed border-gray-100 last:border-b-0">
-                    <td className="py-1 pr-1 break-words">{item.name}</td>
-                    <td className="text-right py-1 font-mono">{item.qty}</td>
-                    <td className="text-right py-1 font-mono">₹{item.rate}</td>
-                    <td className="text-right py-1 font-mono">₹{(item.qty * item.rate).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* 4. Totals Section */}
-            <div className="relative z-10 py-2 space-y-1 text-right font-mono text-[9.5px] border-b border-dashed border-gray-300">
-              <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
-                <span>₹{latestInvoice?.subtotal?.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>SGST + CGST</span>
-                <span>₹{latestInvoice?.tax_amount?.toFixed(2)}</span>
-              </div>
-              {(() => {
-                const discountAmount = (latestInvoice?.subtotal || 0) + (latestInvoice?.tax_amount || 0) - (latestInvoice?.grand_total || 0);
-                if (discountAmount > 0.01) {
-                  return (
-                    <div className="flex justify-between text-emerald-600 font-bold">
-                      <span>Discount Applied</span>
-                      <span>-₹{discountAmount.toFixed(2)}</span>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-              <div className="flex justify-between text-xs font-black text-black border-t border-dashed border-gray-300 pt-1.5">
-                <span>GRAND TOTAL</span>
-                <span>₹{latestInvoice?.grand_total?.toFixed(2)}</span>
-              </div>
-            </div>
+            )}
 
-            {/* 5. Footer (Thank You, QR Code, Barcode) */}
-            <div className="relative z-10 text-center pt-3 space-y-3">
-              <p className="text-[9px] text-gray-500 font-bold">*** Thank You for Shopping! ***</p>
-              
-              {/* Dynamic QR Code based on UPI ID */}
-              {shopSettings.upi_id && (
-                <div className="flex flex-col items-center gap-1.5 py-2 border-t border-b border-dashed border-gray-300">
-                  <span className="text-[8px] font-bold text-gray-500 uppercase tracking-wider">Scan & Pay via UPI</span>
-                  <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`upi://pay?pa=${shopSettings.upi_id}&pn=${encodeURIComponent(shopSettings.shop_name || "Merchant")}&am=${latestInvoice?.grand_total}&cu=INR`)}`} 
-                    alt="UPI QR Code" 
-                    className="w-20 h-20 border border-gray-200 p-1"
-                  />
-                  <span className="text-[7.5px] font-mono text-gray-600">{shopSettings.upi_id}</span>
-                </div>
-              )}
-
-              {/* Dynamic Barcode Visual */}
-              {(() => {
-                const barcodeVal = latestInvoice?.invoice_number || "INV-0000";
-                const bars = Array.from({ length: 24 }, (_, i) => {
-                  const code = barcodeVal.charCodeAt(i % barcodeVal.length) + i;
-                  return code % 3 === 0 ? "3px" : code % 3 === 1 ? "1px" : "2px";
-                });
-                return (
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="h-6 w-36 bg-white flex gap-px items-stretch p-0.5 justify-center border border-gray-200">
-                      {bars.map((w, i) => (
-                        <div key={i} className="bg-black" style={{ width: w }} />
-                      ))}
-                    </div>
-                    <span className="text-[8px] tracking-widest text-gray-600 font-mono font-bold">{barcodeVal}</span>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-
-          {/* WhatsApp Share Panel */}
-          <div className="py-2 border-t border-dashed border-gray-300 print:hidden text-left space-y-1">
-            <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">WhatsApp Share</label>
-            <div className="flex gap-1.5">
-              <Input 
-                value={whatsappNumber}
-                onChange={(e) => setWhatsappNumber(e.target.value)}
-                placeholder="Customer Phone (10 digits)"
-                className="h-8 bg-gray-50 border-gray-350 text-slate-900 placeholder-gray-405 text-xs rounded-xl focus-visible:ring-1 focus-visible:ring-emerald-500"
-              />
-              <Button 
-                onClick={handleSendWhatsApp}
-                type="button" 
-                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-8 px-3 font-bold text-xs gap-1.5 shrink-0 flex items-center shadow-md shadow-emerald-600/10 active:scale-95"
+            {/* Print Actions Dialog Footer */}
+            {/* ── Sticky footer — Close / WhatsApp / PDF / Print ── */}
+            <div className="flex flex-wrap gap-2 p-4 pt-3 border-t border-gray-100 print:hidden shrink-0 bg-white">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsPrintOpen(false)}
+                className="rounded-xl text-slate-700 border-gray-300 h-10 px-3 flex-1 text-xs font-bold min-w-[60px]"
               >
-                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.458L0 24zm6.292-4.148c1.681.998 3.363 1.581 5.377 1.582 5.568 0 10.099-4.537 10.1-10.111.002-2.701-1.047-5.24-2.953-7.149C16.906 2.265 14.372 1.01 11.998 1.01 6.55 1.01 2.118 5.541 2.11 11.118c-.001 2.052.547 4.054 1.587 5.792L2.686 20.39l4.582-1.202c-.919-.533-1.68-1.026-1.68-1.026-.002-.001-.002-.001 0 0z" />
-                </svg>
-                Send
+                ✕ Close
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  editInvoiceInCart(latestInvoice);
+                  setIsPrintOpen(false);
+                }}
+                className="rounded-xl border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100 h-10 px-3 flex-1 text-xs font-bold gap-1 flex items-center justify-center min-w-[60px]"
+              >
+                <Edit className="w-3.5 h-3.5" /> Edit Invoice
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDownloadPDF}
+                className="rounded-xl border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 h-10 px-3 flex-1 text-xs font-bold gap-1 flex items-center justify-center min-w-[60px]"
+              >
+                <FileText className="w-3.5 h-3.5" /> PDF
+              </Button>
+              <Button
+                type="button"
+                onClick={() => triggerPrint(latestInvoice, false)}
+                className="bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl h-10 px-4 flex-1 text-xs gap-1.5 flex items-center justify-center shadow-md active:scale-95 transition-all min-w-[60px]"
+              >
+                <Printer className="w-3.5 h-3.5" /> Re-print
               </Button>
             </div>
-          </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
-          {/* Offline Queue Sync Manager */}
-          {offlineQueueCount > 0 && (
-            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-800 print:hidden space-y-1.5">
-              <div className="flex justify-between items-center font-bold">
-                <span>⚠️ {offlineQueueCount} Offline Print Jobs Queued</span>
-                <button 
-                  type="button"
-                  onClick={async () => {
-                    const queue = getOfflinePrintQueue();
-                    let successCount = 0;
-                    const newQueue = [];
-                    for (const job of queue) {
-                      try {
-                        const payload = generateEscPosPayload(job.invoice, job.printerSettings, false);
-                        const ok = await sendEscPosToPrinter(payload, job.printerSettings);
-                        if (ok) successCount++;
-                        else newQueue.push(job);
-                      } catch (e) {
-                        newQueue.push(job);
-                      }
-                    }
-                    saveOfflinePrintQueue(newQueue);
-                    setOfflineQueueCount(newQueue.length);
-                    if (successCount > 0) {
-                      toast.success(`Successfully printed ${successCount} queued receipts!`);
-                    } else {
-                      toast.error("Could not sync offline queue. Check connection.");
-                    }
-                  }}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-black px-2 py-0.5 rounded text-[9px] active:scale-95 transition-all"
-                >
-                  Retry/Sync
-                </button>
-              </div>
-            </div>
-          )}
 
-          {/* Print Actions Dialog Footer */}
-          <DialogFooter className="flex flex-wrap gap-2 pt-2.5 print:hidden">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setIsPrintOpen(false)} 
-              className="rounded-xl text-black border-gray-300 h-9 px-3 flex-1 text-xs font-bold"
-            >
-              Close
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleDownloadPDF}
-              className="rounded-xl border-blue-300 text-blue-700 h-9 px-3 flex-1 text-xs font-bold hover:bg-blue-50 gap-1 flex items-center justify-center"
-            >
-              <FileText className="w-3.5 h-3.5" /> Download PDF
-            </Button>
-            <Button 
-              type="button" 
-              onClick={() => triggerPrint(latestInvoice, false)}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl h-9 px-4 flex-1 text-xs gap-1.5 flex items-center justify-center shadow-md active:scale-95 transition-all"
-            >
-              <Printer className="w-3.5 h-3.5" /> Print Bill
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* GROCERY WEIGHT ENTRY MODAL */}
       <Dialog open={isWeightDialogOpen} onOpenChange={setIsWeightDialogOpen}>
@@ -3149,9 +3297,219 @@ export default function POS() {
     </Dialog>
 
 
+    {/* ── OPEN CASHIER SHIFT DIALOG ── */}
+    <Dialog open={isShiftOpenDialogOpen} onOpenChange={setIsShiftOpenDialogOpen}>
+      <DialogContent className="max-w-md bg-white dark:bg-[#0d0f1e] border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl">
+        <DialogHeader>
+          <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center mb-3">
+            <Clock className="w-6 h-6 text-rose-500" />
+          </div>
+          <DialogTitle className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            🔑 {t("pos.open_shift") || "Open Cashier Shift"}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
+            {language === "hi"
+              ? "अपना नाम चुनें और काउंटर सक्रिय करें। काउंटर इस डिवाइस पर याद रहेगा।"
+              : "Select your name to activate your register. Your counter is saved on this device."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 my-4">
+          {/* Staff Quick Select - from Settings */}
+          {staffList.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                👥 {language === "hi" ? "स्टाफ से चुनें" : "Select from Staff"}
+              </p>
+              <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                {staffList.map((member) => {
+                  const isSelected = openCashierInput === member.name && openCounterInput === member.counter;
+                  return (
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => {
+                        setOpenCashierInput(member.name);
+                        setOpenCounterInput(member.counter);
+                        setOpenShiftInput(member.shift);
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-xl border text-left transition-all duration-150",
+                        isSelected
+                          ? "bg-rose-50 dark:bg-rose-500/10 border-rose-400/50 dark:border-rose-500/40 shadow-md"
+                          : "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:bg-rose-50/50 dark:hover:bg-slate-800"
+                      )}
+                    >
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-rose-400 to-orange-500 flex items-center justify-center text-white font-black text-sm shrink-0">
+                        {member.name?.[0]?.toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{member.name}</p>
+                        <p className="text-[10px] text-slate-500">
+                          🖥️ {member.counter} &nbsp;·&nbsp;
+                          {member.shift === "Morning" ? "🌅" : member.shift === "Afternoon" ? "☀️" : member.shift === "Night" ? "🌙" : "📅"} {member.shift}
+                        </p>
+                      </div>
+                      {isSelected && <div className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center shrink-0"><span className="text-white text-[10px] font-black">✓</span></div>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Manual fallback */}
+          <div className={cn("space-y-3 pt-3", staffList.length > 0 && "border-t border-slate-100 dark:border-slate-800")}>
+            {staffList.length > 0 && (
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                ✏️ {language === "hi" ? "या मैन्युअल दर्ज करें" : "Or enter manually"}
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                👤 {t("pos.cashier_name") || "Cashier Name"}
+              </Label>
+              <Input
+                value={openCashierInput}
+                onChange={(e) => setOpenCashierInput(e.target.value)}
+                placeholder="e.g. Suresh Kumar"
+                className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:border-amber-500/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                🖥️ {t("pos.counter_number") || "Counter / Register"}
+              </Label>
+              <Input
+                value={openCounterInput}
+                onChange={(e) => setOpenCounterInput(e.target.value)}
+                placeholder="e.g. Counter A"
+                className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:border-amber-500/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                💵 {t("pos.starting_cash") || "Starting Drawer Cash"} (₹)
+              </Label>
+              <Input
+                type="number"
+                value={openStartingCashInput}
+                onChange={(e) => setOpenStartingCashInput(e.target.value)}
+                placeholder="e.g. 1000"
+                className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:border-amber-500/50"
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setIsShiftOpenDialogOpen(false)}
+            className="rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900"
+          >
+            {t("common.cancel") || "Cancel"}
+          </Button>
+          <Button
+            type="button"
+            onClick={handleOpenShift}
+            className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl gap-2"
+          >
+            🚀 {t("pos.open_shift") || "Start Shift"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+
+    {/* ── CLOSE CASHIER SHIFT DIALOG ── */}
+    <Dialog open={isShiftCloseDialogOpen} onOpenChange={setIsShiftCloseDialogOpen}>
+      <DialogContent className="max-w-md bg-white dark:bg-[#0d0f1e] border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl">
+        <DialogHeader>
+          <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
+            <Clock className="w-6 h-6 text-emerald-500" />
+          </div>
+          <DialogTitle className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            🔒 {t("pos.close_shift") || "Close Cashier Shift"}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
+            {language === "hi" 
+              ? "शिफ्ट बंद करने के लिए कैश रजिस्टर का हिसाब करें और कुल गिने गए नकद को दर्ज करें।"
+              : "Reconcile shift records. Enter the final physical counted cash in the drawer to calculate shift discrepancies."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Shift stats breakdown */}
+        <div className="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl space-y-2 border border-slate-100 dark:border-slate-800/80 my-4 text-xs">
+          <div className="flex justify-between">
+            <span className="text-slate-500">{t("pos.cashier_name") || "Cashier"}:</span>
+            <span className="font-bold">{currentCashier} ({currentCounter})</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">{t("pos.starting_cash") || "Starting Cash"}:</span>
+            <span className="font-bold font-mono">₹{startingDrawerCash.toLocaleString("en-IN")}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">
+              {language === "hi" ? "कुल बिल" : "Bills Logged"}:
+            </span>
+            <span className="font-bold">{shiftInvoices.length}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">
+              {language === "hi" ? "अपेक्षित कैश (अनुमानित)" : "Expected Cash in Drawer"}:
+            </span>
+            <span className="font-black text-amber-500 font-mono">
+              ₹{(() => {
+                const netCash = shiftInvoices.reduce((sum, inv) => {
+                  if (inv.payment_method === "cash") return sum + inv.grand_total;
+                  if (inv.payment_method === "split" && inv.payment_split?.cash) return sum + inv.payment_split.cash;
+                  return sum;
+                }, 0);
+                return (startingDrawerCash + netCash).toLocaleString("en-IN");
+              })()}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-2 my-4">
+          <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            💵 {language === "hi" ? "गिना गया कुल कैश (नकद)" : "Actual Physical Counted Cash"} (₹)
+          </Label>
+          <Input
+            type="number"
+            value={physicalCashCounted}
+            onChange={(e) => setPhysicalCashCounted(parseFloat(e.target.value) || 0)}
+            placeholder="0"
+            className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:border-amber-500/50"
+          />
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button 
+            type="button" 
+            variant="ghost" 
+            onClick={() => setIsShiftCloseDialogOpen(false)}
+            className="rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900"
+          >
+            {t("common.cancel") || "Cancel"}
+          </Button>
+          <Button 
+            type="button" 
+            onClick={() => handleCloseShift(physicalCashCounted)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl"
+          >
+            🔒 {t("pos.close_shift") || "End Shift"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+
     {/* ═══════════════════════════════════════════════════════════════════
         BILLING HISTORY — Full-height slide-over panel
-    ═══════════════════════════════════════════════════════════════════ */}
+        ═══════════════════════════════════════════════════════════════════ */}
     <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
       <DialogContent className="w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col bg-white dark:bg-[#0d0f1e] border-slate-200 dark:border-slate-800 rounded-3xl text-slate-900 dark:text-slate-100 p-0">
         {/* Header */}
@@ -3161,8 +3519,8 @@ export default function POS() {
               <History className="w-5 h-5 text-blue-500 dark:text-blue-400" />
             </div>
             <div>
-              <h2 className="font-black text-base text-slate-900 dark:text-slate-100">Billing History</h2>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">View, reprint & manage all invoices</p>
+              <h2 className="font-black text-base text-slate-900 dark:text-slate-100">{t("pos.billing_history")}</h2>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">{t("pos.billing_history_subtitle")}</p>
             </div>
           </div>
           <button onClick={() => { setIsHistoryOpen(false); setSelectedHistoryInvoice(null); setSelectedParkedCart(null); }} className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
@@ -3181,7 +3539,7 @@ export default function POS() {
                 : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            📜 Invoices Log
+            📜 {t("pos.invoices_log")}
           </button>
           <button
             type="button"
@@ -3192,7 +3550,7 @@ export default function POS() {
                 : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            ⏸️ Parked Bills
+            ⏸️ {t("pos.parked_bills")}
             {parkedCarts.length > 0 && (
               <span className="ml-1.5 bg-amber-500 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-full">
                 {parkedCarts.length}
@@ -3206,7 +3564,7 @@ export default function POS() {
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             <div>
-              <p className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Today's Bills</p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">{t("pos.today_bills")}</p>
               <p className="text-lg font-black text-slate-900 dark:text-slate-100">{todayInvoices.length}</p>
             </div>
           </div>
@@ -3214,7 +3572,7 @@ export default function POS() {
           <div className="flex items-center gap-2">
             <IndianRupee className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <div>
-              <p className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Today's Revenue</p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">{t("pos.today_revenue")}</p>
               <p className="text-lg font-black text-slate-900 dark:text-slate-100">₹{todayRevenue.toFixed(2)}</p>
             </div>
           </div>
@@ -3222,7 +3580,7 @@ export default function POS() {
           <div className="flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <div>
-              <p className="text-[9px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">Total Bills</p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">{t("pos.total_bills")}</p>
               <p className="text-lg font-black text-slate-900 dark:text-slate-100">{invoices.length}</p>
             </div>
           </div>
@@ -3236,17 +3594,17 @@ export default function POS() {
               <Input
                 value={historySearchTerm}
                 onChange={e => setHistorySearchTerm(e.target.value)}
-                placeholder="Search invoice no. or customer name..."
+                placeholder={t("pos.search_invoice_placeholder")}
                 className="pl-8 h-9 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-xs"
               />
             </div>
             <Select value={historyPayFilter} onValueChange={setHistoryPayFilter}>
               <SelectTrigger className="h-9 w-28 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-xs">
-                <SelectValue placeholder="Payment" />
+                <SelectValue placeholder={t("pos.payment_method") || "Payment"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Methods</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="all">{t("common.all") || "All Methods"}</SelectItem>
+                <SelectItem value="cash">{t("pos.cash")}</SelectItem>
                 <SelectItem value="card">Card</SelectItem>
                 <SelectItem value="upi">UPI</SelectItem>
                 <SelectItem value="split">Split</SelectItem>
@@ -3280,13 +3638,13 @@ export default function POS() {
             {isLoadingInvoices ? (
               <div className="flex flex-col items-center justify-center h-40 gap-3">
                 <div className="w-6 h-6 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
-                <span className="text-xs text-slate-400">Loading history...</span>
+                <span className="text-xs text-slate-400">{t("common.loading") || "Loading history..."}</span>
               </div>
             ) : filteredInvoices.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 gap-2 text-center px-6">
                 <FileText className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                <p className="text-sm font-bold text-slate-400">No invoices found</p>
-                <p className="text-[11px] text-slate-400">Try adjusting the filters</p>
+                <p className="text-sm font-bold text-slate-400">{t("pos.no_invoices_found")}</p>
+                <p className="text-[11px] text-slate-400">{t("pos.adjust_filters")}</p>
               </div>
             ) : (
               filteredInvoices.map(inv => (
@@ -3302,7 +3660,7 @@ export default function POS() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs font-black text-slate-800 dark:text-slate-200">{inv.invoice_number}</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{inv.customer_name}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{inv.customer_name === "Walk-in Customer" ? t("pos.walk_in_customer") : inv.customer_name}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-black text-amber-600 dark:text-amber-400 font-mono">₹{(inv.grand_total || 0).toFixed(2)}</p>
@@ -3312,14 +3670,14 @@ export default function POS() {
                           inv.status === "returned" ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" :
                           "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                         )}>
-                          {inv.status === "returned" ? "Returned" : "Paid"}
+                          {inv.status === "returned" ? (t("pos.return_sale") || "Returned") : (t("pos.paid") || "Paid")}
                         </Badge>
                         <span className="text-[9px] text-slate-400 capitalize">{inv.payment_method || "cash"}</span>
                       </div>
                     </div>
                   </div>
                   <p className="text-[9px] text-slate-400 mt-1 flex items-center gap-1">
-                    <Calendar className="w-2.5 h-2.5" />{inv.date} · {inv.items?.length || 0} items
+                    <Calendar className="w-2.5 h-2.5" />{inv.date} · {inv.items?.length || 0} {t("invoices.items") || "items"}
                   </p>
                 </button>
               ))
@@ -3336,7 +3694,7 @@ export default function POS() {
                   onClick={() => setSelectedHistoryInvoice(null)}
                   className="md:hidden flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors mb-2"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Back to list
+                  <ArrowLeft className="w-3.5 h-3.5" /> {t("common.back") || "Back to list"}
                 </button>
 
                 {/* Invoice Meta */}
@@ -3350,13 +3708,13 @@ export default function POS() {
                       "text-[9px] px-2 py-0.5 font-bold uppercase",
                       selectedHistoryInvoice.status === "returned" ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"
                     )}>
-                      {selectedHistoryInvoice.status === "returned" ? "Returned" : "Paid"}
+                      {selectedHistoryInvoice.status === "returned" ? (t("pos.return_sale") || "Returned") : (t("pos.paid") || "Paid")}
                     </Badge>
                   </div>
                   <div className="space-y-0.5 text-xs text-slate-600 dark:text-slate-400">
-                    <p><span className="font-bold">Customer:</span> {selectedHistoryInvoice.customer_name}</p>
-                    <p><span className="font-bold">Phone:</span> {selectedHistoryInvoice.customer_phone || "—"}</p>
-                    <p><span className="font-bold">Payment:</span> <span className="capitalize">{selectedHistoryInvoice.payment_method}</span> · {selectedHistoryInvoice.billing_type || "B2C"}</p>
+                    <p><span className="font-bold">{t("customers.name") || "Customer"}:</span> {selectedHistoryInvoice.customer_name === "Walk-in Customer" ? t("pos.walk_in_customer") : selectedHistoryInvoice.customer_name}</p>
+                    <p><span className="font-bold">{t("common.phone") || "Phone"}:</span> {selectedHistoryInvoice.customer_phone || "—"}</p>
+                    <p><span className="font-bold">{t("pos.payment_method") || "Payment"}:</span> <span className="capitalize">{selectedHistoryInvoice.payment_method}</span> · {selectedHistoryInvoice.billing_type || "B2C"}</p>
                     {selectedHistoryInvoice.customer_name && selectedHistoryInvoice.customer_name !== "Walk-in Customer" && (
                       <button
                         type="button"
@@ -3366,7 +3724,7 @@ export default function POS() {
                         }}
                         className="mt-1.5 text-[11px] font-black text-amber-500 hover:text-amber-400 hover:underline flex items-center gap-1"
                       >
-                        <Search className="w-3 h-3" /> Show customer purchase history
+                        <Search className="w-3 h-3" /> {t("pos.show_customer_history") || "Show customer purchase history"}
                       </button>
                     )}
                   </div>
@@ -3377,10 +3735,10 @@ export default function POS() {
                   <table className="w-full text-[11px]">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-                        <th className="text-left font-black px-3 py-2 text-slate-600 dark:text-slate-400">Item</th>
-                        <th className="text-right font-black px-3 py-2 text-slate-600 dark:text-slate-400">Qty</th>
-                        <th className="text-right font-black px-3 py-2 text-slate-600 dark:text-slate-400">Rate</th>
-                        <th className="text-right font-black px-3 py-2 text-slate-600 dark:text-slate-400">Amt</th>
+                        <th className="text-left font-black px-3 py-2 text-slate-600 dark:text-slate-400">{t("invoices.items") || "Item"}</th>
+                        <th className="text-right font-black px-3 py-2 text-slate-600 dark:text-slate-400">{t("pos.qty")}</th>
+                        <th className="text-right font-black px-3 py-2 text-slate-600 dark:text-slate-400">{t("pos.price") || "Rate"}</th>
+                        <th className="text-right font-black px-3 py-2 text-slate-600 dark:text-slate-400">{t("common.amount") || "Amt"}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -3399,13 +3757,13 @@ export default function POS() {
                 {/* Totals */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-1.5 font-mono text-xs">
                   <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                    <span>Subtotal</span><span>₹{(selectedHistoryInvoice.subtotal || 0).toFixed(2)}</span>
+                    <span>{t("pos.subtotal")}</span><span>₹{(selectedHistoryInvoice.subtotal || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                    <span>GST</span><span>₹{(selectedHistoryInvoice.tax_amount || 0).toFixed(2)}</span>
+                    <span>{t("common.gst") || "GST"}</span><span>₹{(selectedHistoryInvoice.tax_amount || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-black text-sm text-amber-600 dark:text-amber-400 border-t border-slate-200 dark:border-slate-700 pt-1.5">
-                    <span>Grand Total</span><span>₹{(selectedHistoryInvoice.grand_total || 0).toFixed(2)}</span>
+                    <span>{t("pos.grand_total")}</span><span>₹{(selectedHistoryInvoice.grand_total || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -3418,7 +3776,7 @@ export default function POS() {
                       onClick={() => { setLatestInvoice(selectedHistoryInvoice); triggerPrint(selectedHistoryInvoice, true); }}
                       className="h-10 rounded-xl border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
-                      <Printer className="w-3.5 h-3.5" /> Reprint
+                      <Printer className="w-3.5 h-3.5" /> {t("common.print") || "Reprint"}
                     </Button>
                     {selectedHistoryInvoice.status !== "returned" && (
                       <Button
@@ -3428,7 +3786,7 @@ export default function POS() {
                         className="h-10 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 text-xs font-bold gap-1.5 disabled:opacity-50"
                       >
                         {isProcessingReturn ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                        Return/Refund
+                        {t("pos.return_sale") || "Return/Refund"}
                       </Button>
                     )}
                   </div>
@@ -3440,14 +3798,14 @@ export default function POS() {
                         onClick={() => duplicateInvoiceToCart(selectedHistoryInvoice)}
                         className="h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-bold gap-1.5 transition-all active:scale-95"
                       >
-                        <RefreshCw className="w-3.5 h-3.5" /> Duplicate
+                        <RefreshCw className="w-3.5 h-3.5" /> {t("common.duplicate") || "Duplicate"}
                       </Button>
                       <Button
                         type="button"
                         onClick={() => editInvoiceInCart(selectedHistoryInvoice)}
                         className="h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 text-xs font-bold gap-1.5 transition-all active:scale-95"
                       >
-                        <FileText className="w-3.5 h-3.5" /> Edit Bill
+                        <FileText className="w-3.5 h-3.5" /> {t("common.edit") || "Edit Bill"}
                       </Button>
                     </div>
                   )}

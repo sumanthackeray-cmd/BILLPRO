@@ -1,9 +1,48 @@
+// Safely patch DOM manipulation to prevent crashes from Google Translate / Browser Extensions
+if (typeof window !== 'undefined') {
+  const nativeRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function(child) {
+    if (child.parentNode !== this) {
+      if (console && console.warn) {
+        console.warn('Prevented React removeChild crash on unmatching parentNode:', child, this);
+      }
+      return child;
+    }
+    return nativeRemoveChild.apply(this, arguments);
+  };
+
+  const nativeInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function(newNode, referenceNode) {
+    if (newNode && newNode.parentNode === this && referenceNode === newNode) {
+      // Prevent inserting node before itself
+      return newNode;
+    }
+    if (referenceNode && referenceNode.parentNode !== this) {
+      if (console && console.warn) {
+        console.warn('Prevented React insertBefore crash on unmatching parentNode:', referenceNode, this);
+      }
+      return newNode;
+    }
+    return nativeInsertBefore.apply(this, arguments);
+  };
+}
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from '@/App.jsx'
 import '@/index.css'
 import { ThemeProvider } from "@/components/theme-provider"
 import { LanguageProvider } from "@/lib/LanguageContext"
+import { db } from '@/api/firebase'
+import { initializeBranchService } from '@/api/branchService'
+import { initializeInventorySyncService } from '@/api/inventorySyncService'
+import { initializeAuditLogging } from '@/api/auditLogging'
+
+// Initialize core retail services
+initializeBranchService(db);
+initializeInventorySyncService(db);
+initializeAuditLogging(db);
+
 
 // Global error listener to capture early loading errors
 window.addEventListener('error', (event) => {

@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Bell, Clock, ChevronDown, ChevronUp, Send, Loader2 } from "lucide-react";
 import { fmtINR, fmtDate, isOverdue } from "@/lib/gst-utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { generateAndUploadInvoicePDF } from "@/lib/pdf-share-utils";
 
@@ -58,7 +58,7 @@ export default function WhatsAppPanel({ invoices, shopSettings }) {
 
     const loadingToast = toast.loading("Generating & uploading PDF bill...");
     try {
-      const pdfUrl = await generateAndUploadInvoicePDF(inv, shopSettings);
+      const pdfUrl = await generateAndUploadInvoicePDF(inv, shopSettings, true);
       const rawMsg = tpl.build(inv, shopSettings);
       const msg = `${rawMsg}\n\n📁 *Download PDF Bill:* ${pdfUrl}`;
       const ph = (inv.customer_phone || "").replace(/\D/g, "");

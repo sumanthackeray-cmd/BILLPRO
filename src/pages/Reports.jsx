@@ -6,18 +6,20 @@ import StatCard from "@/components/dashboard/StatCard";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area } from "recharts";
 import { cn } from "@/lib/utils";
 import { TrendingUp, Users, Clock, Award, BarChart2, Zap, Target, ArrowUpRight } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const PIE_COLORS = ["hsl(36,90%,55%)", "hsl(160,72%,39%)", "hsl(217,91%,60%)", "hsl(263,70%,65%)", "hsl(174,72%,41%)", "hsl(38,92%,50%)"];
 
 const TABS = [
-  { id: "overview", label: "📊 Overview", icon: BarChart2 },
-  { id: "shifts", label: "🕐 Shift Reports", icon: Clock },
-  { id: "cashiers", label: "🏆 Cashier Board", icon: Award },
-  { id: "hours", label: "⏰ Peak Hours", icon: Zap },
-  { id: "forecast", label: "🤖 AI Forecast", icon: Target },
+  { id: "overview", label: "📊 Overview", icon: BarChart2, tKey: "reports.overview", emoji: "📊" },
+  { id: "shifts", label: "🕐 Shift Reports", icon: Clock, tKey: "reports.shift_reports", emoji: "🕐" },
+  { id: "cashiers", label: "🏆 Cashier Board", icon: Award, tKey: "reports.cashier_board", emoji: "🏆" },
+  { id: "hours", label: "⏰ Peak Hours", icon: Zap, tKey: "reports.peak_hours", emoji: "⏰" },
+  { id: "forecast", label: "🤖 AI Forecast", icon: Target, tKey: "reports.ai_forecast", emoji: "🤖" },
 ];
 
 export default function Reports() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState("overview");
 
   const { data: invoices = [] } = useQuery({
@@ -139,8 +141,8 @@ export default function Reports() {
   return (
     <div className="animate-fade-up space-y-5">
       <div>
-        <h1 className="text-xl font-black">📊 Reports & Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Enterprise business intelligence · cashier performance · AI forecasting</p>
+        <h1 className="text-xl font-black">{t("reports.title")}</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{t("reports.subtitle")}</p>
       </div>
 
       {/* Enterprise Sub-Tabs */}
@@ -157,7 +159,7 @@ export default function Reports() {
                   : "text-muted-foreground hover:text-foreground hover:bg-primary/10"
               )}
             >
-              {tab.label}
+              <span>{tab.emoji}</span> <span>{t(tab.tKey)}</span>
             </button>
           ))}
         </div>
@@ -167,15 +169,15 @@ export default function Reports() {
       {activeTab === "overview" && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <StatCard label="Total Revenue" value={fmtINR(totalSales)} icon="💰" color="green" />
-            <StatCard label="Total Tax Collected" value={fmtINR(totalTax)} icon="🏛️" color="gold" />
-            <StatCard label="Total Purchases" value={fmtINR(totalPurchases)} icon="🛒" color="purple" />
-            <StatCard label="Net Profit (Est.)" value={fmtINR(totalSales - totalPurchases)} icon="📈" color="teal" />
+            <StatCard label={t("reports.total_revenue")} value={fmtINR(totalSales)} icon="💰" color="green" />
+            <StatCard label={t("reports.total_tax")} value={fmtINR(totalTax)} icon="🏛️" color="gold" />
+            <StatCard label={t("reports.total_purchases")} value={fmtINR(totalPurchases)} icon="🛒" color="purple" />
+            <StatCard label={t("reports.net_profit")} value={fmtINR(totalSales - totalPurchases)} icon="📈" color="teal" />
           </div>
 
           {/* Sales vs Purchases */}
           <div className="bg-card border border-border rounded-xl p-4 overflow-hidden">
-            <h3 className="font-bold text-sm mb-4">📈 Sales vs Purchases (12 Months)</h3>
+            <h3 className="font-bold text-sm mb-4">📈 {t("reports.sales_vs_purchases")}</h3>
             <div className="h-56 sm:h-64 -mx-1">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyData} barSize={16} barGap={2}>
@@ -183,8 +185,8 @@ export default function Reports() {
                   <XAxis dataKey="month" tick={{ fill: "hsl(220,15%,55%)", fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "hsl(220,15%,55%)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
                   <Tooltip contentStyle={{ background: "hsl(222,40%,7%)", border: "1px solid hsl(222,25%,18%)", borderRadius: 8, fontSize: 12 }} formatter={v => [`₹${Number(v).toLocaleString("en-IN")}`, ""]} />
-                  <Bar dataKey="sales" fill="hsl(36,90%,55%)" radius={[3, 3, 0, 0]} name="Sales" />
-                  <Bar dataKey="purchases" fill="hsl(263,70%,65%)" radius={[3, 3, 0, 0]} name="Purchases" />
+                  <Bar dataKey="sales" fill="hsl(36,90%,55%)" radius={[3, 3, 0, 0]} name={t("reports.sales")} />
+                  <Bar dataKey="purchases" fill="hsl(263,70%,65%)" radius={[3, 3, 0, 0]} name={t("reports.purchases")} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -193,9 +195,9 @@ export default function Reports() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* GST Breakdown */}
             <div className="bg-card border border-border rounded-xl p-5">
-              <h3 className="font-bold text-sm mb-4">🏛️ GST Rate Breakdown</h3>
+              <h3 className="font-bold text-sm mb-4">🏛️ {t("reports.gst_breakdown")}</h3>
               {gstData.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8 text-sm">No GST data yet</p>
+                <p className="text-muted-foreground text-center py-8 text-sm">{t("common.no_data")}</p>
               ) : (
                 <div className="h-52">
                   <ResponsiveContainer width="100%" height="100%">
@@ -203,7 +205,7 @@ export default function Reports() {
                       <Pie data={gstData} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, value }) => `${name}: ₹${value}`}>
                         {gstData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                       </Pie>
-                      <Tooltip formatter={v => [`₹${Number(v).toLocaleString("en-IN")}`, "Tax"]} />
+                      <Tooltip formatter={v => [`₹${Number(v).toLocaleString("en-IN")}`, t("reports.tax")]} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -212,7 +214,7 @@ export default function Reports() {
 
             {/* GSTR Summary */}
             <div className="bg-card border border-border rounded-xl p-5">
-              <h3 className="font-bold text-sm mb-4">📋 GSTR Summary (This Month)</h3>
+              <h3 className="font-bold text-sm mb-4">📋 {t("reports.gstr_summary")}</h3>
               <div className="space-y-3">
                 {(() => {
                   const tm = thisMonth();
@@ -222,10 +224,10 @@ export default function Reports() {
                   const tmPurchases = purchases.filter(p => getMonth(p.date) === tm);
                   const tmPurchTotal = tmPurchases.reduce((s, p) => s + (p.grand_total || 0), 0);
                   return [
-                    { label: "GSTR-1 (Outward)", value: fmtINR(tmTotal), sub: `${tmSales.length} invoices` },
-                    { label: "GSTR-3B (Tax Liability)", value: fmtINR(tmTax), sub: "Estimated tax payable" },
-                    { label: "Purchase Input", value: fmtINR(tmPurchTotal), sub: `${tmPurchases.length} entries` },
-                    { label: "Net Tax Payable", value: fmtINR(Math.max(0, tmTax * 0.5)), sub: "After input credit" },
+                    { label: "GSTR-1 (" + (t("reports.sales") || "Outward") + ")", value: fmtINR(tmTotal), sub: `${tmSales.length} ` + t("reports.bills") },
+                    { label: "GSTR-3B (" + (t("reports.tax") || "Tax Liability") + ")", value: fmtINR(tmTax), sub: t("reports.ai_predicted") },
+                    { label: t("reports.purchases") + " " + t("inventory.stock_in"), value: fmtINR(tmPurchTotal), sub: `${tmPurchases.length} ` + t("common.actions") },
+                    { label: t("common.total") + " " + t("reports.tax"), value: fmtINR(Math.max(0, tmTax * 0.5)), sub: t("reports.ai_predicted") },
                   ].map(item => (
                     <div key={item.label} className="flex justify-between items-center py-2 border-b border-border last:border-0">
                       <div>
@@ -247,16 +249,16 @@ export default function Reports() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-black text-base">🕐 Shift Reports</h2>
-              <p className="text-xs text-muted-foreground">{shiftHistory.length} completed shifts logged</p>
+              <h2 className="font-black text-base">🕐 {t("reports.shift_reports")}</h2>
+              <p className="text-xs text-muted-foreground">{shiftHistory.length} {t("reports.shift_reports").toLowerCase()} {t("common.completed").toLowerCase()}</p>
             </div>
             <div className="flex gap-3">
               <div className="bg-card border border-border rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-muted-foreground">Total Shifts</p>
+                <p className="text-xs text-muted-foreground">{t("reports.total_shifts")}</p>
                 <p className="font-black text-lg text-primary">{shiftHistory.length}</p>
               </div>
               <div className="bg-card border border-border rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-muted-foreground">Total Revenue</p>
+                <p className="text-xs text-muted-foreground">{t("reports.total_revenue")}</p>
                 <p className="font-black text-lg text-emerald-500">{fmtINR(shiftHistory.reduce((s, sh) => s + (sh.totalSales || 0), 0))}</p>
               </div>
             </div>
@@ -265,8 +267,8 @@ export default function Reports() {
           {shiftHistory.length === 0 ? (
             <div className="bg-card border border-border rounded-xl p-12 text-center">
               <Clock className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
-              <p className="font-bold text-muted-foreground">No shift history yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Open the POS terminal, start a shift, and close it to see reports here.</p>
+              <p className="font-bold text-muted-foreground">{t("reports.shift_history_empty")}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("reports.shift_history_empty_sub")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -284,24 +286,24 @@ export default function Reports() {
                       </div>
                       <div className="text-right">
                         <p className="font-black text-lg text-primary font-mono">{fmtINR(shift.totalSales || 0)}</p>
-                        <p className="text-xs text-muted-foreground">{shift.salesCount || 0} bills</p>
+                        <p className="text-xs text-muted-foreground">{shift.salesCount || 0} {t("reports.bills")}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2 text-center">
                       <div className="bg-secondary/30 rounded-lg p-2">
-                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Cash</p>
+                        <p className="text-[9px] text-muted-foreground uppercase font-bold">{t("pos.payment_cash") || "Cash"}</p>
                         <p className="text-xs font-black text-green-500 font-mono">{fmtINR(shift.cashSales || 0)}</p>
                       </div>
                       <div className="bg-secondary/30 rounded-lg p-2">
-                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Card</p>
+                        <p className="text-[9px] text-muted-foreground uppercase font-bold">{t("pos.payment_card") || "Card"}</p>
                         <p className="text-xs font-black text-blue-500 font-mono">{fmtINR(shift.cardSales || 0)}</p>
                       </div>
                       <div className="bg-secondary/30 rounded-lg p-2">
-                        <p className="text-[9px] text-muted-foreground uppercase font-bold">UPI</p>
+                        <p className="text-[9px] text-muted-foreground uppercase font-bold">{t("pos.payment_upi") || "UPI"}</p>
                         <p className="text-xs font-black text-purple-500 font-mono">{fmtINR(shift.upiSales || 0)}</p>
                       </div>
                       <div className={cn("rounded-lg p-2", discrepancy === 0 ? "bg-emerald-500/10" : discrepancy > 0 ? "bg-blue-500/10" : "bg-red-500/10")}>
-                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Cash Diff</p>
+                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Diff</p>
                         <p className={cn("text-xs font-black font-mono", discrepancy === 0 ? "text-emerald-500" : discrepancy > 0 ? "text-blue-500" : "text-red-500")}>
                           {discrepancy >= 0 ? "+" : ""}{fmtINR(discrepancy)}
                         </p>
@@ -319,28 +321,28 @@ export default function Reports() {
       {activeTab === "cashiers" && (
         <div className="space-y-4">
           <div>
-            <h2 className="font-black text-base">🏆 Cashier Performance Leaderboard</h2>
-            <p className="text-xs text-muted-foreground">Ranked by total sales volume across all shifts</p>
+            <h2 className="font-black text-base">🏆 {t("reports.cashier_leaderboard")}</h2>
+            <p className="text-xs text-muted-foreground">{t("reports.cashier_leaderboard_sub")}</p>
           </div>
 
           {cashierLeaderboard.length === 0 ? (
             <div className="bg-card border border-border rounded-xl p-12 text-center">
               <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
-              <p className="font-bold text-muted-foreground">No cashier data yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Start and close shifts in the POS to see leaderboard.</p>
+              <p className="font-bold text-muted-foreground">{t("reports.cashier_no_data")}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("reports.cashier_no_data_sub")}</p>
             </div>
           ) : (
             <>
               <div className="bg-card border border-border rounded-xl p-4 overflow-hidden">
-                <h3 className="font-bold text-sm mb-4">Sales by Cashier</h3>
+                <h3 className="font-bold text-sm mb-4">{t("reports.sales")} (Cashiers)</h3>
                 <div className="h-52">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={cashierLeaderboard} barSize={28}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(222,25%,18%)" />
                       <XAxis dataKey="name" tick={{ fill: "hsl(220,15%,55%)", fontSize: 11 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fill: "hsl(220,15%,55%)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
-                      <Tooltip contentStyle={{ background: "hsl(222,40%,7%)", border: "1px solid hsl(222,25%,18%)", borderRadius: 8, fontSize: 12 }} formatter={v => [`₹${Number(v).toLocaleString("en-IN")}`, "Sales"]} />
-                      <Bar dataKey="totalSales" fill="hsl(36,90%,55%)" radius={[6, 6, 0, 0]} name="Total Sales" />
+                      <Tooltip contentStyle={{ background: "hsl(222,40%,7%)", border: "1px solid hsl(222,25%,18%)", borderRadius: 8, fontSize: 12 }} formatter={v => [`₹${Number(v).toLocaleString("en-IN")}`, t("reports.sales")]} />
+                      <Bar dataKey="totalSales" fill="hsl(36,90%,55%)" radius={[6, 6, 0, 0]} name={t("reports.sales")} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -376,19 +378,19 @@ export default function Reports() {
       {activeTab === "hours" && (
         <div className="space-y-4">
           <div>
-            <h2 className="font-black text-base">⏰ Peak Business Hours</h2>
-            <p className="text-xs text-muted-foreground">Invoice frequency and revenue heatmap by hour of day</p>
+            <h2 className="font-black text-base">⏰ {t("reports.peak_business_hours")}</h2>
+            <p className="text-xs text-muted-foreground">{t("reports.peak_hours_sub")}</p>
           </div>
 
           <div className="bg-card border border-border rounded-xl p-4 overflow-hidden">
-            <h3 className="font-bold text-sm mb-4">Bills per Hour (6am – 11pm)</h3>
+            <h3 className="font-bold text-sm mb-4">{t("reports.bills_per_hour")}</h3>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={peakHoursData} barSize={18}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(222,25%,18%)" />
                   <XAxis dataKey="hour" tick={{ fill: "hsl(220,15%,55%)", fontSize: 10 }} axisLine={false} tickLine={false} interval={1} />
                   <YAxis tick={{ fill: "hsl(220,15%,55%)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: "hsl(222,40%,7%)", border: "1px solid hsl(222,25%,18%)", borderRadius: 8, fontSize: 12 }} formatter={(v, name) => [name === "count" ? `${v} bills` : `₹${Number(v).toLocaleString("en-IN")}`, name === "count" ? "Bills" : "Revenue"]} />
+                  <Tooltip contentStyle={{ background: "hsl(222,40%,7%)", border: "1px solid hsl(222,25%,18%)", borderRadius: 8, fontSize: 12 }} formatter={(v, name) => [name === "count" ? `${v} ${t("reports.bills")}` : `₹${Number(v).toLocaleString("en-IN")}`, name === "count" ? t("reports.bills") : t("reports.total_revenue")]} />
                   <Bar dataKey="count" name="count" radius={[4, 4, 0, 0]}
                     fill="hsl(36,90%,55%)"
                   />
@@ -399,7 +401,7 @@ export default function Reports() {
 
           {/* Heatmap Grid */}
           <div className="bg-card border border-border rounded-xl p-4">
-            <h3 className="font-bold text-sm mb-3">Transaction Density Heatmap</h3>
+            <h3 className="font-bold text-sm mb-3">{t("reports.heatmap_title")}</h3>
             <div className="grid grid-cols-9 gap-1.5">
               {peakHoursData.map((h, i) => {
                 const intensity = maxPeakCount > 0 ? h.count / maxPeakCount : 0;
@@ -416,11 +418,11 @@ export default function Reports() {
               })}
             </div>
             <div className="flex items-center gap-3 mt-3 text-[10px] text-muted-foreground">
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-secondary/30" /> No traffic</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-500/20" /> Low</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-yellow-500/30" /> Medium</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-500/40" /> High</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-500/50" /> Peak</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-secondary/30" /> {t("reports.traffic_no")}</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-500/20" /> {t("reports.traffic_low")}</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-yellow-500/30" /> {t("reports.traffic_med")}</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-orange-500/40" /> {t("reports.traffic_high")}</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-500/50" /> {t("reports.traffic_peak")}</div>
             </div>
           </div>
         </div>
@@ -430,8 +432,8 @@ export default function Reports() {
       {activeTab === "forecast" && (
         <div className="space-y-4">
           <div>
-            <h2 className="font-black text-base">🤖 AI Sales Forecast</h2>
-            <p className="text-xs text-muted-foreground">7-day rolling average + next 7-day revenue prediction</p>
+            <h2 className="font-black text-base">🤖 {t("reports.ai_sales_forecast")}</h2>
+            <p className="text-xs text-muted-foreground">{t("reports.ai_forecast_sub")}</p>
           </div>
 
           {/* Forecast cards */}
@@ -443,7 +445,7 @@ export default function Reports() {
                 <p className="font-black text-lg text-primary mt-1 font-mono">{fmtINR(f.forecast)}</p>
                 <div className="flex items-center gap-1 mt-1">
                   <ArrowUpRight className="w-3 h-3 text-emerald-500" />
-                  <span className="text-[10px] text-emerald-500 font-bold">AI Predicted</span>
+                  <span className="text-[10px] text-emerald-500 font-bold">{t("reports.ai_predicted")}</span>
                 </div>
               </div>
             ))}
@@ -451,8 +453,8 @@ export default function Reports() {
 
           {/* Historical + Forecast Chart */}
           <div className="bg-card border border-border rounded-xl p-4 overflow-hidden">
-            <h3 className="font-bold text-sm mb-1">30-Day Sales Trend + Forecast</h3>
-            <p className="text-xs text-muted-foreground mb-4">Actual sales (amber) · Moving average (blue) · AI forecast (dashed)</p>
+            <h3 className="font-bold text-sm mb-1">{t("reports.sales_trend_forecast")}</h3>
+            <p className="text-xs text-muted-foreground mb-4">{t("reports.trend_forecast_sub")}</p>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={forecastData.historical}>
@@ -466,7 +468,7 @@ export default function Reports() {
                   <XAxis dataKey="label" tick={{ fill: "hsl(220,15%,55%)", fontSize: 9 }} axisLine={false} tickLine={false} interval={4} />
                   <YAxis tick={{ fill: "hsl(220,15%,55%)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
                   <Tooltip contentStyle={{ background: "hsl(222,40%,7%)", border: "1px solid hsl(222,25%,18%)", borderRadius: 8, fontSize: 12 }} formatter={v => [`₹${Number(v).toLocaleString("en-IN")}`, ""]} />
-                  <Area type="monotone" dataKey="actual" stroke="hsl(36,90%,55%)" strokeWidth={2} fill="url(#salesGrad)" name="Actual" />
+                  <Area type="monotone" dataKey="actual" stroke="hsl(36,90%,55%)" strokeWidth={2} fill="url(#salesGrad)" name={t("reports.sales")} />
                   <Line type="monotone" dataKey="avg" stroke="hsl(217,91%,60%)" strokeWidth={2} dot={false} name="7-Day Avg" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -475,7 +477,7 @@ export default function Reports() {
 
           {/* Next 7 days forecast */}
           <div className="bg-card border border-border rounded-xl p-4">
-            <h3 className="font-bold text-sm mb-3">📅 7-Day Revenue Forecast</h3>
+            <h3 className="font-bold text-sm mb-3">📅 {t("reports.revenue_forecast_7day")}</h3>
             <div className="space-y-2">
               {forecastData.forecast.map((f, i) => {
                 const maxForecast = Math.max(...forecastData.forecast.map(x => x.forecast), 1);

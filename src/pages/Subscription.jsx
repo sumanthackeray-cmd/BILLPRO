@@ -6,7 +6,7 @@ import { Check, Zap, Star, Building2, Gift, Crown, Loader2, CheckCircle, AlertTr
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const PLANS = [
   {

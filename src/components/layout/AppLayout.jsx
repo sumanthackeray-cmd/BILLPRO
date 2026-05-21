@@ -7,18 +7,21 @@ import OnboardingModal from "./OnboardingModal";
 
 export default function AppLayout() {
   return (
-    <div className="flex min-h-screen bg-background flex-col">
-      <div className="flex flex-1 min-h-0">
-        <Sidebar />
-        <MobileNav />
-        <main className="flex-1 min-w-0 lg:p-6 p-3 pt-[72px] pb-24 lg:pt-6 lg:pb-6 overflow-x-hidden">
-          <div className="max-w-7xl mx-auto space-y-4">
-            <SubscriptionBanner />
-            <GSTDeadlineBanner />
-            <Outlet />
-          </div>
-        </main>
-      </div>
+    <div className="flex h-screen w-screen overflow-hidden bg-background">
+      {/* Desktop Sidebar */}
+      <Sidebar />
+
+      {/* Mobile top nav */}
+      <MobileNav />
+
+      {/* Main content */}
+      <main className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden pt-[calc(64px+env(safe-area-inset-top,0px))] pb-[calc(80px+env(safe-area-inset-bottom,0px))] pl-[max(12px,env(safe-area-inset-left,12px))] pr-[max(12px,env(safe-area-inset-right,12px))] lg:p-6">
+        <div className="max-w-7xl mx-auto space-y-3">
+          <SubscriptionBanner />
+          <GSTDeadlineBanner />
+          <Outlet />
+        </div>
+      </main>
       <OnboardingModal />
     </div>
   );

@@ -7,7 +7,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { RefreshCw, Upload, Image as ImageIcon, Trash2, Eye, X, Check, Loader2, Printer, Barcode, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { base44 } from "@/api/base44Client";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { getCategoriesByShopType, suggestCategoryByName } from "@/lib/shopCategories";
 
 export const UNITS = ["PCS", "KG", "LTR", "MTR", "BOX", "BAG", "SET", "PAIR", "DOZEN"];

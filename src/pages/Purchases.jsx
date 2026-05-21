@@ -8,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Search, ShoppingCart, X, RefreshCw, Printer, User, CreditCard, ChevronRight } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import OCRUpload from "@/components/purchases/OCRUpload";
 import { ProductForm } from "@/components/inventory/ProductForm";
 import BarcodeGenerator from "@/components/inventory/BarcodeGenerator";
+import { useLanguage } from "@/lib/LanguageContext";
 
 function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSave, businessType }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     date: purchase?.date || today(),
     vendor_name: purchase?.vendor_name || "",
@@ -233,9 +235,9 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl w-full sm:w-[95vw] h-full sm:h-auto max-h-screen sm:max-h-[92vh] overflow-y-auto bg-card text-slate-900 dark:text-slate-100 pt-0 px-4 sm:px-5 pb-4 sm:pb-5 rounded-none sm:rounded-2xl border-0 sm:border border-border fixed left-0 sm:left-[50%] top-0 sm:top-[50%] translate-x-0 sm:translate-x-[-50%] translate-y-0 sm:translate-y-[-50%] [&>button.absolute]:hidden">
         <div className="sticky top-0 -mx-4 sm:-mx-5 z-30 h-[25px] flex items-center justify-between px-4 bg-slate-100 dark:bg-slate-900 border-b border-border/40 text-[9px] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400">
-          <span>🛒 Purchase Entry Portal</span>
+          <span>🛒 {t("purchases.portal_header")}</span>
           <div className="flex items-center gap-2">
-            <span className="text-primary font-black">GST COMPLIANT</span>
+            <span className="text-primary font-black">{t("purchases.gst_compliant")}</span>
             <button 
               type="button"
               onClick={() => onOpenChange(false)} 
@@ -248,7 +250,7 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
         </div>
         <DialogHeader className="pt-4">
           <DialogTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            🛒 {purchase ? "Edit Purchase Entry (खरीद प्रविष्टि सुधारें)" : "New Purchase Entry (नई खरीद प्रविष्टि)"}
+            🛒 {purchase ? t("purchases.edit_entry") : t("purchases.new_entry")}
           </DialogTitle>
         </DialogHeader>
 
@@ -272,10 +274,10 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
 
           {/* Vendor Details Section */}
           <div className="bg-secondary/10 p-4 rounded-xl border border-border/30 space-y-3.5 relative">
-            <p className="text-[12px] font-black text-primary flex items-center gap-1.5 uppercase">👤 Vendor & Invoice Details (विक्रेता और इनवॉइस विवरण)</p>
+            <p className="text-[12px] font-black text-primary flex items-center gap-1.5 uppercase">👤 {t("purchases.vendor_details")}</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="relative">
-                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Vendor Name / विक्रेता का नाम *</Label>
+                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{t("purchases.vendor_name_label")}</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input 
                     placeholder="Search or enter vendor..." 
@@ -305,22 +307,22 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
                 )}
               </div>
               <div>
-                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Vendor Phone / मोबाइल नंबर</Label>
+                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{t("purchases.vendor_phone_label")}</Label>
                 <Input placeholder="Enter Phone" value={form.vendor_phone} onChange={e => set("vendor_phone", e.target.value)} className="h-10 mt-1 text-slate-900 dark:text-slate-100" />
               </div>
               <div>
-                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Vendor GSTIN / जीएसटी नंबर</Label>
+                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{t("purchases.vendor_gstin_label")}</Label>
                 <Input placeholder="27XXXXX..." value={form.vendor_gstin} onChange={e => set("vendor_gstin", e.target.value)} className="h-10 mt-1 text-slate-900 dark:text-slate-100" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Purchase Date / खरीद तिथि</Label>
+                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{t("purchases.date_label")}</Label>
                 <Input type="date" value={form.date} onChange={e => set("date", e.target.value)} className="h-10 mt-1 text-slate-900 dark:text-slate-100" />
               </div>
               <div>
-                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Vendor Invoice No. / बिल नंबर</Label>
+                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{t("purchases.invoice_no_label")}</Label>
                 <Input placeholder="VND-0001" value={form.vendor_invoice_no} onChange={e => set("vendor_invoice_no", e.target.value)} className="h-10 mt-1 text-slate-900 dark:text-slate-100" />
               </div>
             </div>
@@ -328,7 +330,7 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
 
           {/* Items Section */}
           <div className="bg-secondary/15 p-4 rounded-xl border border-border/30 space-y-3">
-            <p className="text-[12px] font-black text-primary flex items-center gap-1.5 uppercase">📦 Purchase Items & Cart (खरीदे गए उत्पाद)</p>
+            <p className="text-[12px] font-black text-primary flex items-center gap-1.5 uppercase">📦 {t("purchases.items_cart")}</p>
             
             {/* Search and Quick Add */}
             <div className="flex gap-2 relative">
@@ -336,7 +338,7 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
                 <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                 <Input 
                   className="pl-10 h-10 text-slate-900 dark:text-slate-100" 
-                  placeholder="Scan barcode or type name to search... (बारकोड स्कैन या खोजें)" 
+                  placeholder={t("purchases.search_placeholder")} 
                   value={search} 
                   onChange={e => setSearch(e.target.value)} 
                   onKeyDown={handleSearchKeyPress}
@@ -367,14 +369,14 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
                 }}
                 className="bg-purple hover:bg-purple/90 text-white font-bold gap-1 px-4 h-10 rounded-xl active:scale-95 transition-all text-xs"
               >
-                <Plus className="w-4 h-4" /> Quick Add Product (नया उत्पाद)
+                <Plus className="w-4 h-4" /> {t("purchases.quick_add_product")}
               </Button>
             </div>
 
             {/* Vendor Reorder Suggestions */}
             {form.vendor_name && vendorProducts.length > 0 && (
               <div className="p-2.5 bg-background/50 rounded-lg border border-purple-500/20 space-y-1.5">
-                <p className="text-[10px] font-extrabold text-purple-400 uppercase tracking-wider">💡 Previously Purchased from this Vendor (पहले खरीदे गए उत्पाद):</p>
+                <p className="text-[10px] font-extrabold text-purple-400 uppercase tracking-wider">💡 {t("purchases.prev_purchased")}</p>
                 <div className="flex gap-2 overflow-x-auto pb-1.5">
                   {vendorProducts.map(p => (
                     <button
@@ -393,11 +395,11 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
             {/* Cart Table Headers */}
             {form.items.length > 0 && (
               <div className="hidden sm:grid grid-cols-12 gap-2 text-[10px] font-black text-muted-foreground uppercase px-2 border-b border-border/20 pb-1.5">
-                <span className="col-span-5">Product Details</span>
-                <span className="col-span-2 text-center">Qty / मात्रा</span>
-                <span className="col-span-2 text-right">Buy Price / मूल्य</span>
-                <span className="col-span-1 text-center">GST %</span>
-                <span className="col-span-2 text-right">Total Amount</span>
+                <span className="col-span-5">{t("purchases.product_details")}</span>
+                <span className="col-span-2 text-center">{t("purchases.qty")}</span>
+                <span className="col-span-2 text-right">{t("purchases.buy_price")}</span>
+                <span className="col-span-1 text-center">{t("purchases.gst_pct")}</span>
+                <span className="col-span-2 text-right">{t("purchases.total_amount")}</span>
               </div>
             )}
 
@@ -405,7 +407,7 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
             <div className="space-y-2">
               {form.items.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p className="text-xs">No items added yet. Search products or add a new product above.</p>
+                  <p className="text-xs">{t("purchases.no_items")}</p>
                 </div>
               )}
               {form.items.map((it, idx) => (
@@ -415,15 +417,15 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
                     <p className="text-[9px] text-muted-foreground uppercase">HSN: {it.hsn || "N/A"} · Unit: {it.unit}</p>
                   </div>
                   <div className="col-span-2 flex items-center justify-center gap-1 w-full">
-                    <span className="text-[11px] sm:hidden text-muted-foreground">Qty:</span>
+                    <span className="text-[11px] sm:hidden text-muted-foreground">{t("purchases.qty")}:</span>
                     <Input className="w-20 sm:w-16 h-8 text-[11px] text-center" type="number" min={1} value={it.qty} onChange={e => updateItem(idx, "qty", e.target.value)} />
                   </div>
                   <div className="col-span-2 flex items-center justify-end gap-1 w-full">
-                    <span className="text-[11px] sm:hidden text-muted-foreground">Rate:</span>
+                    <span className="text-[11px] sm:hidden text-muted-foreground">{t("purchases.buy_price")}:</span>
                     <Input className="w-24 sm:w-20 h-8 text-[11px] text-right" type="number" value={it.rate} onChange={e => updateItem(idx, "rate", e.target.value)} />
                   </div>
                   <div className="col-span-1 flex items-center justify-center gap-1 w-full">
-                    <span className="text-[11px] sm:hidden text-muted-foreground">GST:</span>
+                    <span className="text-[11px] sm:hidden text-muted-foreground">{t("purchases.gst_pct")}:</span>
                     <select 
                       className="bg-background border border-input rounded-md h-8 text-[11px] w-16" 
                       value={it.gst_rate} 
@@ -464,22 +466,22 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
 
           {/* Payment Terms Section */}
           <div className="bg-secondary/10 p-4 rounded-xl border border-border/30 space-y-4">
-            <p className="text-[12px] font-black text-primary flex items-center gap-1.5 uppercase"><CreditCard className="w-3.5 h-3.5" /> Payment Terms (भुगतान की शर्तें)</p>
+            <p className="text-[12px] font-black text-primary flex items-center gap-1.5 uppercase"><CreditCard className="w-3.5 h-3.5" /> {t("purchases.payment_terms")}</p>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
-                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 font-sans">Payment Status / स्थिति</Label>
+                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 font-sans">{t("purchases.payment_status")}</Label>
                 <select 
                   className="w-full mt-1 bg-background border border-input rounded-xl h-10 text-xs px-3 text-slate-900 dark:text-slate-100"
                   value={form.payment_status}
                   onChange={e => handleStatusChange(e.target.value)}
                 >
-                  <option value="paid">Paid (पूर्ण भुगतान)</option>
-                  <option value="partial">Partial (आंशिक भुगतान)</option>
-                  <option value="unpaid">Unpaid / Due (बकाया)</option>
+                  <option value="paid">{t("purchases.paid")}</option>
+                  <option value="partial">{t("purchases.partial")}</option>
+                  <option value="unpaid">{t("purchases.unpaid")}</option>
                 </select>
               </div>
               <div>
-                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Amount Paid / भुगतान की गई राशि</Label>
+                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{t("purchases.amount_paid")}</Label>
                 <Input 
                   type="number" 
                   value={form.amount_paid} 
@@ -488,23 +490,23 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
                 />
               </div>
               <div>
-                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Due Amount / बकाया राशि</Label>
+                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{t("purchases.due_amount")}</Label>
                 <div className="h-10 border border-border rounded-xl mt-1 flex items-center px-3 bg-secondary/30 font-bold text-sm text-red-500 font-mono">
                   {fmtINR(dueAmount)}
                 </div>
               </div>
               <div>
-                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Payment Mode / माध्यम</Label>
+                <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{t("purchases.payment_mode")}</Label>
                 <select 
                   className="w-full mt-1 bg-background border border-input rounded-xl h-10 text-xs px-3 text-slate-900 dark:text-slate-100"
                   value={form.payment_mode}
                   onChange={e => set("payment_mode", e.target.value)}
                   disabled={form.payment_status === "unpaid"}
                 >
-                  <option value="cash">Cash (नकद)</option>
-                  <option value="upi">UPI / Scanner</option>
-                  <option value="bank">Bank Transfer</option>
-                  <option value="credit">Supplier Credit</option>
+                  <option value="cash">{t("purchases.cash")}</option>
+                  <option value="upi">{t("purchases.upi")}</option>
+                  <option value="bank">{t("purchases.bank")}</option>
+                  <option value="credit">{t("purchases.credit")}</option>
                 </select>
               </div>
             </div>
@@ -512,7 +514,7 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
             {dueAmount > 0 && (
               <div className="p-3.5 bg-red-500/5 rounded-xl border border-red-500/20 max-w-sm animate-fade-in space-y-1">
                 <Label className="text-[11px] font-bold text-red-500 dark:text-red-400">
-                  Due Date / भुगतान की नियत तिथि (कब चुकाना है) *
+                  {t("purchases.due_date")}
                 </Label>
                 <Input 
                   type="date" 
@@ -524,7 +526,7 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
             )}
 
             <div>
-              <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Remarks / Notes (टिप्पणी)</Label>
+              <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{t("purchases.remarks")}</Label>
               <textarea 
                 placeholder="Purchase details, payment logs..." 
                 value={form.notes} 
@@ -544,7 +546,7 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-black text-primary uppercase">Grand Total (कुल राशि)</p>
+                <p className="text-[10px] font-black text-primary uppercase">{t("purchases.grand_total")}</p>
                 <p className="text-2xl font-black text-primary font-mono">{fmtINR(grandTotal)}</p>
               </div>
             </div>
@@ -557,10 +559,10 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
               onClick={() => onSave({ ...form, grand_total: grandTotal, due_amount: dueAmount })} 
               disabled={!form.vendor_name || form.items.length === 0}
             >
-              💾 Save Purchase Order (खरीद सहेजें)
+              {t("purchases.save_order")}
             </Button>
             <Button variant="outline" className="text-slate-700 dark:text-slate-300 border-border h-11 px-8 rounded-xl" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </div>
         </div>
@@ -594,6 +596,7 @@ function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSav
 }
 
 export default function Purchases() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -644,9 +647,9 @@ export default function Purchases() {
 
         await base44.entities.Purchase.update(editing.id, formData);
         if (buyPriceChanged) {
-          toast.success(`Purchase updated! हमने उत्पाद (${changedProducts.join(", ")}) के खरीद मूल्य को भी अपडेट कर दिया है।`);
+          toast.success(`${t("purchases.toast_updated")} Updated buy price for products: ${changedProducts.join(", ")}`);
         } else {
-          toast.success("Purchase entry updated!");
+          toast.success(t("purchases.toast_updated"));
         }
       } else {
         const counter = (shopSettings.purchase_counter || 0) + 1;
@@ -682,14 +685,14 @@ export default function Purchases() {
           }
         }
 
-        if (shopSettings.id) {
+        if (shopSettings.id && !shopSettings.id.startsWith("seed")) {
           await base44.entities.ShopSettings.update(shopSettings.id, { purchase_counter: counter });
         }
 
         if (buyPriceChanged) {
-          toast.success(`Purchase created! हमने उत्पाद (${changedProducts.join(", ")}) के खरीद मूल्य को भी अपडेट कर दिया है।`);
+          toast.success(`${t("purchases.toast_created")} Updated buy price for products: ${changedProducts.join(", ")}`);
         } else {
-          toast.success("Purchase entry created & stock synced!");
+          toast.success(t("purchases.toast_created"));
         }
       }
 
@@ -707,11 +710,11 @@ export default function Purchases() {
     <div className="animate-fade-up space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-black">🛒 Purchases (खरीद प्रविष्टियां)</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{purchases.length} purchase entries recorded</p>
+          <h1 className="text-xl font-black">🛒 {t("purchases.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{purchases.length} {t("purchases.purchase_entries_count")}</p>
         </div>
         <Button className="gold-gradient text-black font-bold gap-2 rounded-xl h-11" onClick={() => { setEditing(null); setShowForm(true); }}>
-          <Plus className="w-5 h-5" /> New Purchase (नई खरीद)
+          <Plus className="w-5 h-5" /> {t("purchases.add")}
         </Button>
       </div>
 
@@ -719,7 +722,7 @@ export default function Purchases() {
         {purchases.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No purchases recorded yet (कोई खरीद प्रविष्टि नहीं है)</p>
+            <p>{t("purchases.no_purchases")}</p>
           </div>
         )}
         {purchases.map(p => (
@@ -733,23 +736,23 @@ export default function Purchases() {
                 <div className="flex items-center gap-2">
                   <span className="font-black text-sm font-mono">{p.purchase_number}</span>
                   {p.payment_status === "paid" ? (
-                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black px-2 py-0.5 rounded-full uppercase">PAID</span>
+                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black px-2 py-0.5 rounded-full uppercase">{t("purchases.paid")}</span>
                   ) : p.payment_status === "partial" ? (
-                    <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black px-2 py-0.5 rounded-full uppercase">PARTIAL</span>
+                    <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black px-2 py-0.5 rounded-full uppercase">{t("purchases.partial")}</span>
                   ) : (
-                    <span className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 font-black px-2 py-0.5 rounded-full uppercase">DUE</span>
+                    <span className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 font-black px-2 py-0.5 rounded-full uppercase">{t("purchases.unpaid")}</span>
                   )}
                 </div>
                 <p className="font-semibold text-[14px] mt-0.5">{p.vendor_name}</p>
-                <p className="text-[12px] text-muted-foreground mt-0.5">📅 {fmtDate(p.date)} · {(p.items || []).length} items</p>
+                <p className="text-[12px] text-muted-foreground mt-0.5">📅 {fmtDate(p.date)} · {(p.items || []).length} {t("invoices.items")}</p>
               </div>
               <div className="text-left sm:text-right">
                 <p className="text-xl font-black text-purple font-mono">{fmtINR(p.grand_total)}</p>
                 {p.due_amount > 0 && (
                   <div className="space-y-0.5">
-                    <p className="text-[10px] text-red-400 font-bold">Due: {fmtINR(p.due_amount)}</p>
+                    <p className="text-[10px] text-red-400 font-bold">{t("purchases.due_label")} {fmtINR(p.due_amount)}</p>
                     {p.due_date && (
-                      <p className="text-[9px] text-amber-500 font-bold">Pay by: {fmtDate(p.due_date)}</p>
+                      <p className="text-[9px] text-amber-500 font-bold">{t("purchases.pay_by_label")} {fmtDate(p.due_date)}</p>
                     )}
                   </div>
                 )}

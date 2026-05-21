@@ -4,11 +4,14 @@ import { base44 } from "@/api/base44Client";
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
   Users, BarChart3, Settings, Sparkles, ScanBarcode, LogOut, Crown,
-  Receipt, BookOpen, Landmark, Building2, Zap
+  Receipt, BookOpen, Landmark, Building2, Zap, GitBranch, RefreshCw, Warehouse, TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getAllBranches, getCachedBranches, createBranch } from "@/api/branchService";
 
 const NAV_ITEMS = [
   { path: "/", icon: LayoutDashboard, label: "Dashboard", tKey: "nav.dashboard" },
@@ -25,6 +28,11 @@ const NAV_ITEMS = [
   { path: "/gst-filing", icon: Building2, label: "GST Filing", badge: "NEW", tKey: "nav.gstfiling" },
   { path: "/reports", icon: BarChart3, label: "Reports", tKey: "nav.reports" },
   { path: "/ai-insights", icon: Sparkles, label: "AI Insights", badge: "AI", tKey: "nav.aiinsights" },
+  { path: "/branches", icon: GitBranch, label: "Branches", tKey: "nav.branches" },
+  { path: "/inventory-sync", icon: RefreshCw, label: "Inventory Sync", badge: "LIVE", tKey: "nav.invsync" },
+  { path: "/stock-transfer", icon: Truck, label: "Stock Transfer", tKey: "nav.stocktransfer" },
+  { path: "/warehouse", icon: Warehouse, label: "Warehouse Hub", badge: "SAP", tKey: "nav.warehouse" },
+  { path: "/enterprise-intel", icon: TrendingUp, label: "Enterprise Intel", badge: "AI", tKey: "nav.enterprise_intel" },
   { path: "/settings", icon: Settings, label: "Settings", tKey: "nav.settings" },
   { path: "/subscription", icon: Crown, label: "Upgrade", badge: "PRO", isPro: true, tKey: "nav.upgrade" },
 ];
@@ -34,24 +42,124 @@ export default function Sidebar({ mobile = false, onClose }) {
   const { user } = useAuth();
   const { language, setLanguage, voiceEnabled, setVoiceEnabled, t, speak } = useLanguage();
 
+  // Load branches from cache instantly, refresh from Firestore in background
+  const [branches, setBranches] = useState(() => getCachedBranches());
+  const [activeBranchId, setActiveBranchId] = useState(localStorage.getItem('selectedBranch') || '');
+
+  // Fetch shop settings
+  const { data: settings = [] } = useQuery({
+    queryKey: ["shopSettings"],
+    queryFn: () => base44.entities.ShopSettings.list(),
+    enabled: !!user,
+  });
+  const shopSettings = settings[0] || {};
+
+  // Refresh branches from Firestore after login
+  useEffect(() => {
+    if (!user) return;
+    getAllBranches().then(async (list) => {
+      let activeList = list;
+      if (list.length === 0) {
+        try {
+          const defaultBranch = {
+            name: 'Main Outlet',
+            code: 'MAIN',
+            type: 'Store',
+            address: { street: 'Main Street', city: '', state: '', zipcode: '', country: 'India' },
+            contact: { phone: '', email: '', manager: 'Owner' },
+            gst: { gstNumber: '', registrationType: 'Regular' },
+            settings: { currency: 'INR', timezone: 'Asia/Kolkata', billPrefix: 'VR-', enableOfflineBilling: true, enableLoyalty: true },
+          };
+          const newId = await createBranch(defaultBranch);
+          activeList = [{ id: newId, ...defaultBranch }];
+        } catch (err) {
+          console.error("Failed to seed default branch:", err);
+        }
+      }
+      
+      setBranches(activeList);
+      
+      if (activeList.length > 0) {
+        const currentSelected = localStorage.getItem('selectedBranch');
+        const exists = activeList.some(b => b.id === currentSelected);
+        if (!currentSelected || !exists) {
+          localStorage.setItem('selectedBranch', activeList[0].id);
+          setActiveBranchId(activeList[0].id);
+          window.dispatchEvent(new Event('branchChanged'));
+        }
+      }
+    }).catch(err => console.error("Error loading branches:", err));
+  }, [user]);
+
+  // Listen for branch list changes (after create/delete in BranchManagement)
+  useEffect(() => {
+    const handleRefresh = () => {
+      getAllBranches().then(list => {
+        setBranches(list);
+        if (list.length > 0) {
+          const currentSelected = localStorage.getItem('selectedBranch');
+          const exists = list.some(b => b.id === currentSelected);
+          if (!currentSelected || !exists) {
+            localStorage.setItem('selectedBranch', list[0].id);
+            setActiveBranchId(list[0].id);
+            window.dispatchEvent(new Event('branchChanged'));
+          }
+        } else {
+          localStorage.removeItem('selectedBranch');
+          setActiveBranchId('');
+          window.dispatchEvent(new Event('branchChanged'));
+        }
+      }).catch(() => {});
+    };
+    window.addEventListener('branchListChanged', handleRefresh);
+    return () => window.removeEventListener('branchListChanged', handleRefresh);
+  }, []);
+
+  const handleBranchChange = (e) => {
+    const id = e.target.value;
+    localStorage.setItem('selectedBranch', id);
+    setActiveBranchId(id);
+    window.dispatchEvent(new Event('branchChanged'));
+  };
+
   const handleNavClick = () => {
     if (mobile && onClose) onClose();
   };
 
   return (
     <aside className={cn(
-      "flex flex-col bg-sidebar border-r border-sidebar-border shrink-0",
-      mobile ? "w-full h-full" : "hidden lg:flex w-[220px] h-screen sticky top-0"
+      "flex flex-col bg-sidebar border-r border-sidebar-border shrink-0 overflow-hidden",
+      mobile ? "w-full h-full" : "hidden lg:flex w-[220px] h-full"
     )}>
-      {/* Logo */}
-      <div className="px-5 pt-5 pb-3">
+      {/* Logo & Brand */}
+      <div className="px-5 pt-5 pb-3 border-b border-sidebar-border/30 shrink-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-2xl font-black gold-text">GSTBill</span>
           <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">PRO</span>
         </div>
-        <p className="text-[11px] text-muted-foreground font-medium truncate">
-          {user?.full_name || "My Business"}
+        <p className="text-[11px] text-muted-foreground font-bold truncate mb-2">
+          🏢 {shopSettings.shop_name || "Vogats Retail Outlet"}
         </p>
+
+        {/* Dynamic Branch Dropdown Switcher */}
+        {branches.length > 0 && (
+          <div className="mt-2 space-y-1">
+            <label className="text-[9px] uppercase tracking-wider text-muted-foreground font-extrabold flex items-center gap-1">
+              <GitBranch className="w-2.5 h-2.5 text-amber-500" /> {t("branches.active_outlet")}
+            </label>
+            <select
+              value={activeBranchId}
+              onChange={handleBranchChange}
+              className="w-full bg-secondary/40 border border-border/40 rounded-md py-1 px-2 text-[11px] font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/45 cursor-pointer"
+            >
+              {branches.map((b) => (
+                <option key={b.id} value={b.id} className="bg-background text-foreground font-bold">
+                  {b.name} ({b.code})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Nav */}
@@ -138,7 +246,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       </div>
 
       {/* User */}
-      <div className="p-3 border-t border-sidebar-border">
+      <div className="p-3 border-t border-sidebar-border shrink-0">
         <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary/50">
           <div className="w-8 h-8 rounded-full gold-gradient flex items-center justify-center text-[13px] font-bold text-black shrink-0">
             {(user?.full_name || "U")[0]}

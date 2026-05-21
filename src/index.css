@@ -53,6 +53,10 @@
     --sidebar-accent-foreground: 222 47% 8%;
     --sidebar-border: 220 15% 88%;
     --sidebar-ring: 36 90% 55%;
+
+    /* Safe area for mobile notches */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .dark {
@@ -97,11 +101,21 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100vw;
   }
 
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+    /* Prevent zoom on iOS inputs */
+    -webkit-text-size-adjust: 100%;
   }
 }
 
@@ -123,28 +137,104 @@
   .gold-glow {
     box-shadow: 0 0 24px hsla(36, 90%, 55%, 0.2);
   }
+
+  .animate-fade-up {
+    animation: fadeUp 0.3s ease-out;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Toast Notification Animations ── */
+  .animate-toast-in {
+    animation: toastSlideIn 0.3s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+  }
+
+  @keyframes toastSlideIn {
+    0%  { opacity: 0; transform: translateX(calc(100% + 1rem)); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes toastFadeOut {
+    0%  { opacity: 1; transform: translateX(0); max-height: 100px; }
+    60% { opacity: 0; transform: translateX(calc(100% + 1rem)); max-height: 100px; }
+    100% { opacity: 0; transform: translateX(calc(100% + 1rem)); max-height: 0; margin: 0; }
+  }
+
+
+  /* Safe area bottom padding for mobile nav */
+  .pb-safe {
+    padding-bottom: calc(1.5rem + var(--safe-bottom));
+  }
 }
 
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: hsl(222, 40%, 7%); }
+::-webkit-scrollbar-thumb { background: hsl(222, 25%, 18%); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(222, 25%, 25%); }
+
+/* ====================================================
+   MOBILE-FIRST DIALOG / SHEET FIXES
+   All dialogs must not overflow viewport on mobile
+   ==================================================== */
+[role="dialog"] {
+  max-height: 95dvh !important;
+  display: flex !important;
+  flex-direction: column;
+  overflow: visible !important;
 }
 
-::-webkit-scrollbar-track {
-  background: hsl(222, 40%, 7%);
+/* For flex-column dialogs, let inner direct children size correctly */
+[role="dialog"] > * {
+  min-height: 0;
 }
 
-::-webkit-scrollbar-thumb {
-  background: hsl(222, 25%, 18%);
-  border-radius: 4px;
+/* Radix Select dropdown - ensure visible on mobile */
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(222, 25%, 25%);
+/* Ensure select content doesn't overflow on mobile */
+[role="listbox"] {
+  max-height: 40vh !important;
+  overflow-y: auto !important;
 }
 
+/* ====================================================
+   MOBILE INPUT ZOOM PREVENTION
+   ==================================================== */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+    /* Prevents iOS from zooming on focus */
+  }
+}
+
+/* ====================================================
+   TABLE OVERFLOW ON MOBILE
+   ==================================================== */
+table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  /* Cards should not overflow */
+  .card, [class*="rounded"] {
+    max-width: 100%;
+    overflow: hidden;
+  }
+}
+
+/* ====================================================
+   PRINT STYLES
+   ==================================================== */
 @media print {
-  /* 1. Hide everything else in the body */
   #root,
   [data-radix-portal] > div:not([role="dialog"]),
   .print\:hidden,
@@ -152,7 +242,6 @@
     display: none !important;
   }
 
-  /* 2. Style body and html to be clean and minimal */
   html, body {
     background: #ffffff !important;
     color: #000000 !important;
@@ -163,7 +252,6 @@
     overflow: visible !important;
   }
 
-  /* 3. Style the dialog container itself to behave as a standard block */
   div[role="dialog"] {
     position: absolute !important;
     left: 0 !important;
@@ -184,16 +272,15 @@
     max-width: none !important;
   }
 
-  /* Hide Radix Close button and other sibling elements inside DialogContent */
   div[role="dialog"] button,
-  div[role="dialog"] > div:not(.thermal-receipt-print-area),
+  div[role="dialog"] .print\:hidden,
+  div[role="dialog"] .no-print,
   div[role="dialog"] > footer,
   div[role="dialog"] > h2,
   div[role="dialog"] > p {
     display: none !important;
   }
 
-  /* 4. Style the print area specifically */
   .thermal-receipt-print-area {
     display: block !important;
     visibility: visible !important;
@@ -207,17 +294,9 @@
     font-family: 'Courier New', Courier, monospace !important;
   }
 
-  .printer-58mm {
-    width: 58mm !important;
-    max-width: 58mm !important;
-  }
+  .printer-58mm { width: 58mm !important; max-width: 58mm !important; }
+  .printer-80mm { width: 80mm !important; max-width: 80mm !important; }
 
-  .printer-80mm {
-    width: 80mm !important;
-    max-width: 80mm !important;
-  }
-
-  /* Prevent split page */
   tr, img, svg {
     page-break-inside: avoid !important;
     break-inside: avoid !important;

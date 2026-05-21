@@ -67,6 +67,8 @@ export default function Dashboard() {
   const { data: settings = [] } = useQuery({
     queryKey: ["shopSettings"],
     queryFn: () => base44.entities.ShopSettings.list(),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
   const shopSettings = settings[0] || {};
   const businessType = shopSettings.business_type || "retail";
@@ -74,26 +76,38 @@ export default function Dashboard() {
   const { data: invoices = [] } = useQuery({
     queryKey: ["invoices"],
     queryFn: () => base44.entities.Invoice.list("-created_date", 500),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
   const { data: customers = [] } = useQuery({
     queryKey: ["customers"],
     queryFn: () => base44.entities.Customer.list(),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
   const { data: products = [] } = useQuery({
     queryKey: ["products"],
     queryFn: () => base44.entities.Product.list(),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
   const { data: purchases = [] } = useQuery({
     queryKey: ["purchases"],
     queryFn: () => base44.entities.Purchase.list("-created_date", 200),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
   const { data: expenses = [] } = useQuery({
     queryKey: ["expenses"],
     queryFn: () => base44.entities.Expense.list("-created_date", 200),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
   const { data: loans = [] } = useQuery({
     queryKey: ["loans"],
     queryFn: () => base44.entities.Loan.list(),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   const firstName = (user?.full_name || "User").split(" ")[0];
@@ -197,15 +211,36 @@ export default function Dashboard() {
 
   const profitColor = netProfit >= 0 ? "green" : "red";
 
+  // Quick action button definitions
+  const QUICK_ACTIONS = [
+    { label: language === "hi" ? "डैशबोर्ड" : "Dashboard", to: "/", icon: BarChart2, color: "amber" },
+    { label: language === "hi" ? "POS" : "POS", to: "/pos", icon: Zap, color: "blue" },
+    { label: language === "hi" ? "इनवॉइस" : "Invoice", to: "/invoices", icon: ReceiptText, color: "green" },
+    { label: language === "hi" ? "खरीदारी" : "Purchase", to: "/purchases", icon: ShoppingCart, color: "purple" },
+    { label: language === "hi" ? "ग्राहक" : "Customer", to: "/customers", icon: Users, color: "teal" },
+    { label: language === "hi" ? "रिपोर्ट" : "Report", to: "/reports", icon: Activity, color: "orange" },
+    { label: language === "hi" ? "बकाया" : "Pending", to: "/invoices", icon: Wallet, color: "red" },
+  ];
+
+  const BTN_COLORS = {
+    amber:  "bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30",
+    blue:   "bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30",
+    green:  "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30",
+    purple: "bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 dark:hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/30",
+    teal:   "bg-teal-50 hover:bg-teal-100 dark:bg-teal-500/10 dark:hover:bg-teal-500/20 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-500/30",
+    orange: "bg-orange-50 hover:bg-orange-100 dark:bg-orange-500/10 dark:hover:bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-500/30",
+    red:    "bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/30",
+  };
+
   return (
-    <div className="animate-fade-up space-y-5">
-      {/* Header */}
+    <div className="animate-fade-up space-y-4">
+      {/* ── HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-black">
-            {t("greeting.namaste")}, <span className="text-primary">{firstName}</span> 🙏
+          <h1 className="text-xl font-black text-slate-900 dark:text-foreground">
+            {t("greeting.namaste")}, <span className="text-amber-600 dark:text-primary">{firstName}</span> 🙏
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-sm text-slate-500 dark:text-muted-foreground mt-0.5">
             {new Date().toLocaleDateString(language === "hi" ? "hi-IN" : "en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
         </div>
@@ -223,10 +258,26 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Alerts */}
+      {/* ── QUICK ACTION BUTTONS ROW ── */}
+      <div className="w-full overflow-x-auto pb-1">
+        <div className="flex gap-2 min-w-max">
+          {QUICK_ACTIONS.map((action) => (
+            <Link key={action.to + action.label} to={action.to}>
+              <button
+                className={`inline-flex items-center gap-1.5 px-3.5 text-[12px] font-bold rounded-xl border transition-all duration-150 active:scale-95 whitespace-nowrap h-[35px] shadow-sm ${BTN_COLORS[action.color]}`}
+              >
+                <action.icon className="w-3.5 h-3.5 shrink-0" />
+                <span>{action.label}</span>
+              </button>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ── ALERTS ── */}
       {overdueInvoices.length > 0 && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-red-400 font-bold text-[13px] flex items-center gap-2">
+        <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-red-700 dark:text-red-400 font-bold text-[13px] flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />
             {overdueInvoices.length} {language === "hi" ? "भुगतान की अवधि पार कर चुके बिल" : "Overdue Invoice(s)"} — {fmtINR(overdueInvoices.reduce((s, i) => s + (i.grand_total || 0), 0))}
           </span>
@@ -236,7 +287,7 @@ export default function Dashboard() {
         </div>
       )}
       {(outStock.length > 0 || lowStock.length > 0) && (
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3 text-yellow-400 text-[13px] font-semibold">
+        <div className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 rounded-xl px-4 py-3 text-yellow-700 dark:text-yellow-400 text-[13px] font-semibold">
           {outStock.length > 0 && <span>❌ {outStock.length} {language === "hi" ? "उत्पाद स्टॉक से बाहर।" : "out of stock."} </span>}
           {lowStock.length > 0 && <span>⚠️ {language === "hi" ? "कम स्टॉक वाली दवाएं/सामान:" : "Low stock:"} {lowStock.slice(0, 3).map(p => p.name).join(", ")}</span>}
         </div>
@@ -244,22 +295,22 @@ export default function Dashboard() {
 
       {/* Custom Store-wise Interactive Dashboards */}
       {businessType === "restaurant" && (
-        <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-2xl p-5 space-y-4">
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-500/10 dark:to-red-500/10 border border-orange-200 dark:border-orange-500/30 rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
-              <div className="bg-orange-500/25 p-2 rounded-xl text-orange-400">
+              <div className="bg-orange-100 dark:bg-orange-500/25 p-2 rounded-xl text-orange-600 dark:text-orange-400">
                 <Utensils className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-foreground">
+                <h3 className="font-extrabold text-sm text-slate-800 dark:text-foreground">
                   {language === "hi" ? "🍽️ रेस्टोरेंट टेबल एवं केओटी (KOT) ट्रैकर" : "🍽️ Restaurant Table & KOT Tracker"}
                 </h3>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-slate-500 dark:text-muted-foreground">
                   {language === "hi" ? "टेबल्स पर क्लिक कर स्थिति बदलें" : "Click tables to toggle Occupied/Vacant status"}
                 </p>
               </div>
             </div>
-            <Badge className="bg-orange-500/20 text-orange-400 font-bold border border-orange-500/30 text-xs">
+            <Badge className="bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 font-bold border border-orange-200 dark:border-orange-500/30 text-xs">
               {tables.filter(t => t.status === "Occupied").length} / {tables.length} {language === "hi" ? "टेबल्स व्यस्त" : "Tables Busy"}
             </Badge>
           </div>
@@ -296,24 +347,24 @@ export default function Dashboard() {
       )}
 
       {businessType === "medical" && (
-        <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-2xl p-5 space-y-4">
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-500/10 dark:to-teal-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl p-5 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="bg-emerald-500/25 p-2 rounded-xl text-emerald-400">
+            <div className="bg-emerald-100 dark:bg-emerald-500/25 p-2 rounded-xl text-emerald-600 dark:text-emerald-400">
               <Pill className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm text-foreground">
+              <h3 className="font-extrabold text-sm text-slate-800 dark:text-foreground">
                 {language === "hi" ? "💊 मेडिकल ड्रग कंट्रोल एवं एक्सपायरी अलर्ट" : "💊 Medical Drug Control & Expiry Alerts"}
               </h3>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-slate-500 dark:text-muted-foreground">
                 {language === "hi" ? "30 दिनों के भीतर समाप्त होने वाली दवाएं" : "Medicines expiring within next 30 days"}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-[#0f111e]/50 border border-emerald-500/20 rounded-xl p-3.5 space-y-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+            <div className="bg-white dark:bg-[#0f111e]/50 border border-emerald-200 dark:border-emerald-500/20 rounded-xl p-3.5 space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" /> {language === "hi" ? "समाप्ति अलर्ट" : "Expiry Warnings"}
               </span>
               <div className="divide-y divide-emerald-500/10 space-y-1.5">
@@ -331,14 +382,14 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-[#0f111e]/50 border border-emerald-500/20 rounded-xl p-3.5 space-y-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+            <div className="bg-white dark:bg-[#0f111e]/50 border border-emerald-200 dark:border-emerald-500/20 rounded-xl p-3.5 space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                 <Clipboard className="w-3.5 h-3.5" /> {language === "hi" ? "शिड्यूल एच (Schedule H) ड्रग्स" : "Schedule H Drug Logs"}
               </span>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500 dark:text-muted-foreground">
                 {language === "hi" ? "सभी प्रेस्क्रिप्शन ड्रग्स की बिक्री पर नज़र रखें" : "Keep track of all prescription-regulated drug sales in POS."}
               </p>
-              <div className="text-[10px] font-mono text-emerald-400 flex justify-between bg-emerald-500/5 p-2 rounded border border-emerald-500/15">
+              <div className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 flex justify-between bg-emerald-50 dark:bg-emerald-500/5 p-2 rounded border border-emerald-200 dark:border-emerald-500/15">
                 <span>{language === "hi" ? "आज की आरएक्स एंट्रीज:" : "Today Rx Entries:"} 14</span>
                 <span>{language === "hi" ? "जांच की स्थिति: ठीक" : "Compliance Status: OK"}</span>
               </div>
@@ -348,23 +399,23 @@ export default function Dashboard() {
       )}
 
       {businessType === "grocery" && (
-        <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-2xl p-5 space-y-4">
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 border border-purple-200 dark:border-purple-500/30 rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
-              <div className="bg-purple-500/25 p-2 rounded-xl text-purple-400">
+              <div className="bg-purple-100 dark:bg-purple-500/25 p-2 rounded-xl text-purple-600 dark:text-purple-400">
                 <Scale className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-foreground">
+                <h3 className="font-extrabold text-sm text-slate-800 dark:text-foreground">
                   {language === "hi" ? "⚖️ इलेक्ट्रॉनिक वजन स्केल एकीकरण (Simulated)" : "⚖️ Electronic Weight Scale Integration (Simulated)"}
                 </h3>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-slate-500 dark:text-muted-foreground">
                   {language === "hi" ? "वजन आधारित बिलिंग मोड सक्रिय है" : "Weight-based billing mode is active"}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xl font-black font-mono text-purple-400 bg-purple-500/10 px-3 py-1 rounded-xl border border-purple-500/30">
+              <span className="text-xl font-black font-mono text-purple-700 dark:text-purple-400 bg-purple-100 dark:bg-purple-500/10 px-3 py-1 rounded-xl border border-purple-200 dark:border-purple-500/30">
                 {scaleWeight} Kg
               </span>
               <Button
@@ -383,16 +434,16 @@ export default function Dashboard() {
       )}
 
       {businessType === "fashion" && (
-        <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-5 space-y-4">
+        <div className="bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-500/10 dark:to-blue-500/10 border border-cyan-200 dark:border-cyan-500/30 rounded-2xl p-5 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="bg-cyan-500/25 p-2 rounded-xl text-cyan-400">
+            <div className="bg-cyan-100 dark:bg-cyan-500/25 p-2 rounded-xl text-cyan-600 dark:text-cyan-400">
               <Shirt className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm text-foreground">
+              <h3 className="font-extrabold text-sm text-slate-800 dark:text-foreground">
                 {language === "hi" ? "👕 परिधान वेरिएंट एवं साइज डिस्ट्रीब्यूशन" : "👕 Apparel Variants & Size Distribution"}
               </h3>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-slate-500 dark:text-muted-foreground">
                 {language === "hi" ? "इन्वेंट्री में साइज और कलर वेरिएंट का विवरण" : "Overview of sizes and color variants in stock"}
               </p>
             </div>
@@ -405,10 +456,10 @@ export default function Dashboard() {
               { size: "L", count: 52, progress: 65 },
               { size: "XL", count: 19, progress: 25 },
             ].map((variant, i) => (
-              <div key={i} className="bg-[#0f111e]/50 border border-cyan-500/15 rounded-xl p-3 space-y-2">
+              <div key={i} className="bg-white dark:bg-[#0f111e]/50 border border-cyan-200 dark:border-cyan-500/15 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center text-xs font-black">
-                  <span className="text-cyan-400">Size: {variant.size}</span>
-                  <span>{variant.count} Pcs</span>
+                  <span className="text-cyan-700 dark:text-cyan-400">Size: {variant.size}</span>
+                  <span className="text-slate-700 dark:text-foreground">{variant.count} Pcs</span>
                 </div>
                 <div className="h-1 bg-secondary rounded-full overflow-hidden">
                   <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${variant.progress}%` }} />
@@ -450,10 +501,10 @@ export default function Dashboard() {
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Revenue vs Expense - Area */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5">
+        <div className="lg:col-span-2 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-sm text-foreground">{t("metric.sales_vs_expenses")}</h3>
-            <span className="text-[11px] text-muted-foreground">
+            <h3 className="font-bold text-sm text-slate-800 dark:text-foreground">{t("metric.sales_vs_expenses")}</h3>
+            <span className="text-[11px] text-slate-500 dark:text-muted-foreground">
               {language === "hi" ? "पिछले 14 दिनों के आंकड़े" : "Last 14 days in range"}
             </span>
           </div>
@@ -484,8 +535,8 @@ export default function Dashboard() {
         </div>
 
         {/* Invoice Status Pie */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="font-bold text-sm text-foreground mb-4">{t("metric.payment_status")}</h3>
+        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm">
+          <h3 className="font-bold text-sm text-slate-800 dark:text-foreground mb-4">{t("metric.payment_status")}</h3>
           {statusData.length > 0 ? (
             <>
               <div className="h-36">
@@ -506,13 +557,13 @@ export default function Dashboard() {
                   <div key={d.name} className="flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full" style={{ background: ["hsl(160,72%,39%)", "hsl(38,92%,50%)", "hsl(0,84%,60%)"][i % 3] }} />
-                      <span className="text-muted-foreground">
+                      <span className="text-slate-600 dark:text-muted-foreground">
                         {d.name === "Paid" ? (language === "hi" ? "भुगतान किया गया" : "Paid") :
                          d.name === "Partial" ? (language === "hi" ? "आंशिक" : "Partial") :
                          (language === "hi" ? "अवैतनिक" : "Unpaid")}
                       </span>
                     </div>
-                    <span className="font-bold text-foreground">{fmtINR(d.value)}</span>
+                    <span className="font-bold text-slate-800 dark:text-foreground">{fmtINR(d.value)}</span>
                   </div>
                 ))}
               </div>
@@ -528,8 +579,8 @@ export default function Dashboard() {
       {/* Charts Row 2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Monthly P&L Bar Chart */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="font-bold text-sm text-foreground mb-4">{t("metric.monthly_pl")}</h3>
+        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm">
+          <h3 className="font-bold text-sm text-slate-800 dark:text-foreground mb-4">{t("metric.monthly_pl")}</h3>
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData} barSize={10}>
@@ -548,8 +599,8 @@ export default function Dashboard() {
         </div>
 
         {/* Expense Category Breakdown */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="font-bold text-sm text-foreground mb-4">{t("metric.expense_breakdown")}</h3>
+        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm">
+          <h3 className="font-bold text-sm text-slate-800 dark:text-foreground mb-4">{t("metric.expense_breakdown")}</h3>
           {expCategoryData.length > 0 ? (
             <div className="space-y-2">
               {expCategoryData.slice(0, 6).map((cat, i) => {
@@ -557,8 +608,8 @@ export default function Dashboard() {
                 return (
                   <div key={cat.name} className="space-y-1">
                     <div className="flex justify-between text-[12px]">
-                      <span className="text-foreground font-medium">{cat.name}</span>
-                      <span className="font-bold text-foreground">{fmtINR(cat.value)} <span className="text-muted-foreground font-normal">({pct.toFixed(0)}%)</span></span>
+                      <span className="text-slate-700 dark:text-foreground font-medium">{cat.name}</span>
+                      <span className="font-bold text-slate-800 dark:text-foreground">{fmtINR(cat.value)} <span className="text-slate-500 dark:text-muted-foreground font-normal">({pct.toFixed(0)}%)</span></span>
                     </div>
                     <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                       <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }} />
@@ -583,8 +634,8 @@ export default function Dashboard() {
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Profit Line Chart */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="font-bold text-sm text-foreground mb-4">{t("metric.profit_trend")}</h3>
+        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm">
+          <h3 className="font-bold text-sm text-slate-800 dark:text-foreground mb-4">{t("metric.profit_trend")}</h3>
           <div className="h-44">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthlyData}>
@@ -601,9 +652,9 @@ export default function Dashboard() {
         </div>
 
         {/* Recent Invoices */}
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-sm text-foreground">{t("metric.recent_invoices")}</h3>
+            <h3 className="font-bold text-sm text-slate-800 dark:text-foreground">{t("metric.recent_invoices")}</h3>
             <Link to="/invoices" className="text-[11px] text-primary font-semibold flex items-center gap-1 hover:underline">
               {language === "hi" ? "सभी" : "All"} <ArrowRight className="w-3 h-3" />
             </Link>
@@ -617,10 +668,10 @@ export default function Dashboard() {
               {filteredInvoices.slice(0, 5).map(inv => {
                 const ov = isOverdue(inv);
                 return (
-                  <div key={inv.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div key={inv.id} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-border last:border-0">
                     <div>
-                      <p className="font-semibold text-[12px] font-mono text-foreground">{inv.invoice_number}</p>
-                      <p className="text-[10px] text-muted-foreground">{inv.customer_name}</p>
+                      <p className="font-semibold text-[12px] font-mono text-slate-800 dark:text-foreground">{inv.invoice_number}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-muted-foreground">{inv.customer_name}</p>
                     </div>
                     <div className="text-right">
                       <p className={`font-bold font-mono text-[12px] ${inv.status === "paid" ? "text-emerald-400" : ov ? "text-red-400" : "text-yellow-400"}`}>
@@ -641,9 +692,9 @@ export default function Dashboard() {
 
         {/* Stock + Top Customer */}
         <div className="space-y-4">
-          <div className="bg-card border border-border rounded-xl p-4">
+          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-bold text-sm text-foreground">{t("metric.stock_alerts")}</h3>
+              <h3 className="font-bold text-sm text-slate-800 dark:text-foreground">{t("metric.stock_alerts")}</h3>
               <Link to="/inventory" className="text-[11px] text-primary font-semibold hover:underline">
                 {language === "hi" ? "देखें" : "View"}
               </Link>
@@ -655,8 +706,8 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-0">
                 {[...outStock.slice(0, 2), ...lowStock.slice(0, 2)].map(p => (
-                  <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
-                    <p className="font-semibold text-[12px] text-foreground truncate max-w-[120px]">{p.name}</p>
+                  <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-border last:border-0">
+                    <p className="font-semibold text-[12px] text-slate-800 dark:text-foreground truncate max-w-[120px]">{p.name}</p>
                     <Badge variant="outline" className={`text-[9px] ${p.stock === 0 ? "border-red-500/30 text-red-400" : "border-yellow-500/30 text-yellow-400"}`}>
                       {p.stock === 0 ? (language === "hi" ? "खत्म" : "OUT") :
                        (language === "hi" ? `${p.stock} बचे` : `${p.stock} left`)}
@@ -667,16 +718,16 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-4">
-            <h3 className="font-bold text-sm text-foreground mb-2">{t("metric.top_customers")}</h3>
+          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-4 shadow-sm">
+            <h3 className="font-bold text-sm text-slate-800 dark:text-foreground mb-2">{t("metric.top_customers")}</h3>
             <div className="space-y-0">
               {customers.sort((a, b) => (b.total_purchases || 0) - (a.total_purchases || 0)).slice(0, 3).map((c, i) => (
-                <div key={c.id} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                <div key={c.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-border last:border-0">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
                       {c.name?.[0]?.toUpperCase()}
                     </div>
-                    <p className="font-medium text-[12px] text-foreground truncate max-w-[90px]">{c.name}</p>
+                    <p className="font-medium text-[12px] text-slate-800 dark:text-foreground truncate max-w-[90px]">{c.name}</p>
                   </div>
                   <span className="font-bold font-mono text-[11px] text-primary">{fmtINR(c.total_purchases || 0)}</span>
                 </div>

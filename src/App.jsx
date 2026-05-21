@@ -1,5 +1,8 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
+import { ToastContainer } from "@/components/ui/ToastContainer";
+
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClientInstance } from "@/lib/query-client";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
@@ -7,6 +10,7 @@ import PageNotFound from "./lib/PageNotFound";
 import { AuthProvider, useAuth } from "@/lib/AuthContext";
 import UserNotRegisteredError from "@/components/UserNotRegisteredError";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { base44 } from "@/api/base44Client";
 
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
@@ -30,9 +34,38 @@ import Accounting from "@/pages/Accounting";
 import Loans from "@/pages/Loans";
 import GSTFiling from "@/pages/GSTFiling";
 import POS from "@/pages/POS";
+import BranchManagement from "@/pages/BranchManagement";
+import InventorySync from "@/pages/InventorySync";
+import StockTransfer from "@/pages/StockTransfer";
+import WarehouseManagement from "@/pages/WarehouseManagement";
+import EnterpriseIntelligence from "@/pages/EnterpriseIntelligence";
+
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { user, isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      // Warm up the React Query cache immediately on login for sub-second rendering
+      const queries = [
+        { key: ["shopSettings"], fn: () => base44.entities.ShopSettings.list() },
+        { key: ["invoices"], fn: () => base44.entities.Invoice.list("-created_date", 500) },
+        { key: ["customers"], fn: () => base44.entities.Customer.list() },
+        { key: ["products"], fn: () => base44.entities.Product.list() },
+        { key: ["purchases"], fn: () => base44.entities.Purchase.list("-created_date", 200) },
+        { key: ["expenses"], fn: () => base44.entities.Expense.list("-created_date", 200) },
+        { key: ["loans"], fn: () => base44.entities.Loan.list() }
+      ];
+      
+      queries.forEach(q => {
+        queryClientInstance.prefetchQuery({
+          queryKey: q.key,
+          queryFn: q.fn,
+          staleTime: 5 * 60 * 1000 // Cache is fresh for 5 mins
+        });
+      });
+    }
+  }, [user]);
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -79,6 +112,11 @@ const AuthenticatedApp = () => {
           <Route path="/loans" element={<Loans />} />
           <Route path="/gst-filing" element={<GSTFiling />} />
           <Route path="/subscription" element={<Subscription />} />
+          <Route path="/branches" element={<BranchManagement />} />
+          <Route path="/inventory-sync" element={<InventorySync />} />
+          <Route path="/stock-transfer" element={<StockTransfer />} />
+          <Route path="/warehouse" element={<WarehouseManagement />} />
+          <Route path="/enterprise-intel" element={<EnterpriseIntelligence />} />
         </Route>
       </Route>
 
@@ -94,18 +132,8 @@ function App() {
         <Router>
           <AuthenticatedApp />
         </Router>
-        <Toaster />
-        <SonnerToaster
-          position="bottom-center"
-          duration={5000}
-          toastOptions={{
-            style: {
-              background: "hsl(222, 40%, 7%)",
-              border: "1px solid hsl(222, 25%, 18%)",
-              color: "hsl(220, 30%, 93%)",
-            },
-          }}
-        />
+        <ToastContainer />
+
       </QueryClientProvider>
     </AuthProvider>
   );

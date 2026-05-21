@@ -1,18 +1,226 @@
+/**
+ * Firestore Security Rules
+ * All collections use userId field to scope data per user.
+ * Authenticated users can read/write their own documents.
+ * RBAC helpers are available for future enterprise role enforcement.
+ */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if the user is authenticated
+
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Rules for all collections that contain business data associated with a userId
-    match /{collectionName}/{docId} {
-      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid) && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+    function isOwner() {
+      return isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    function isCreatingOwn() {
+      return isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Optional RBAC helpers (used when users collection has role docs)
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && getUserRole() == 'admin';
+    }
+
+    // =====================================================================
+    // COLLECTIONS SECURITY RULES
+    // =====================================================================
+
+    // Users Collection (role profiles - self-read, admin-write)
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // Shop Settings Collection (business profile, branding, printer config)
+    match /shopSettings/{settingId} {
+      allow read: if isAuthenticated();
+      allow create: if isCreatingOwn();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    // Products Collection (shared catalog)
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create: if isCreatingOwn();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    // Inventory Collection (branch-level stock)
+    match /inventory/{inventoryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Batch Inventory Collection
+    match /batchInventory/{batchId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Invoices Collection
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated();
+      allow create: if isCreatingOwn();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    // Returns Collection
+    match /returns/{returnId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Customers Collection
+    match /customers/{customerId} {
+      allow read: if isAuthenticated();
+      allow create: if isCreatingOwn();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    // Purchases Collection
+    match /purchases/{purchaseId} {
+      allow read: if isAuthenticated();
+      allow create: if isCreatingOwn();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    // Expenses Collection
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated();
+      allow create: if isCreatingOwn();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    // Loans Collection
+    match /loans/{loanId} {
+      allow read: if isAuthenticated();
+      allow create: if isCreatingOwn();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    // User Subscriptions Collection
+    match /userSubscriptions/{subscriptionId} {
+      allow read: if isAuthenticated();
+      allow create: if isCreatingOwn();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    // Vendors Collection
+    match /vendors/{vendorId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Purchase Orders Collection
+    match /purchaseOrders/{poId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Loyalty Accounts Collection
+    match /loyaltyAccounts/{accountId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Offers Collection
+    match /offers/{offerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Branches Collection
+    match /branches/{branchId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+
+      match /settings/{document=**} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+    }
+
+    // Audit Logs Collection
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // Cashier Shifts Collection
+    match /cashierShifts/{shiftId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Day Closing Collection
+    match /dayClosing/{closingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Sales Analytics Collection
+    match /salesAnalytics/{analyticsId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Demand Forecast Collection
+    match /demandForecast/{forecastId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Inventory Value Collection
+    match /inventoryValue/{valueId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

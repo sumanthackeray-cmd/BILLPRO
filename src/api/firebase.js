@@ -5,13 +5,13 @@ import { getStorage } from "firebase/storage";
 
 // Firebase web configuration (supports environment variables or local fallback keys)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBfrcgkY7djfpIqewY5AdfOEn4QdcSRRHU",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "billing-40da2.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "billing-40da2",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "billing-40da2.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "287011156122",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:287011156122:web:dfe0625d87683a78886f23",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-PNBNW6HTF1"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCC81u4VhjmLFYdww8xmcisUQ-4swqMXsQ",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "vogats-firebase-studio.firebaseapp.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://vogats-firebase-studio-default-rtdb.firebaseio.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "vogats-firebase-studio",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "vogats-firebase-studio.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "495963475897",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:495963475897:web:d10584ec636c7c7980b068"
 };
 
 // Initialize Firebase

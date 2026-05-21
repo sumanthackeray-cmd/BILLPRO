@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Store, Building2, User, Landmark, FileText, Image as ImageIcon, Pen, Upload, ChevronRight, ChevronLeft, Check, ChevronsUpDown } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BUSINESS_TYPES } from "@/lib/shopCategories";

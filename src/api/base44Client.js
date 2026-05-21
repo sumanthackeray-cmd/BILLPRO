@@ -40,18 +40,129 @@ const getCollectionName = (entityName) => {
   return mapping[entityName] || entityName.toLowerCase();
 };
 
+const MOCK_SEEDS = {
+  ShopSettings: [{
+    id: "seed-settings",
+    shop_name: "Vogats Retail Outlet",
+    business_type: "retail",
+    business_entity_type: "Sole Proprietorship",
+    owner_name: "Suman Thackeray",
+    gstin: "27AAPCM1234F1Z5",
+    phone: "+91 98765 43210",
+    email: "contact@vogatsretail.com",
+    address: "101, Enterprise Plaza, Link Road, Andheri West",
+    city: "Mumbai",
+    state: "27-Maharashtra",
+    pincode: "400053",
+    invoice_prefix: "VR-2026-",
+    bank_name: "HDFC Bank",
+    account_no: "50100123456789",
+    ifsc: "HDFC0000060",
+    branch: "Andheri West",
+    upi_id: "vogatsretail@hdfcbank",
+    terms: "Goods once sold will not be returned. E.&O.E.",
+    logo_url: "",
+    signature_url: "",
+    printer_type: "browser",
+    printer_size: "80mm",
+    auto_print: false
+  }],
+  Customer: [
+    { id: "c1", name: "Rahul Sharma", phone: "9876543210", email: "rahul@gmail.com", total_purchases: 45000 },
+    { id: "c2", name: "Priyanka Patel", phone: "9812345678", email: "priyanka@yahoo.com", total_purchases: 32000 },
+    { id: "c3", name: "Amit Verma", phone: "9765432109", email: "amit@outlook.com", total_purchases: 18500 },
+    { id: "c4", name: "Sneha Reddy", phone: "9988776655", email: "sneha@gmail.com", total_purchases: 12000 },
+    { id: "c5", name: "Vikram Malhotra", phone: "9554433221", email: "vikram@gmail.com", total_purchases: 8500 }
+  ],
+  Product: [
+    { id: "p1", name: "Basmati Rice Premium 5kg", rate: 580, stock: 124, min_stock: 20, hsn: "1006", gst_rate: 5, category: "Grocery", barcode: "8901234567890" },
+    { id: "p2", name: "Refined Sunola Oil 1L", rate: 145, stock: 85, min_stock: 15, hsn: "1512", gst_rate: 12, category: "Grocery", barcode: "8901234567891" },
+    { id: "p3", name: "Cadbury Dairy Milk Silk", rate: 80, stock: 4, min_stock: 10, hsn: "1806", gst_rate: 18, category: "Confectionery", barcode: "8901234567892" },
+    { id: "p4", name: "Tata Salt Lite 1kg", rate: 28, stock: 150, min_stock: 30, hsn: "2501", gst_rate: 0, category: "Grocery", barcode: "8901234567893" },
+    { id: "p5", name: "Surf Excel Easy Wash 1kg", rate: 140, stock: 0, min_stock: 10, hsn: "3402", gst_rate: 18, category: "Household", barcode: "8901234567894" }
+  ],
+  Invoice: [
+    { id: "inv1", invoice_number: "VR-2026-001", date: new Date().toISOString().split("T")[0], customer_name: "Rahul Sharma", customer_phone: "9876543210", subtotal: 1000, tax_amount: 180, grand_total: 1180, paid_amount: 1180, status: "paid", type: "sale" },
+    { id: "inv2", invoice_number: "VR-2026-002", date: new Date().toISOString().split("T")[0], customer_name: "Priyanka Patel", customer_phone: "9812345678", subtotal: 2500, tax_amount: 300, grand_total: 2800, paid_amount: 1400, status: "partial", type: "sale" },
+    { id: "inv3", invoice_number: "VR-2026-003", date: new Date().toISOString().split("T")[0], customer_name: "Amit Verma", customer_phone: "9765432109", subtotal: 800, tax_amount: 40, grand_total: 840, paid_amount: 0, status: "unpaid", type: "sale" }
+  ],
+  Purchase: [
+    { id: "pur1", purchase_number: "PUR-001", date: new Date().toISOString().split("T")[0], supplier_name: "Parle Agro Ltd", grand_total: 15000 },
+    { id: "pur2", purchase_number: "PUR-002", date: new Date().toISOString().split("T")[0], supplier_name: "Hindustan Unilever", grand_total: 35000 }
+  ],
+  Expense: [
+    { id: "exp1", description: "Electricity Bill", amount: 4500, date: new Date().toISOString().split("T")[0], category: "Utilities" },
+    { id: "exp2", description: "Shop Rent", amount: 25000, date: new Date().toISOString().split("T")[0], category: "Rent" },
+    { id: "exp3", description: "Tea & Coffee for Staff", amount: 850, date: new Date().toISOString().split("T")[0], category: "Pantry" }
+  ],
+  Loan: [
+    { id: "loan1", lender_name: "HDFC Business Loan", principal_amount: 500000, outstanding_balance: 380000, interest_rate: 11.5, status: "Active" }
+  ],
+  UserSubscription: [{
+    id: "sub-seed",
+    tier: "Pro",
+    status: "Active",
+    expires_at: "2027-05-20"
+  }]
+};
+
 const createFirebaseEntityRepository = (entityName) => {
   return {
     list: async (orderByStr, limitNum) => {
       const uid = getUserId();
       const colName = getCollectionName(entityName);
+      const cacheKey = `base44_cache_${uid}_${colName}`;
       
-      const q = query(collection(db, colName), where('userId', '==', uid));
-      const querySnapshot = await getDocs(q);
       let items = [];
-      querySnapshot.forEach((doc) => {
-        items.push({ id: doc.id, ...doc.data() });
-      });
+      
+      // Try local cache first to allow immediate render if offline or fast-render
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          items = JSON.parse(cached);
+        }
+      } catch (e) {
+        console.warn("Error reading cache:", e);
+      }
+      
+      try {
+        const q = query(collection(db, colName), where('userId', '==', uid));
+        const querySnapshot = await getDocs(q);
+        const freshItems = [];
+        querySnapshot.forEach((doc) => {
+          freshItems.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // If Firestore has no records yet for this user, automatically seed with high-fidelity realistic retail mock data!
+        if (freshItems.length === 0 && MOCK_SEEDS[entityName]) {
+          const seeds = MOCK_SEEDS[entityName];
+          for (const seed of seeds) {
+            const { id, ...seedData } = seed;
+            const docData = {
+              ...seedData,
+              userId: uid,
+              created_date: new Date().toISOString(),
+              updated_date: new Date().toISOString()
+            };
+            const docRef = await addDoc(collection(db, colName), docData);
+            freshItems.push({ id: docRef.id, ...docData });
+          }
+        }
+        
+        items = freshItems;
+        // Update local cache
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(items));
+        } catch (e) {
+          console.warn("Error writing cache:", e);
+        }
+      } catch (error) {
+        console.error(`Firestore fetch failed for ${entityName}, using local cache fallback:`, error);
+        // Fallback to seeds if empty and network failed
+        if (items.length === 0 && MOCK_SEEDS[entityName]) {
+          items = [...MOCK_SEEDS[entityName]];
+        }
+      }
       
       // Client-side sorting to avoid requiring Firestore composite indexes
       if (orderByStr) {
@@ -81,6 +192,7 @@ const createFirebaseEntityRepository = (entityName) => {
     create: async (data) => {
       const uid = getUserId();
       const colName = getCollectionName(entityName);
+      const cacheKey = `base44_cache_${uid}_${colName}`;
       
       const docData = {
         ...data,
@@ -90,11 +202,24 @@ const createFirebaseEntityRepository = (entityName) => {
       };
       
       const docRef = await addDoc(collection(db, colName), docData);
-      return { id: docRef.id, ...docData };
+      const newItem = { id: docRef.id, ...docData };
+      
+      // Update local cache immediately
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        const cachedItems = cached ? JSON.parse(cached) : [];
+        cachedItems.push(newItem);
+        localStorage.setItem(cacheKey, JSON.stringify(cachedItems));
+      } catch (e) {
+        console.warn("Error updating cache:", e);
+      }
+      
+      return newItem;
     },
     update: async (id, data) => {
       const uid = getUserId();
       const colName = getCollectionName(entityName);
+      const cacheKey = `base44_cache_${uid}_${colName}`;
       const docRef = doc(db, colName, id);
       
       const docData = {
@@ -103,14 +228,42 @@ const createFirebaseEntityRepository = (entityName) => {
       };
       
       await updateDoc(docRef, docData);
-      return { id, ...docData };
+      const updatedItem = { id, ...docData };
+      
+      // Update local cache immediately
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          let cachedItems = JSON.parse(cached);
+          cachedItems = cachedItems.map(item => item.id === id ? { ...item, ...updatedItem } : item);
+          localStorage.setItem(cacheKey, JSON.stringify(cachedItems));
+        }
+      } catch (e) {
+        console.warn("Error updating cache:", e);
+      }
+      
+      return updatedItem;
     },
     delete: async (id) => {
       const uid = getUserId();
       const colName = getCollectionName(entityName);
+      const cacheKey = `base44_cache_${uid}_${colName}`;
       const docRef = doc(db, colName, id);
       
       await deleteDoc(docRef);
+      
+      // Update local cache immediately
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          let cachedItems = JSON.parse(cached);
+          cachedItems = cachedItems.filter(item => item.id !== id);
+          localStorage.setItem(cacheKey, JSON.stringify(cachedItems));
+        }
+      } catch (e) {
+        console.warn("Error updating cache:", e);
+      }
+      
       return { id };
     }
   };

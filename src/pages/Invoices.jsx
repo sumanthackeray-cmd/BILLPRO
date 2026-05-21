@@ -8,10 +8,13 @@ import { Input } from "@/components/ui/input";
 import InvoiceForm from "@/components/invoices/InvoiceForm";
 import InvoicePrintPreview from "@/components/invoices/InvoicePrintPreview";
 import WhatsAppPanel from "@/components/invoices/WhatsAppPanel";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { generateAndUploadInvoicePDF } from "@/lib/pdf-share-utils";
+import { FileText, Eye, MessageCircle, Check, Plus, Search } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 export default function Invoices() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -46,7 +49,7 @@ export default function Invoices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["shopSettings"] });
-      toast.success("Invoice saved!");
+      toast.success(t("invoices.toast_saved"));
     },
   });
 
@@ -54,7 +57,7 @@ export default function Invoices() {
     mutationFn: ({ id, data }) => base44.entities.Invoice.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      toast.success("Invoice updated!");
+      toast.success(t("invoices.toast_updated"));
     },
   });
 
@@ -66,12 +69,12 @@ export default function Invoices() {
       const prefix = shopSettings.invoice_prefix || "INV-";
       const invoiceNumber = `${prefix}${String(counter).padStart(4, "0")}`;
       await base44.entities.Invoice.create({ ...formData, invoice_number: invoiceNumber });
-      if (shopSettings.id) {
+      if (shopSettings.id && !shopSettings.id.startsWith("seed")) {
         await base44.entities.ShopSettings.update(shopSettings.id, { invoice_counter: counter });
       }
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["shopSettings"] });
-      toast.success("Invoice created!");
+      toast.success(t("invoices.toast_created"));
     }
     setShowForm(false);
     setEditing(null);
@@ -82,18 +85,18 @@ export default function Invoices() {
   };
 
   const shareWhatsApp = async (inv) => {
-    const loadingToast = toast.loading("Generating & uploading PDF bill...");
+    const loadingToast = toast.loading(t("invoices.toast_pdf_generating"));
     try {
-      const pdfUrl = await generateAndUploadInvoicePDF(inv, shopSettings);
+      const pdfUrl = await generateAndUploadInvoicePDF(inv, shopSettings, true);
       const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "GSTBILL PRO SHOP" : shopSettings.shop_name;
       const msg = `🏪 *${shopName}*\n🧾 Invoice: *${inv.invoice_number}*\n\nDear *${inv.customer_name}*,\n\nThank you for shopping with us! Here is your invoice summary:\n📅 Date: ${inv.date}\n💰 Amount: *₹${(inv.grand_total || 0).toFixed(2)}*\n📊 Status: ${inv.status?.toUpperCase()}\n\n📁 *Download PDF Bill:* ${pdfUrl}\n\nThank you! 🙏`;
       const ph = (inv.customer_phone || "").replace(/\D/g, "");
       window.open(`https://wa.me/${ph ? "91" + ph : ""}?text=${encodeURIComponent(msg)}`, "_blank");
       toast.dismiss(loadingToast);
-      toast.success("WhatsApp opened!");
+      toast.success(t("invoices.toast_whatsapp_opened"));
     } catch (err) {
       toast.dismiss(loadingToast);
-      toast.error("Failed to share PDF: " + err.message);
+      toast.error(t("invoices.toast_pdf_failed") + err.message);
     }
   };
 
@@ -110,30 +113,30 @@ export default function Invoices() {
   });
 
   const FILTERS = [
-    { key: "all", label: "All" },
-    { key: "unpaid", label: "Unpaid" },
-    { key: "paid", label: "Paid" },
-    { key: "overdue", label: "Overdue" },
-    { key: "credit", label: "Credit Notes" },
-    { key: "debit", label: "Debit Notes" },
+    { key: "all", label: t("invoices.all") },
+    { key: "unpaid", label: t("invoices.unpaid") },
+    { key: "paid", label: t("invoices.paid") },
+    { key: "overdue", label: t("invoices.overdue") },
+    { key: "credit", label: t("invoices.credit_notes") },
+    { key: "debit", label: t("invoices.debit_notes") },
   ];
 
   return (
     <div className="animate-fade-up space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-black">📄 Invoices</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{invoices.length} total invoices</p>
+          <h1 className="text-xl font-black">📄 {t("invoices.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{invoices.length} {t("invoices.total_invoices")}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button className="gold-gradient text-black font-bold gap-2" onClick={() => { setFormType("sale"); setEditing(null); setShowForm(true); }}>
-            <Plus className="w-4 h-4" /> Sale Invoice
+            <Plus className="w-4 h-4" /> {t("invoices.sale_invoice")}
           </Button>
           <Button variant="outline" size="sm" onClick={() => { setFormType("credit_note"); setEditing(null); setShowForm(true); }}>
-            📋 Credit Note
+            📋 {t("invoices.credit_note")}
           </Button>
           <Button variant="outline" size="sm" onClick={() => { setFormType("debit_note"); setEditing(null); setShowForm(true); }}>
-            📋 Debit Note
+            📋 {t("invoices.debit_note")}
           </Button>
         </div>
       </div>
@@ -142,7 +145,7 @@ export default function Invoices() {
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search invoice or customer..." value={search} onChange={e => setSearch(e.target.value)} />
+          <Input className="pl-9" placeholder={t("invoices.search_placeholder")} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {FILTERS.map(f => (
@@ -162,7 +165,7 @@ export default function Invoices() {
         {filtered.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No invoices found</p>
+            <p>{t("invoices.no_invoices")}</p>
           </div>
         )}
         {filtered.map(inv => {
@@ -176,43 +179,43 @@ export default function Invoices() {
                     <span className="font-black text-sm font-mono">{inv.invoice_number}</span>
                     {isNote ? (
                       <Badge variant="outline" className={inv.type === "credit_note" ? "border-success/30 text-success" : "border-warning/30 text-warning"}>
-                        {inv.type === "credit_note" ? "CREDIT NOTE" : "DEBIT NOTE"}
+                        {inv.type === "credit_note" ? t("invoices.credit_note").toUpperCase() : t("invoices.debit_note").toUpperCase()}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className={`text-[10px] ${inv.status === "paid" ? "border-success/30 text-success" : ov ? "border-destructive/30 text-destructive" : "border-warning/30 text-warning"}`}>
-                        {ov ? "OVERDUE" : inv.status?.toUpperCase()}
+                        {ov ? t("invoices.overdue").toUpperCase() : t(`invoices.${inv.status}`).toUpperCase()}
                       </Badge>
                     )}
                     {inv.waybill_no && <Badge variant="outline" className="border-info/30 text-info text-[10px]">🚚 {inv.waybill_no}</Badge>}
-                    {inv.is_interstate && <Badge variant="outline" className="border-purple/30 text-purple text-[10px]">Interstate</Badge>}
+                    {inv.is_interstate && <Badge variant="outline" className="border-purple/30 text-purple text-[10px]">{t("invoices.interstate")}</Badge>}
                   </div>
                   <p className="font-semibold text-[14px]">{inv.customer_name}</p>
-                  <p className="text-[12px] text-muted-foreground">📅 {fmtDate(inv.date)} · Due: {fmtDate(inv.due_date)}</p>
-                  {ov && <p className="text-[11px] text-destructive font-bold mt-1">⚠️ {Math.floor((new Date() - new Date(inv.due_date)) / 86400000)} days overdue</p>}
+                  <p className="text-[12px] text-muted-foreground">📅 {fmtDate(inv.date)} · {t("invoices.due")}: {fmtDate(inv.due_date)}</p>
+                  {ov && <p className="text-[11px] text-destructive font-bold mt-1">⚠️ {Math.floor((new Date() - new Date(inv.due_date)) / 86400000)} {t("invoices.days_overdue")}</p>}
                 </div>
                 <div className="text-right shrink-0">
                   <p className={`text-xl font-black font-mono ${inv.status === "paid" ? "text-success" : ov ? "text-destructive" : "text-primary"}`}>
                     {fmtINR(inv.grand_total)}
                   </p>
                   {inv.paid_amount > 0 && inv.status !== "paid" && (
-                    <p className="text-[11px] text-muted-foreground">Paid: {fmtINR(inv.paid_amount)}</p>
+                    <p className="text-[11px] text-muted-foreground">{t("invoices.paid")}: {fmtINR(inv.paid_amount)}</p>
                   )}
                 </div>
               </div>
 
               <div className="flex gap-2 flex-wrap mt-3 pt-3 border-t border-border">
                 <Button size="sm" variant="ghost" onClick={() => { setEditing(inv); setFormType(inv.type || "sale"); setShowForm(true); }}>
-                  ✏️ Edit
+                  ✏️ {t("common.edit")}
                 </Button>
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPreviewInv(inv)}>
-                  <Eye className="w-3 h-3" /> Preview
+                  <Eye className="w-3 h-3" /> {t("invoices.view")}
                 </Button>
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={() => shareWhatsApp(inv)}>
                   <MessageCircle className="w-3 h-3" /> WhatsApp
                 </Button>
                 {inv.status !== "paid" && !isNote && (
                   <Button size="sm" variant="outline" className="gap-1.5 border-success/30 text-success hover:bg-success/10" onClick={() => markPaid(inv)}>
-                    <Check className="w-3 h-3" /> Mark Paid
+                    <Check className="w-3 h-3" /> {t("invoices.mark_paid")}
                   </Button>
                 )}
               </div>

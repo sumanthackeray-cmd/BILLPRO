@@ -4,10 +4,18 @@ import { Printer, Download, X } from "lucide-react";
 import { fmtINR, numToWords } from "@/lib/gst-utils";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { downloadInvoicePDF } from "@/lib/pdf-share-utils";
 
 window.html2canvas = html2canvas;
+
+// Helper to append cache-buster timestamp for CORS requests
+const getCORSImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("data:")) return url;
+  // Use weserv.nl image proxy to bypass any CORS restrictions on external storage/Firebase buckets
+  return `https://images.weserv.nl/?url=${encodeURIComponent(url)}`;
+};
 
 export function generateInvoiceHTML(inv, shop) {
   const isInterstate = inv.is_interstate;
@@ -37,8 +45,18 @@ export function generateInvoiceHTML(inv, shop) {
   const cgstTotal = isInterstate ? 0 : taxTotal / 2;
   const sgstTotal = isInterstate ? 0 : taxTotal / 2;
   const igstTotal = isInterstate ? taxTotal : 0;
-  const discAmt = subtotal * ((inv.discount || 0) / 100);
-  const grand = subtotal - discAmt + taxTotal;
+  
+  let discAmt = 0;
+  let grand = 0;
+  
+  if (inv.grand_total !== undefined && inv.subtotal !== undefined) {
+    grand = inv.grand_total;
+    const diff = (inv.subtotal + inv.tax_amount) - inv.grand_total;
+    discAmt = diff > 0.01 ? diff : 0;
+  } else {
+    discAmt = subtotal * ((inv.discount || 0) / 100);
+    grand = subtotal - discAmt + taxTotal;
+  }
 
   return `<!DOCTYPE html>
 <html>
@@ -85,7 +103,7 @@ export function generateInvoiceHTML(inv, shop) {
   <!-- Header -->
   <div class="header">
     <div class="logo-area">
-      ${shop?.logo_url ? `<img src="${shop.logo_url}" style="height:48px;object-fit:contain;margin-bottom:4px;" />` : ""}
+      ${shop?.logo_url ? `<img src="${getCORSImageUrl(shop.logo_url)}" crossorigin="anonymous" style="height:48px;object-fit:contain;margin-bottom:4px;" />` : ""}
       <div class="shop-name">${(!shop || !shop.shop_name || shop.shop_name === "Vogats") ? "Your Business" : shop.shop_name}</div>
       <div class="shop-info">
         ${shop?.gstin ? `GSTIN: ${shop.gstin}<br>` : ""}
@@ -144,7 +162,7 @@ export function generateInvoiceHTML(inv, shop) {
   <div class="totals-row">
     <div class="totals-box">
       <div class="total-line"><span>Subtotal</span><span>₹${subtotal.toFixed(2)}</span></div>
-      ${inv.discount > 0 ? `<div class="total-line"><span>Discount (${inv.discount}%)</span><span>−₹${discAmt.toFixed(2)}</span></div>` : ""}
+      ${discAmt > 0.01 ? `<div class="total-line"><span>Discount ${inv.discount ? `(${inv.discount}%)` : ""}</span><span>−₹${discAmt.toFixed(2)}</span></div>` : ""}
       ${!isInterstate ? `
         <div class="total-line"><span>CGST</span><span>₹${cgstTotal.toFixed(2)}</span></div>
         <div class="total-line"><span>SGST</span><span>₹${sgstTotal.toFixed(2)}</span></div>
@@ -192,7 +210,7 @@ export function generateInvoiceHTML(inv, shop) {
       <div>We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</div>
     </div>
     <div class="sign-area">
-      ${shop?.signature_url ? `<img src="${shop.signature_url}" class="sign-img" />` : `<div style="height:50px;"></div>`}
+      ${shop?.signature_url ? `<img src="${getCORSImageUrl(shop.signature_url)}" crossorigin="anonymous" class="sign-img" />` : `<div style="height:50px;"></div>`}
       <div class="sign-label">For ${(!shop || !shop.shop_name || shop.shop_name === "Vogats") ? "Authorized Signatory" : shop.shop_name}</div>
     </div>
   </div>
@@ -220,7 +238,7 @@ export default function InvoicePrintPreview({ open, onOpenChange, invoice, shopS
   const handleDownload = async () => {
     try {
       toast.loading("Generating PDF...", { id: "inv-pdf" });
-      await downloadInvoicePDF(invoice, shopSettings);
+      await downloadInvoicePDF(invoice, shopSettings, true);
       toast.success("PDF downloaded!", { id: "inv-pdf" });
     } catch (err) {
       toast.error("Failed to generate PDF: " + err.message, { id: "inv-pdf" });
@@ -229,7 +247,7 @@ export default function InvoicePrintPreview({ open, onOpenChange, invoice, shopS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col bg-white p-0 gap-0">
+      <DialogContent showClose={false} className="max-w-5xl max-h-[90vh] flex flex-col bg-white p-0 gap-0">
         {/* Toolbar */}
         <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border shrink-0">
           <div>
@@ -241,7 +259,7 @@ export default function InvoicePrintPreview({ open, onOpenChange, invoice, shopS
               <Download className="w-3.5 h-3.5" /> Download
             </Button>
             <Button size="sm" className="gold-gradient text-black font-bold gap-1.5" onClick={handlePrint}>
-              <Printer className="w-3.5 h-3.5" /> Print
+              <Printer className="w-3.5 h-3.5" /> Re-print
             </Button>
             <button onClick={() => onOpenChange(false)} className="p-1 text-muted-foreground hover:text-foreground ml-1">
               <X className="w-5 h-5" />
