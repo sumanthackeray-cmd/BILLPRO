@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
   Users, BarChart3, Settings, Sparkles, ScanBarcode, LogOut, Crown,
-  Receipt, BookOpen, Landmark, Building2, Zap, GitBranch, RefreshCw, Warehouse, TrendingUp, Shield, ScanLine
+  Receipt, BookOpen, Landmark, Building2, Zap, GitBranch, RefreshCw, Warehouse, TrendingUp, Shield
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -33,8 +33,6 @@ const NAV_ITEMS = [
   { path: "/inventory-sync", icon: RefreshCw, label: "Inventory Sync", badge: "LIVE", tKey: "nav.invsync" },
   { path: "/stock-transfer", icon: Truck, label: "Stock Transfer", tKey: "nav.stocktransfer" },
   { path: "/warehouse", icon: Warehouse, label: "Warehouse Hub", badge: "SAP", tKey: "nav.warehouse" },
-  { path: "/manufacturing", icon: Building2, label: "Manufacturing ERP", badge: "FACTORY", tKey: "nav.manufacturing" },
-  { path: "/manufacturing-workstation", icon: ScanLine, label: "MES Workstation", badge: "MES", tKey: "nav.mes_workstation" },
 
   { path: "/enterprise-intel", icon: TrendingUp, label: "Enterprise Intel", badge: "AI", tKey: "nav.enterprise_intel" },
   { path: "/finance", icon: Landmark, label: "Finance Hub", badge: "ERP", tKey: "nav.finance" },
@@ -136,10 +134,6 @@ export default function Sidebar({ mobile = false, onClose }) {
   const filteredNavItems = NAV_ITEMS.filter((item) => {
     if (!user) return true;
     
-    // Hide manufacturing module if shop is not a manufacturer
-    if ((item.path === "/manufacturing" || item.path === "/manufacturing-workstation") && shopSettings.business_type !== "manufacturer") {
-      return false;
-    }
 
     
     // Essential core pages
