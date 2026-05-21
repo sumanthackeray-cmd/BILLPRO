@@ -22,6 +22,14 @@ export function initializeAuditLogging(firebaseDb) {
   db = firebaseDb;
 }
 
+const getAuditLogsCollection = () => {
+  const companyId = localStorage.getItem("company_id");
+  if (companyId) {
+    return collection(db, "companies", companyId, "auditLogs");
+  }
+  return collection(db, "auditLogs");
+};
+
 /**
  * Action types for audit logging
  */
@@ -145,7 +153,7 @@ export async function logAuditAction(auditData) {
       createdAt: new Date().toISOString(),
     };
 
-    const docRef = await addDoc(collection(db, 'auditLogs'), auditLog);
+    const docRef = await addDoc(getAuditLogsCollection(), auditLog);
     return docRef.id;
   } catch (error) {
     console.error('Error logging audit action:', error);
@@ -165,7 +173,7 @@ export async function getEntityAuditLogs(entityType, entityId, limitCount = 50) 
 
   try {
     const q = query(
-      collection(db, 'auditLogs'),
+      getAuditLogsCollection(),
       where('entityType', '==', entityType),
       where('entityId', '==', entityId),
       orderBy('timestamp', 'desc'),
@@ -197,7 +205,7 @@ export async function getUserAuditLogs(userId, branchId = null, limitCount = 100
     let q;
     if (branchId) {
       q = query(
-        collection(db, 'auditLogs'),
+        getAuditLogsCollection(),
         where('userId', '==', userId),
         where('branchId', '==', branchId),
         orderBy('timestamp', 'desc'),
@@ -205,7 +213,7 @@ export async function getUserAuditLogs(userId, branchId = null, limitCount = 100
       );
     } else {
       q = query(
-        collection(db, 'auditLogs'),
+        getAuditLogsCollection(),
         where('userId', '==', userId),
         orderBy('timestamp', 'desc'),
         limit(limitCount)
@@ -234,7 +242,7 @@ export async function getBranchAuditLogs(branchId, limitCount = 500) {
 
   try {
     const q = query(
-      collection(db, 'auditLogs'),
+      getAuditLogsCollection(),
       where('branchId', '==', branchId),
       orderBy('timestamp', 'desc'),
       limit(limitCount)

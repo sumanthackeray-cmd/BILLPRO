@@ -15,7 +15,8 @@ import { base44 } from "@/api/base44Client";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
-import ResetPassword from "@/pages/ResetPassword";
+import ResetPassword from "./pages/ResetPassword";
+import Unauthorized from "./pages/Unauthorized";
 
 import AppLayout from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
@@ -28,6 +29,8 @@ import Barcode from "@/pages/Barcode";
 import Reports from "@/pages/Reports";
 import AIInsights from "@/pages/AllInsights";
 import Settings from "@/pages/Settings";
+import UsersSettings from "@/pages/settings/Users";
+import PermissionsSettings from "@/pages/settings/Permissions";
 import Subscription from "@/pages/Subscription";
 import Expenses from "@/pages/Expenses";
 import Accounting from "@/pages/Accounting";
@@ -38,8 +41,11 @@ import BranchManagement from "@/pages/BranchManagement";
 import InventorySync from "@/pages/InventorySync";
 import StockTransfer from "@/pages/StockTransfer";
 import WarehouseManagement from "@/pages/WarehouseManagement";
+import ManufacturingERP from "@/pages/ManufacturingERP";
 import EnterpriseIntelligence from "@/pages/EnterpriseIntelligence";
-
+import FinanceModule from "@/modules/accounting/FinanceModule";
+import AuditLogPage from "@/modules/audit/AuditLogPage";
+import OnboardingWizard from "@/modules/registration/OnboardingWizard";
 
 const AuthenticatedApp = () => {
   const { user, isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -93,6 +99,8 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/unauthorized" element={<Unauthorized />} />
+      <Route path="/onboarding" element={<OnboardingWizard />} />
 
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route path="/pos" element={<POS />} />
@@ -107,6 +115,8 @@ const AuthenticatedApp = () => {
           <Route path="/reports" element={<Reports />} />
           <Route path="/ai-insights" element={<AIInsights />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/users" element={<UsersSettings />} />
+          <Route path="/settings/permissions" element={<PermissionsSettings />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/accounting" element={<Accounting />} />
           <Route path="/loans" element={<Loans />} />
@@ -116,7 +126,14 @@ const AuthenticatedApp = () => {
           <Route path="/inventory-sync" element={<InventorySync />} />
           <Route path="/stock-transfer" element={<StockTransfer />} />
           <Route path="/warehouse" element={<WarehouseManagement />} />
+          <Route path="/manufacturing" element={<ManufacturingERP />} />
           <Route path="/enterprise-intel" element={<EnterpriseIntelligence />} />
+          <Route path="/finance" element={<FinanceModule />} />
+          <Route path="/audit-logs" element={
+            user?.role === "owner" || user?.role === "ceo" || user?.role === "ca" 
+              ? <AuditLogPage /> 
+              : <Navigate to="/unauthorized" replace />
+          } />
         </Route>
       </Route>
 

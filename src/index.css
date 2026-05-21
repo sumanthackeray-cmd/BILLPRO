@@ -184,7 +184,6 @@
   max-height: 95dvh !important;
   display: flex !important;
   flex-direction: column;
-  overflow: visible !important;
 }
 
 /* For flex-column dialogs, let inner direct children size correctly */
@@ -217,10 +216,8 @@
    TABLE OVERFLOW ON MOBILE
    ==================================================== */
 table {
-  display: block;
   width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
 }
 
 @media (max-width: 640px) {
@@ -301,4 +298,15 @@ table {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
+}
+
+/* WhatsApp Wallpaper Custom Backgrounds */
+.whatsapp-wallpaper {
+  background-color: #efeae2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='%23b4a595' fill-opacity='0.12'%3E%3Cpath d='M10 20c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zm30 10c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zM20 50c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zm40 10c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zM60 10c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.dark .whatsapp-wallpaper {
+  background-color: #0b141a;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M10 20c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zm30 10c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zM20 50c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zm40 10c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zM60 10c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4z'/%3E%3C/g%3E%3C/svg%3E");
 }

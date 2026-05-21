@@ -76,7 +76,7 @@ export function generateThermalHTML(inv = {}, shop = {}, printerSize = "58mm") {
   if (shop.logo_url) {
     logoHtml = `
       <div class="shop-logo" style="width:52px;height:52px;margin: 0 auto 12px;background:transparent;border-radius:0;display:flex;align-items:center;justify-content:center;overflow:hidden;">
-        <img src="${getCORSImageUrl(shop.logo_url)}" crossorigin="anonymous" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;" />
+        <img src="${getCORSImageUrl(shop.logo_url)}" crossorigin="anonymous" class="receipt-logo" alt="Logo" style="max-width: 52px; max-height: 52px; width: auto; height: auto;" />
       </div>
     `;
   } else {
@@ -110,7 +110,7 @@ export function generateThermalHTML(inv = {}, shop = {}, printerSize = "58mm") {
     const svgWidth = is80mm ? 260 : 200;
     const svgHeight = is80mm ? 30 : 24;
     let rects = "";
-    let currX = 2;
+    let currX = 0;
     for (let i = 0; i < 28; i++) {
       const code = barcodeVal.charCodeAt(i % barcodeVal.length) + i;
       const w = code % 3 === 0 ? 3.5 : code % 3 === 1 ? 1.5 : 2.5;
@@ -119,9 +119,9 @@ export function generateThermalHTML(inv = {}, shop = {}, printerSize = "58mm") {
       if (currX > svgWidth - 10) break;
     }
     barcodeHtml = `
-      <div class="barcode-section">
-        <svg class="barcode-svg ${is80mm ? 'wide' : ''}" viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="none">
-          <rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="white"/>
+      <div class="barcode-section" style="text-align: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee; width: 100%;">
+        <svg class="barcode-svg ${is80mm ? 'wide' : ''}" viewBox="0 0 ${currX} ${svgHeight}" preserveAspectRatio="none" style="display: block; margin: 0 auto 4px; width: ${is80mm ? '180px' : '140px'}; height: ${is80mm ? '30px' : '24px'}; background: white;">
+          <rect x="0" y="0" width="${currX}" height="${svgHeight}" fill="white"/>
           <g fill="#111">${rects}</g>
         </svg>
         <div class="barcode-number ${is80mm ? 'wide' : ''}">${barcodeVal}</div>
@@ -212,8 +212,8 @@ export function generateThermalHTML(inv = {}, shop = {}, printerSize = "58mm") {
     .gst-modern-receipt .upi-id { font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #999; }
     .gst-modern-receipt .upi-id.wide { font-size: 9px; }
     .gst-modern-receipt .barcode-section { margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee; text-align: center; }
-    .gst-modern-receipt .barcode-svg { width: 100%; height: 24px; margin-bottom: 4px; }
-    .gst-modern-receipt .barcode-svg.wide { height: 30px; }
+    .gst-modern-receipt .barcode-svg { width: 140px; height: 24px; margin: 0 auto 4px; display: block; }
+    .gst-modern-receipt .barcode-svg.wide { width: 180px; height: 30px; }
     .gst-modern-receipt .barcode-number { font-family: 'IBM Plex Mono', monospace; font-size: 7.5px; letter-spacing: 2px; color: #aaa; }
     .gst-modern-receipt .barcode-number.wide { font-size: 8.5px; letter-spacing: 3px; }
     .gst-modern-receipt .w58 { width: 218px; }
@@ -307,6 +307,81 @@ export function generateThermalHTML(inv = {}, shop = {}, printerSize = "58mm") {
   `;
 }
 
+// Helper: Wait for all images to fully load
+const waitForImages = async (container) => {
+  const imgs = Array.from(container.getElementsByTagName("img"));
+  const promises = imgs.map((img) => {
+    if (img.complete) return Promise.resolve();
+    return new Promise((resolve) => {
+      img.onload = resolve;
+      img.onerror = resolve; // resolve anyway on error to avoid blocking
+    });
+  });
+  await Promise.all(promises);
+};
+
+// Helper: Lock image sizes to prevent squishing/stretching in html2canvas
+const lockImageDimensions = (container) => {
+  const imgs = Array.from(container.getElementsByTagName("img"));
+  imgs.forEach((img) => {
+    const natW = img.naturalWidth;
+    const natH = img.naturalHeight;
+    if (natW && natH) {
+      const win = img.ownerDocument.defaultView || window;
+      let maxW = natW;
+      let maxH = natH;
+      
+      try {
+        const computedStyle = win.getComputedStyle(img);
+        maxW = parseFloat(computedStyle.maxWidth) || img.offsetWidth || natW;
+        maxH = parseFloat(computedStyle.maxHeight) || img.offsetHeight || natH;
+      } catch (e) {
+        maxW = img.offsetWidth || natW;
+        maxH = img.offsetHeight || natH;
+      }
+
+      if (!maxW || maxW === 0 || isNaN(maxW)) maxW = natW;
+      if (!maxH || maxH === 0 || isNaN(maxH)) maxH = natH;
+
+      // Special overrides for A4 templates logo/signature and B2C receipt logo
+      if (img.classList.contains("sign-img")) {
+        maxW = 120;
+        maxH = 50;
+      } else if (img.classList.contains("logo-img")) {
+        maxW = 150;
+        maxH = 48;
+      } else if (img.classList.contains("receipt-logo")) {
+        maxW = 52;
+        maxH = 52;
+      } else if (img.style.maxHeight === "48px" || (img.src && img.src.includes("logo"))) {
+        maxW = 150;
+        maxH = 48;
+      }
+
+      const ratio = natW / natH;
+      let newW = natW;
+      let newH = natH;
+
+      // Maintain proportional aspect ratio within constraints
+      if (newW > maxW) {
+        newW = maxW;
+        newH = newW / ratio;
+      }
+      if (newH > maxH) {
+        newH = maxH;
+        newW = newH * ratio;
+      }
+
+      img.style.width = `${newW}px`;
+      img.style.height = `${newH}px`;
+      img.style.maxWidth = "none";
+      img.style.maxHeight = "none";
+      img.style.objectFit = "contain";
+      img.style.alignSelf = "flex-start"; // Prevent Flexbox stretch
+    }
+  });
+};
+
 // Render thermal slip to PDF
 async function renderThermalToPDFBlob(inv, shop, printerSize = "58mm") {
   const is80mm = printerSize === "80mm";
@@ -326,7 +401,35 @@ async function renderThermalToPDFBlob(inv, shop, printerSize = "58mm") {
   document.body.appendChild(tempDiv);
 
   // Wait for rendering and image load (qr code, logo, etc.)
-  await new Promise((r) => setTimeout(r, 450));
+  await waitForImages(tempDiv);
+  lockImageDimensions(tempDiv);
+
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+  } catch (e) {
+    console.warn("Document fonts loading promise failed", e);
+  }
+
+  // Inject standard text rendering stabilizer styles specifically for the html2canvas engine capture
+  const stabilizerStyle = document.createElement("style");
+  stabilizerStyle.innerHTML = `
+    .gst-modern-receipt * {
+      letter-spacing: normal !important;
+      word-spacing: normal !important;
+      font-variant-numeric: lnum tabular-nums !important;
+      -webkit-font-smoothing: antialiased !important;
+      -moz-osx-font-smoothing: grayscale !important;
+    }
+    .gst-modern-receipt .item-grid {
+      align-items: center !important;
+    }
+    .gst-modern-receipt .meta-row {
+      align-items: center !important;
+    }
+  `;
+  tempDiv.appendChild(stabilizerStyle);
 
   try {
     const canvas = await html2canvas(tempDiv, {
@@ -386,21 +489,41 @@ async function renderInvoiceToPDFBlob(inv, shop, forceA4 = false) {
   // Standard A4 template generation for B2B or fallback
   const html = generateInvoiceHTML(inv, shop);
 
-  const tempDiv = document.createElement("div");
-  tempDiv.style.position = "absolute";
-  tempDiv.style.left = "-9999px";
-  tempDiv.style.top = "0";
-  tempDiv.style.width = "800px";
-  tempDiv.style.background = "#fff";
-  tempDiv.style.padding = "0";
-  tempDiv.innerHTML = html;
-  document.body.appendChild(tempDiv);
+  // Use a dynamic iframe to isolate rendering, completely avoiding parent stylesheet (Tailwind, reset) leakage
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "absolute";
+  iframe.style.left = "-9999px";
+  iframe.style.top = "0";
+  iframe.style.width = "800px";
+  iframe.style.height = "1130px";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
 
-  // Wait for fonts/images to load
-  await new Promise((r) => setTimeout(r, 300));
+  const docContext = iframe.contentWindow.document;
+  docContext.open();
+  docContext.write(html);
+  docContext.close();
+
+  // Wait for loading inside iframe context
+  await new Promise((r) => {
+    iframe.onload = r;
+    setTimeout(r, 600); // safety fallback
+  });
+
+  const iframeBody = iframe.contentWindow.document.body;
+  await waitForImages(iframeBody);
+  lockImageDimensions(iframeBody);
 
   try {
-    const canvas = await html2canvas(tempDiv, {
+    if (iframe.contentWindow.document.fonts && iframe.contentWindow.document.fonts.ready) {
+      await iframe.contentWindow.document.fonts.ready;
+    }
+  } catch (e) {
+    console.warn("Iframe fonts loading promise failed", e);
+  }
+
+  try {
+    const canvas = await html2canvas(iframeBody, {
       scale: 2,
       useCORS: true,
       backgroundColor: "#ffffff",
@@ -409,7 +532,7 @@ async function renderInvoiceToPDFBlob(inv, shop, forceA4 = false) {
       windowWidth: 800,
     });
 
-    document.body.removeChild(tempDiv);
+    document.body.removeChild(iframe);
 
     const imgData = canvas.toDataURL("image/jpeg", 0.95);
     const imgWidth = 595.28; // A4 width in points
@@ -434,8 +557,8 @@ async function renderInvoiceToPDFBlob(inv, shop, forceA4 = false) {
 
     return doc;
   } catch (err) {
-    if (document.body.contains(tempDiv)) {
-      document.body.removeChild(tempDiv);
+    if (document.body.contains(iframe)) {
+      document.body.removeChild(iframe);
     }
     throw err;
   }

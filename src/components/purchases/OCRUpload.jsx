@@ -54,6 +54,7 @@ Extract:
 Return structured JSON strictly matching the schema. If a field is not found, use null or empty.
 For items, extract as many as you can find. Be thorough - check every line of the bill.`,
         file_urls: file_url ? [file_url] : [],
+        file: file,
         response_json_schema: {
           type: "object",
           properties: {

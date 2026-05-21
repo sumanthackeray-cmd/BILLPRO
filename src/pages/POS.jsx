@@ -23,6 +23,7 @@ import { Link } from "react-router-dom";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useAuth } from "@/lib/AuthContext";
+import { usePermission } from "@/hooks/usePermission";
 import { useTheme } from "next-themes";
 import { generateAndUploadInvoicePDF, downloadInvoicePDF, getInvoicePDFBlob, generateThermalHTML } from "@/lib/pdf-share-utils";
 import InvoicePrintPreview from "@/components/invoices/InvoicePrintPreview";
@@ -104,6 +105,8 @@ const formatReceiptDate = (dateStr) => {
 
 export default function POS() {
   const { user } = useAuth();
+  const canDiscount = usePermission('pos', 'discount');
+  const canShift = usePermission('pos', 'shift');
   const queryClient = useQueryClient();
   const { language, setLanguage, voiceEnabled, setVoiceEnabled, t, speak } = useLanguage();
   const { theme, setTheme } = useTheme();
@@ -171,7 +174,7 @@ export default function POS() {
   const [variantSize, setVariantSize] = useState("");
   const [variantColor, setVariantColor] = useState("");
 
-  // ── SUBSYSTEM A: Multi-Counter Shift & Cash Drawer Control States ──
+  //  SUBSYSTEM A: Multi-Counter Shift & Cash Drawer Control States 
   // Load staff list from Settings (stored in localStorage by Settings page)
   const staffList = (() => {
     try { return JSON.parse(localStorage.getItem("gst_shop_staff_list") || "[]"); }
@@ -320,7 +323,7 @@ export default function POS() {
     }
     const startingCash = parseFloat(openStartingCashInput) || 0;
 
-    // 🔒 Permanently save this device's counter (persists across sessions)
+    //  Permanently save this device's counter (persists across sessions)
     localStorage.setItem("gst_pos_my_device_counter", openCounterInput);
     setMyDeviceCounter(openCounterInput);
 
@@ -333,12 +336,12 @@ export default function POS() {
     setIsCounterPickerOpen(false);
     toast.success(
       language === "hi"
-        ? `कैशियर शिफ्ट शुरू हो गई है! ₹${startingCash.toLocaleString("en-IN")} के साथ कैश ड्रावर खुल गया है।`
-        : `Shift activated! Cash drawer unlocked with ₹${startingCash.toLocaleString("en-IN")}`
+        ? `कैशियर शिफ्ट शुरू हो गई है! ${startingCash.toLocaleString("en-IN")} के साथ कैश ड्रावर खुल गया है।`
+        : `Shift activated! Cash drawer unlocked with ${startingCash.toLocaleString("en-IN")}`
     );
   };
 
-  // ── SUBSYSTEM B: Queue Management Ticker ──
+  //  SUBSYSTEM B: Queue Management Ticker 
   const [timeTicker, setTimeTicker] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setTimeTicker(prev => prev + 1), 10000);
@@ -353,7 +356,7 @@ export default function POS() {
     return `${diffMins}m ago`;
   };
 
-  // ── SUBSYSTEM C: Loyalty Points Ledger States & Functions ──
+  //  SUBSYSTEM C: Loyalty Points Ledger States & Functions 
   const [loyaltyLedger, setLoyaltyLedger] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("gst_pos_loyalty_ledger") || "{}");
@@ -375,7 +378,7 @@ export default function POS() {
     return { name: "Platinum", color: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" };
   };
 
-  // ── SUBSYSTEM E: Batch & Tier pricing Popover States ──
+  //  SUBSYSTEM E: Batch & Tier pricing Popover States 
   const [selectedDetailProduct, setSelectedDetailProduct] = useState(null);
   const [isDetailProductDialogOpen, setIsDetailProductDialogOpen] = useState(false);
   const [detailRate, setDetailRate] = useState(0);
@@ -418,7 +421,7 @@ export default function POS() {
     toast.success("Pricing and Batch options applied!");
   };
 
-  // ── SUBSYSTEM G: Offline-First Billing & Sync Queue states ──
+  //  SUBSYSTEM G: Offline-First Billing & Sync Queue states 
   const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   const syncOfflineQueue = async () => {
@@ -444,7 +447,7 @@ export default function POS() {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       
       if (syncedCount > 0) {
-        toast.success(`✅ Synced ${syncedCount} offline transaction(s) to cloud database successfully!`);
+        toast.success(` Synced ${syncedCount} offline transaction(s) to cloud database successfully!`);
       }
     } catch (e) {
       console.error(e);
@@ -454,12 +457,12 @@ export default function POS() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      toast.success("🌐 Internet connection restored! Syncing offline database...");
+      toast.success(" Internet connection restored! Syncing offline database...");
       syncOfflineQueue();
     };
     const handleOffline = () => {
       setIsOnline(false);
-      toast.warning("🔌 Connection lost. POS running in Local Offline Mode.");
+      toast.warning(" Connection lost. POS running in Local Offline Mode.");
     };
     
     window.addEventListener("online", handleOnline);
@@ -503,7 +506,7 @@ export default function POS() {
   const [printingStatus, setPrintingStatus] = useState("");
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
 
-  // ── NEW: Quick Add Product panel ──────────────────────────────────────────
+  //  NEW: Quick Add Product panel 
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [quickAddForm, setQuickAddForm] = useState({
@@ -515,7 +518,7 @@ export default function POS() {
   const [imageUploading, setImageUploading] = useState(false);
   const imageInputRef = useRef(null);
 
-  // ── NEW: Billing History panel ────────────────────────────────────────────
+  //  NEW: Billing History panel 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historySearchTerm, setHistorySearchTerm] = useState("");
   const [historyPayFilter, setHistoryPayFilter] = useState("all");
@@ -536,7 +539,7 @@ export default function POS() {
     enabled: isHistoryOpen || !!editingInvoiceId,
   });
 
-  // ── NEW: Smart Search — Voice + Suggestions ───────────────────────────────
+  //  NEW: Smart Search  Voice + Suggestions 
   const [isListening, setIsListening] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [recentlySold, setRecentlySold] = useState([]);
@@ -790,11 +793,11 @@ export default function POS() {
       const diffTime = expDate - today;
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       if (diffDays < 0) {
-        toast.error(language === "hi" ? `⚠️ यह दवा एक्सपायर हो चुकी है: ${product.name}` : `⚠️ This medicine has EXPIRED: ${product.name}!`);
+        toast.error(language === "hi" ? `️ यह दवा एक्सपायर हो चुकी है: ${product.name}` : `️ This medicine has EXPIRED: ${product.name}!`);
         speak(language === "hi" ? "यह दवा एक्सपायर हो चुकी है" : "This medicine has expired", true);
         return;
       } else if (diffDays <= 60) {
-        toast.warning(language === "hi" ? `⚠️ एक्सपायरी चेतावनी: ${product.name} ${diffDays} दिनों में एक्सपायर होने वाली है!` : `⚠️ Expiry Warning: ${product.name} will expire in ${diffDays} days!`);
+        toast.warning(language === "hi" ? `️ एक्सपायरी चेतावनी: ${product.name} ${diffDays} दिनों में एक्सपायर होने वाली है!` : `️ Expiry Warning: ${product.name} will expire in ${diffDays} days!`);
         speak(language === "hi" ? "सावधान! यह दवा जल्द ही एक्सपायर होने वाली है" : "Warning, this medicine is close to expiry", true);
       }
     }
@@ -953,7 +956,7 @@ export default function POS() {
     }
   };
 
-  // ── SUBSYSTEM D: Automatic Combo / BOGO Engine ──
+  //  SUBSYSTEM D: Automatic Combo / BOGO Engine 
   const cartOffers = useMemo(() => {
     return cart.reduce((totalDiscount, item) => {
       const bogoDiscount = Math.floor(item.qty / 2) * item.rate;
@@ -996,7 +999,7 @@ export default function POS() {
       toast.error("Cart is empty");
       return;
     }
-    // Auto-activate shift silently if not active (shift is optional tracking — never block checkout)
+    // Auto-activate shift silently if not active (shift is optional tracking  never block checkout)
     if (!isShiftActive) {
       const defaultCashier = currentCashier || myDeviceCounter || "Cashier";
       const defaultCounter = currentCounter || myDeviceCounter || "Counter 1";
@@ -1070,7 +1073,7 @@ export default function POS() {
         queue.push(createdInvoice);
         localStorage.setItem("gst_pos_offline_invoice_sync_queue", JSON.stringify(queue));
 
-        toast.warning("🔌 Connection offline. Invoice processed and queued for cloud sync!");
+        toast.warning(" Connection offline. Invoice processed and queued for cloud sync!");
       } else {
         // Online Standard / Edit mode checkout
         if (editingInvoiceId) {
@@ -1210,7 +1213,7 @@ export default function POS() {
         }
       }
 
-      // ── Accrue / Deduct Loyalty Points ──
+      //  Accrue / Deduct Loyalty Points 
       if (selectedCustomerId !== "walk-in") {
         const earned = Math.floor(finalTotal / 100);
         const currentPoints = loyaltyLedger[selectedCustomerId] || 0;
@@ -1218,10 +1221,10 @@ export default function POS() {
         const updatedLedger = { ...loyaltyLedger, [selectedCustomerId]: Math.max(0, nextPoints) };
         setLoyaltyLedger(updatedLedger);
         localStorage.setItem("gst_pos_loyalty_ledger", JSON.stringify(updatedLedger));
-        toast.info(`🏆 Loyalty Account: Earned ${earned} pts! New Balance: ${Math.max(0, nextPoints)} pts.`);
+        toast.info(` Loyalty Account: Earned ${earned} pts! New Balance: ${Math.max(0, nextPoints)} pts.`);
       }
 
-      // ── Shift Tracking ──
+      //  Shift Tracking 
       if (isShiftActive) {
         setShiftInvoices(prev => {
           const next = [...prev, createdInvoice];
@@ -1267,7 +1270,7 @@ export default function POS() {
     }
   };
 
-  // ── Quick Add Product handlers ────────────────────────────────────────────
+  //  Quick Add Product handlers 
   const openQuickAdd = () => {
     const newBarcode = generateBarcode();
     setQuickAddForm(prev => ({
@@ -1323,7 +1326,7 @@ export default function POS() {
       };
       const created = await base44.entities.Product.create(productData);
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast.success(`✅ "${created.name}" added to inventory!`);
+      toast.success(` "${created.name}" added to inventory!`);
       if (andPrint) {
         setTimeout(() => window.print(), 400);
       }
@@ -1335,7 +1338,7 @@ export default function POS() {
     }
   };
 
-  // ── Billing History handlers ───────────────────────────────────────────────
+  //  Billing History handlers 
   const duplicateInvoiceToCart = (invoice) => {
     if (!invoice) return;
     
@@ -1460,7 +1463,7 @@ export default function POS() {
     setDiscountValue(0); 
     setPaymentMethod(invoice.payment_method || "cash");
     
-    toast.info(`✏️ Editing Invoice ${invoice.invoice_number}. Adjust items and checkout to save changes.`);
+    toast.info(`️ Editing Invoice ${invoice.invoice_number}. Adjust items and checkout to save changes.`);
     setIsHistoryOpen(false);
     setSelectedHistoryInvoice(null);
   };
@@ -1518,7 +1521,7 @@ export default function POS() {
     }
   };
 
-  // ── Voice Search ─────────────────────────────────────────────────────────
+  //  Voice Search 
   const startVoiceSearch = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) { toast.error("Voice search not supported in this browser"); return; }
@@ -1536,7 +1539,7 @@ export default function POS() {
       const transcript = e.results[0][0].transcript;
       setSearchTerm(transcript);
       setShowSuggestions(true);
-      toast.success(`🎤 "${transcript}"`);
+      toast.success(` "${transcript}"`);
     };
     recognition.onerror = () => { setIsListening(false); toast.error("Voice search error"); };
     recognition.onend = () => setIsListening(false);
@@ -1557,8 +1560,8 @@ export default function POS() {
     const loadingToast = toast.loading("Generating PDF bill...");
     try {
       const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "GSTBILL PRO SHOP" : shopSettings.shop_name;
-      const itemsText = latestInvoice.items.map(item => `- ${item.name} (${item.qty} x ₹${item.rate})`).join("\n");
-      const message = `🏪 *${shopName}*\n\nDear *${latestInvoice.customer_name}*,\n\nThank you for shopping with us! Here is your invoice summary:\n\n*Invoice No:* ${latestInvoice.invoice_number}\n*Date:* ${latestInvoice.date}\n------------------------\n*Items:*\n${itemsText}\n------------------------\n*Subtotal:* ₹${latestInvoice.subtotal.toFixed(2)}\n*Tax (GST):* ₹${latestInvoice.tax_amount.toFixed(2)}\n*Total Paid:* ₹${latestInvoice.grand_total.toFixed(2)}\n\nHave a great day! 🙏`;
+      const itemsText = latestInvoice.items.map(item => `- ${item.name} (${item.qty} x ${item.rate})`).join("\n");
+      const message = ` *${shopName}*\n\nDear *${latestInvoice.customer_name}*,\n\nThank you for shopping with us! Here is your invoice summary:\n\n*Invoice No:* ${latestInvoice.invoice_number}\n*Date:* ${latestInvoice.date}\n------------------------\n*Items:*\n${itemsText}\n------------------------\n*Subtotal:* ${latestInvoice.subtotal.toFixed(2)}\n*Tax (GST):* ${latestInvoice.tax_amount.toFixed(2)}\n*Total Paid:* ${latestInvoice.grand_total.toFixed(2)}\n\nHave a great day! `;
 
       // Try native Web Share API with PDF file attachment
       const pdfFile = await getInvoicePDFBlob(latestInvoice, shopSettings);
@@ -1578,7 +1581,7 @@ export default function POS() {
         link.click();
         URL.revokeObjectURL(link.href);
         
-        const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message + "\n\n📎 PDF bill downloaded — please attach manually.")}`;
+        const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message + "\n\n PDF bill downloaded  please attach manually.")}`;
         window.open(url, "_blank");
         toast.dismiss(loadingToast);
         toast.success("PDF downloaded! Attach it in WhatsApp.");
@@ -1673,6 +1676,7 @@ export default function POS() {
           {/* Shift Management Button */}
           <button
             type="button"
+            disabled={!canShift}
             onClick={() => {
               if (isShiftActive) {
                 setIsShiftCloseDialogOpen(true);
@@ -1825,7 +1829,7 @@ export default function POS() {
                           <p className="text-[10px] text-slate-400 font-mono">{p.sku || p.barcode || p.hsn || ""}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs font-black text-amber-600 dark:text-amber-400 font-mono">₹{p.rate}</p>
+                          <p className="text-xs font-black text-amber-600 dark:text-amber-400 font-mono">{p.rate}</p>
                           <p className="text-[10px] text-slate-400">Stock: {p.stock || 0}</p>
                         </div>
                       </button>
@@ -1967,7 +1971,7 @@ export default function POS() {
                           <span className="font-extrabold text-[13px] leading-tight text-slate-800 dark:text-slate-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate max-w-[85%]">
                             {p.name}
                           </span>
-                          <span className="font-mono font-black text-xs text-amber-600 dark:text-amber-400">₹{p.rate}</span>
+                          <span className="font-mono font-black text-xs text-amber-600 dark:text-amber-400">{p.rate}</span>
                         </div>
                         <p className="text-[9px] text-slate-400 dark:text-slate-500 font-mono">HSN: {p.hsn || "0000"} · GST: {p.gst_rate || 18}%</p>
                       </div>
@@ -2185,7 +2189,7 @@ export default function POS() {
             {editingInvoiceId && (
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex justify-between items-center gap-2 mb-2 shrink-0 animate-pulse">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">✏️</span>
+                  <span className="text-sm">️</span>
                   <div>
                     <p className="text-xs font-black text-amber-500 uppercase tracking-wide">Editing Bill</p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold">
@@ -2235,7 +2239,7 @@ export default function POS() {
                   <div className="flex-1 min-w-0">
                     <p className="font-extrabold text-[10px] sm:text-xs text-slate-800 dark:text-slate-200 truncate">{item.name}</p>
                     <p className="text-[8px] sm:text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
-                      ₹{item.rate} × {item.qty} {item.is_weighed ? "KG" : "PCS"} · GST {item.gst_rate || 18}%
+                      {item.rate} × {item.qty} {item.is_weighed ? "KG" : "PCS"} · GST {item.gst_rate || 18}%
                     </p>
                     
                     {/* Render variant meta info */}
@@ -2325,13 +2329,15 @@ export default function POS() {
                   value={discountValue || ""}
                   onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
                   placeholder="0"
-                  className="h-5 w-[150px] rounded bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-center font-mono text-[10px] text-slate-900 dark:text-slate-100 px-1"
+                  disabled={!canDiscount}
+                  className="h-5 w-[150px] rounded bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-center font-mono text-[10px] text-slate-900 dark:text-slate-100 px-1 disabled:opacity-50 disabled:bg-slate-100"
                 />
                 <button
                   onClick={() => setDiscountType(prev => prev === 'percent' ? 'flat' : 'percent')}
-                  className="bg-amber-400/10 text-amber-500 border border-amber-400/20 text-[10px] font-bold h-5 px-1.5 rounded hover:bg-amber-400/20 transition-colors leading-none"
+                  disabled={!canDiscount}
+                  className="bg-amber-400/10 text-amber-500 border border-amber-400/20 text-[10px] font-bold h-5 px-1.5 rounded hover:bg-amber-400/20 transition-colors leading-none disabled:opacity-50 disabled:hover:bg-amber-400/10"
                 >
-                  {discountType === 'percent' ? '%' : '₹'}
+                  {discountType === 'percent' ? '%' : ''}
                 </button>
               </div>
             </div>
@@ -2390,21 +2396,21 @@ export default function POS() {
             <div className="flex flex-col gap-[5px] pt-1 border-t border-slate-200 dark:border-slate-800/60 font-mono text-[12px] shrink-0">
               <div className="flex justify-between text-slate-500 dark:text-slate-400 leading-none">
                 <span>Subtotal</span>
-                <span>₹{cartSubtotal.toFixed(2)}</span>
+                <span>{cartSubtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-slate-500 dark:text-slate-400 leading-none">
                 <span>Tax CGST + SGST</span>
-                <span>₹{cartTax.toFixed(2)}</span>
+                <span>{cartTax.toFixed(2)}</span>
               </div>
               {discountValue > 0 && (
                 <div className="flex justify-between text-red-500 dark:text-red-400 leading-none">
                   <span>Discount</span>
-                  <span>-{discountType === 'percent' ? `${discountValue}%` : `₹${discountValue}`}</span>
+                  <span>-{discountType === 'percent' ? `${discountValue}%` : `${discountValue}`}</span>
                 </div>
               )}
               <div className="flex justify-between items-center font-black text-amber-500 dark:text-amber-400 pt-1 border-t border-slate-200 dark:border-slate-850 leading-none mt-1">
                 <span className="text-[14px]">कुल बिल राशि</span>
-                <span className="text-[14px]">₹{finalTotal.toFixed(2)}</span>
+                <span className="text-[14px]">{finalTotal.toFixed(2)}</span>
               </div>
             </div>
 
@@ -2607,7 +2613,7 @@ export default function POS() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.credit_limit")} ₹</Label>
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("customers.credit_limit")} </Label>
                     <Input 
                       type="number" 
                       value={newCustCreditLimit} 
@@ -2692,7 +2698,7 @@ export default function POS() {
         /* THERMAL RECEIPT PRINT MODAL FOR B2C */
         <Dialog open={isPrintOpen} onOpenChange={setIsPrintOpen}>
           <DialogContent className={`bg-white text-slate-950 p-0 gap-0 rounded-2xl overflow-hidden transition-all duration-200 flex flex-col ${selectedPrintSize === "80mm" ? "sm:max-w-[420px]" : "sm:max-w-[360px]"} max-h-[92vh]`}>
-            {/* ── Top controls bar — always visible ── */}
+            {/*  Top controls bar  always visible  */}
             <div className="flex gap-2 px-4 pt-4 pb-3 border-b border-gray-100 print:hidden shrink-0">
               <button 
                 type="button" 
@@ -2711,7 +2717,7 @@ export default function POS() {
             </div>
 
 
-            {/* ── Connection / Print Status Indicator — always visible ── */}
+            {/*  Connection / Print Status Indicator  always visible  */}
             {shopSettings?.printer_type && shopSettings?.printer_type !== "browser" && (
               <div className="bg-slate-50 border border-slate-200 p-2 mx-4 rounded-xl text-[10px] text-slate-700 space-y-1 mb-0 print:hidden shrink-0">
                 <div className="flex justify-between items-center">
@@ -2731,7 +2737,7 @@ export default function POS() {
               </div>
             )}
 
-            {/* ── Scrollable receipt content ── */}
+            {/*  Scrollable receipt content  */}
             <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 bg-[#1a1a2e] flex justify-center">
                <div dangerouslySetInnerHTML={{ __html: generateThermalHTML(latestInvoice, shopSettings, selectedPrintSize) }} />
             </div>
@@ -2763,7 +2769,7 @@ export default function POS() {
             {offlineQueueCount > 0 && (
               <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-800 print:hidden space-y-1.5 shrink-0">
                 <div className="flex justify-between items-center font-bold">
-                  <span>⚠️ {offlineQueueCount} Offline Print Jobs Queued</span>
+                  <span>️ {offlineQueueCount} Offline Print Jobs Queued</span>
                   <button 
                     type="button"
                     onClick={async () => {
@@ -2797,7 +2803,7 @@ export default function POS() {
             )}
 
             {/* Print Actions Dialog Footer */}
-            {/* ── Sticky footer — Close / WhatsApp / PDF / Print ── */}
+            {/*  Sticky footer  Close / WhatsApp / PDF / Print  */}
             <div className="flex flex-wrap gap-2 p-4 pt-3 border-t border-gray-100 print:hidden shrink-0 bg-white">
               <Button
                 type="button"
@@ -2805,7 +2811,7 @@ export default function POS() {
                 onClick={() => setIsPrintOpen(false)}
                 className="rounded-xl text-slate-700 border-gray-300 h-10 px-3 flex-1 text-xs font-bold min-w-[60px]"
               >
-                ✕ Close
+                 Close
               </Button>
               <Button
                 type="button"
@@ -2854,7 +2860,7 @@ export default function POS() {
           <form onSubmit={handleWeightSubmit} className="space-y-6 pt-2">
             <div className="text-center bg-slate-50 dark:bg-[#070913] p-4 rounded-2xl border border-purple-500/10">
               <p className="text-sm font-black text-slate-800 dark:text-slate-200">{weighedProduct?.name}</p>
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-mono font-bold mt-1">₹{weighedProduct?.rate} / KG</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-mono font-bold mt-1">{weighedProduct?.rate} / KG</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="weight" className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{t("pos.weight_label")}</Label>
@@ -2943,7 +2949,7 @@ export default function POS() {
           <form onSubmit={handleVariantSubmit} className="space-y-6 pt-2">
             <div className="text-center bg-slate-50 dark:bg-[#070913] p-4 rounded-2xl border border-cyan-500/10">
               <p className="text-sm font-black text-slate-800 dark:text-slate-200">{variantProduct?.name}</p>
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-mono font-bold mt-1">₹{variantProduct?.rate}</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-mono font-bold mt-1">{variantProduct?.rate}</p>
             </div>
 
             {/* Size Options */}
@@ -3000,9 +3006,9 @@ export default function POS() {
     </div>
 
 
-    {/* ═══════════════════════════════════════════════════════════════════
-        QUICK ADD PRODUCT — Full-featured slide-over dialog
-    ═══════════════════════════════════════════════════════════════════ */}
+    {/* 
+        QUICK ADD PRODUCT  Full-featured slide-over dialog
+     */}
     <Dialog open={isQuickAddOpen} onOpenChange={setIsQuickAddOpen}>
       <DialogContent className="w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-white dark:bg-[#0d0f1e] border-slate-200 dark:border-slate-800 rounded-3xl text-slate-900 dark:text-slate-100 p-0">
         {/* Header */}
@@ -3013,7 +3019,7 @@ export default function POS() {
             </div>
             <div>
               <h2 className="font-black text-base text-slate-900 dark:text-slate-100">Quick Add Product</h2>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">Auto-saved to Inventory • SKU & Barcode generated</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">Auto-saved to Inventory  SKU & Barcode generated</p>
             </div>
           </div>
           <button onClick={() => setIsQuickAddOpen(false)} className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
@@ -3076,7 +3082,7 @@ export default function POS() {
           {/* Pricing Row */}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Buy Price (₹)</Label>
+              <Label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Buy Price ()</Label>
               <Input
                 type="number"
                 value={quickAddForm.purchase_rate}
@@ -3086,7 +3092,7 @@ export default function POS() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">Sell Price (₹) *</Label>
+              <Label className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">Sell Price () *</Label>
               <Input
                 type="number"
                 value={quickAddForm.rate}
@@ -3096,7 +3102,7 @@ export default function POS() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">MRP (₹)</Label>
+              <Label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">MRP ()</Label>
               <Input
                 type="number"
                 value={quickAddForm.mrp}
@@ -3297,7 +3303,7 @@ export default function POS() {
     </Dialog>
 
 
-    {/* ── OPEN CASHIER SHIFT DIALOG ── */}
+    {/*  OPEN CASHIER SHIFT DIALOG  */}
     <Dialog open={isShiftOpenDialogOpen} onOpenChange={setIsShiftOpenDialogOpen}>
       <DialogContent className="max-w-md bg-white dark:bg-[#0d0f1e] border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl">
         <DialogHeader>
@@ -3305,7 +3311,7 @@ export default function POS() {
             <Clock className="w-6 h-6 text-rose-500" />
           </div>
           <DialogTitle className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            🔑 {t("pos.open_shift") || "Open Cashier Shift"}
+             {t("pos.open_shift") || "Open Cashier Shift"}
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
             {language === "hi"
@@ -3319,7 +3325,7 @@ export default function POS() {
           {staffList.length > 0 && (
             <div className="space-y-2">
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                👥 {language === "hi" ? "स्टाफ से चुनें" : "Select from Staff"}
+                 {language === "hi" ? "स्टाफ से चुनें" : "Select from Staff"}
               </p>
               <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
                 {staffList.map((member) => {
@@ -3346,11 +3352,11 @@ export default function POS() {
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{member.name}</p>
                         <p className="text-[10px] text-slate-500">
-                          🖥️ {member.counter} &nbsp;·&nbsp;
-                          {member.shift === "Morning" ? "🌅" : member.shift === "Afternoon" ? "☀️" : member.shift === "Night" ? "🌙" : "📅"} {member.shift}
+                          ️ {member.counter} &nbsp;·&nbsp;
+                          {member.shift === "Morning" ? "" : member.shift === "Afternoon" ? "️" : member.shift === "Night" ? "" : ""} {member.shift}
                         </p>
                       </div>
-                      {isSelected && <div className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center shrink-0"><span className="text-white text-[10px] font-black">✓</span></div>}
+                      {isSelected && <div className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center shrink-0"><span className="text-white text-[10px] font-black"></span></div>}
                     </button>
                   );
                 })}
@@ -3362,12 +3368,12 @@ export default function POS() {
           <div className={cn("space-y-3 pt-3", staffList.length > 0 && "border-t border-slate-100 dark:border-slate-800")}>
             {staffList.length > 0 && (
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                ✏️ {language === "hi" ? "या मैन्युअल दर्ज करें" : "Or enter manually"}
+                ️ {language === "hi" ? "या मैन्युअल दर्ज करें" : "Or enter manually"}
               </p>
             )}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                👤 {t("pos.cashier_name") || "Cashier Name"}
+                 {t("pos.cashier_name") || "Cashier Name"}
               </Label>
               <Input
                 value={openCashierInput}
@@ -3378,7 +3384,7 @@ export default function POS() {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                🖥️ {t("pos.counter_number") || "Counter / Register"}
+                ️ {t("pos.counter_number") || "Counter / Register"}
               </Label>
               <Input
                 value={openCounterInput}
@@ -3389,7 +3395,7 @@ export default function POS() {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                💵 {t("pos.starting_cash") || "Starting Drawer Cash"} (₹)
+                 {t("pos.starting_cash") || "Starting Drawer Cash"} ()
               </Label>
               <Input
                 type="number"
@@ -3416,14 +3422,14 @@ export default function POS() {
             onClick={handleOpenShift}
             className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl gap-2"
           >
-            🚀 {t("pos.open_shift") || "Start Shift"}
+             {t("pos.open_shift") || "Start Shift"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
 
 
-    {/* ── CLOSE CASHIER SHIFT DIALOG ── */}
+    {/*  CLOSE CASHIER SHIFT DIALOG  */}
     <Dialog open={isShiftCloseDialogOpen} onOpenChange={setIsShiftCloseDialogOpen}>
       <DialogContent className="max-w-md bg-white dark:bg-[#0d0f1e] border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl">
         <DialogHeader>
@@ -3431,7 +3437,7 @@ export default function POS() {
             <Clock className="w-6 h-6 text-emerald-500" />
           </div>
           <DialogTitle className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            🔒 {t("pos.close_shift") || "Close Cashier Shift"}
+             {t("pos.close_shift") || "Close Cashier Shift"}
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
             {language === "hi" 
@@ -3448,7 +3454,7 @@ export default function POS() {
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">{t("pos.starting_cash") || "Starting Cash"}:</span>
-            <span className="font-bold font-mono">₹{startingDrawerCash.toLocaleString("en-IN")}</span>
+            <span className="font-bold font-mono">{startingDrawerCash.toLocaleString("en-IN")}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">
@@ -3461,7 +3467,7 @@ export default function POS() {
               {language === "hi" ? "अपेक्षित कैश (अनुमानित)" : "Expected Cash in Drawer"}:
             </span>
             <span className="font-black text-amber-500 font-mono">
-              ₹{(() => {
+              {(() => {
                 const netCash = shiftInvoices.reduce((sum, inv) => {
                   if (inv.payment_method === "cash") return sum + inv.grand_total;
                   if (inv.payment_method === "split" && inv.payment_split?.cash) return sum + inv.payment_split.cash;
@@ -3475,7 +3481,7 @@ export default function POS() {
 
         <div className="space-y-2 my-4">
           <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-            💵 {language === "hi" ? "गिना गया कुल कैश (नकद)" : "Actual Physical Counted Cash"} (₹)
+             {language === "hi" ? "गिना गया कुल कैश (नकद)" : "Actual Physical Counted Cash"} ()
           </Label>
           <Input
             type="number"
@@ -3500,16 +3506,16 @@ export default function POS() {
             onClick={() => handleCloseShift(physicalCashCounted)}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl"
           >
-            🔒 {t("pos.close_shift") || "End Shift"}
+             {t("pos.close_shift") || "End Shift"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
 
 
-    {/* ═══════════════════════════════════════════════════════════════════
-        BILLING HISTORY — Full-height slide-over panel
-        ═══════════════════════════════════════════════════════════════════ */}
+    {/* 
+        BILLING HISTORY  Full-height slide-over panel
+         */}
     <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
       <DialogContent className="w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col bg-white dark:bg-[#0d0f1e] border-slate-200 dark:border-slate-800 rounded-3xl text-slate-900 dark:text-slate-100 p-0">
         {/* Header */}
@@ -3539,7 +3545,7 @@ export default function POS() {
                 : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            📜 {t("pos.invoices_log")}
+             {t("pos.invoices_log")}
           </button>
           <button
             type="button"
@@ -3550,7 +3556,7 @@ export default function POS() {
                 : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            ⏸️ {t("pos.parked_bills")}
+            ️ {t("pos.parked_bills")}
             {parkedCarts.length > 0 && (
               <span className="ml-1.5 bg-amber-500 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-full">
                 {parkedCarts.length}
@@ -3573,7 +3579,7 @@ export default function POS() {
             <IndianRupee className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <div>
               <p className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">{t("pos.today_revenue")}</p>
-              <p className="text-lg font-black text-slate-900 dark:text-slate-100">₹{todayRevenue.toFixed(2)}</p>
+              <p className="text-lg font-black text-slate-900 dark:text-slate-100">{todayRevenue.toFixed(2)}</p>
             </div>
           </div>
           <div className="w-px h-8 bg-amber-200 dark:bg-amber-800/50" />
@@ -3663,7 +3669,7 @@ export default function POS() {
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{inv.customer_name === "Walk-in Customer" ? t("pos.walk_in_customer") : inv.customer_name}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-black text-amber-600 dark:text-amber-400 font-mono">₹{(inv.grand_total || 0).toFixed(2)}</p>
+                      <p className="text-xs font-black text-amber-600 dark:text-amber-400 font-mono">{(inv.grand_total || 0).toFixed(2)}</p>
                       <div className="flex items-center gap-1 justify-end mt-0.5">
                         <Badge className={cn(
                           "text-[8px] px-1.5 py-0 h-4 font-bold uppercase",
@@ -3713,7 +3719,7 @@ export default function POS() {
                   </div>
                   <div className="space-y-0.5 text-xs text-slate-600 dark:text-slate-400">
                     <p><span className="font-bold">{t("customers.name") || "Customer"}:</span> {selectedHistoryInvoice.customer_name === "Walk-in Customer" ? t("pos.walk_in_customer") : selectedHistoryInvoice.customer_name}</p>
-                    <p><span className="font-bold">{t("common.phone") || "Phone"}:</span> {selectedHistoryInvoice.customer_phone || "—"}</p>
+                    <p><span className="font-bold">{t("common.phone") || "Phone"}:</span> {selectedHistoryInvoice.customer_phone || ""}</p>
                     <p><span className="font-bold">{t("pos.payment_method") || "Payment"}:</span> <span className="capitalize">{selectedHistoryInvoice.payment_method}</span> · {selectedHistoryInvoice.billing_type || "B2C"}</p>
                     {selectedHistoryInvoice.customer_name && selectedHistoryInvoice.customer_name !== "Walk-in Customer" && (
                       <button
@@ -3746,8 +3752,8 @@ export default function POS() {
                         <tr key={i}>
                           <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium">{item.name}</td>
                           <td className="px-3 py-2 text-right font-mono text-slate-600 dark:text-slate-400">{item.qty}</td>
-                          <td className="px-3 py-2 text-right font-mono text-slate-600 dark:text-slate-400">₹{item.rate}</td>
-                          <td className="px-3 py-2 text-right font-mono font-bold text-slate-800 dark:text-slate-200">₹{(item.qty * item.rate).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-600 dark:text-slate-400">{item.rate}</td>
+                          <td className="px-3 py-2 text-right font-mono font-bold text-slate-800 dark:text-slate-200">{(item.qty * item.rate).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3757,13 +3763,13 @@ export default function POS() {
                 {/* Totals */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-1.5 font-mono text-xs">
                   <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                    <span>{t("pos.subtotal")}</span><span>₹{(selectedHistoryInvoice.subtotal || 0).toFixed(2)}</span>
+                    <span>{t("pos.subtotal")}</span><span>{(selectedHistoryInvoice.subtotal || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                    <span>{t("common.gst") || "GST"}</span><span>₹{(selectedHistoryInvoice.tax_amount || 0).toFixed(2)}</span>
+                    <span>{t("common.gst") || "GST"}</span><span>{(selectedHistoryInvoice.tax_amount || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-black text-sm text-amber-600 dark:text-amber-400 border-t border-slate-200 dark:border-slate-700 pt-1.5">
-                    <span>{t("pos.grand_total")}</span><span>₹{(selectedHistoryInvoice.grand_total || 0).toFixed(2)}</span>
+                    <span>{t("pos.grand_total")}</span><span>{(selectedHistoryInvoice.grand_total || 0).toFixed(2)}</span>
                   </div>
                 </div>
 

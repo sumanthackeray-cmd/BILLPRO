@@ -4,6 +4,7 @@ import MobileNav from "./MobileNav";
 import SubscriptionBanner from "@/components/subscription/SubscriptionBanner";
 import GSTDeadlineBanner from "@/components/gst/GSTDeadlineBanner";
 import OnboardingModal from "./OnboardingModal";
+import InternalStaffChat from "./InternalStaffChat";
 
 export default function AppLayout() {
   return (
@@ -23,6 +24,7 @@ export default function AppLayout() {
         </div>
       </main>
       <OnboardingModal />
+      <InternalStaffChat />
     </div>
   );
 }

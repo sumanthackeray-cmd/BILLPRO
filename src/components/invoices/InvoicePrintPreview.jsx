@@ -64,7 +64,7 @@ export function generateInvoiceHTML(inv, shop) {
   <meta charset="UTF-8">
   <title>Invoice ${inv.invoice_number}</title>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; font-family: Arial, sans-serif; }
+    * { margin:0; padding:0; box-sizing:border-box; font-family: Arial, sans-serif; letter-spacing: normal !important; word-spacing: normal !important; font-variant-numeric: lnum tabular-nums !important; -webkit-font-smoothing: antialiased !important; -moz-osx-font-smoothing: grayscale !important; }
     body { background:#fff; color:#111; font-size:12px; }
     .page { max-width:800px; margin:0 auto; padding:20px; }
     .header { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:12px; border-bottom:3px solid #E8870A; }
@@ -81,19 +81,20 @@ export function generateInvoiceHTML(inv, shop) {
     .party-name { font-size:14px; font-weight:800; color:#111; }
     .party-info { font-size:10px; color:#555; margin-top:2px; line-height:1.6; }
     table { width:100%; border-collapse:collapse; margin:12px 0; font-size:11px; }
-    th { background:#E8870A; color:white; padding:6px; text-align:left; border:1px solid #d07000; }
+    th { background:#E8870A; color:white; padding:6px; text-align:left; border:1px solid #d07000; line-height:1.2; vertical-align:middle; }
+    td { line-height:1.2; vertical-align:middle; }
     tr:nth-child(even) { background:#fafafa; }
     .totals-row { display:flex; justify-content:flex-end; margin-top:8px; }
     .totals-box { width:260px; }
-    .total-line { display:flex; justify-content:space-between; padding:3px 6px; font-size:11px; }
-    .total-line.grand { font-size:14px; font-weight:900; background:#E8870A; color:white; padding:6px; border-radius:4px; margin-top:4px; }
+    .total-line { display:flex; justify-content:space-between; align-items:center; padding:3px 6px; font-size:11px; }
+    .total-line.grand { font-size:14px; font-weight:900; background:#E8870A; color:white; padding:6px; border-radius:4px; margin-top:4px; align-items:center; }
     .words { font-size:10px; color:#666; font-style:italic; margin:4px 0 10px; }
     .bank-box { background:#f0f4ff; border:1px solid #d0d8f0; border-radius:6px; padding:10px; margin-top:12px; font-size:11px; }
     .bank-title { font-weight:800; color:#333; margin-bottom:4px; }
     .footer { margin-top:16px; display:flex; justify-content:space-between; align-items:flex-end; border-top:2px solid #eee; padding-top:12px; }
     .terms { font-size:10px; color:#888; max-width:55%; }
     .sign-area { text-align:center; min-width:120px; }
-    .sign-img { height:50px; object-fit:contain; }
+    .sign-img { max-height:50px; max-width:120px; width:auto; height:auto; object-fit:contain; display:block; margin:0 auto; }
     .sign-label { font-size:10px; color:#555; margin-top:4px; border-top:1px solid #ccc; padding-top:3px; }
     @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
   </style>
@@ -103,7 +104,7 @@ export function generateInvoiceHTML(inv, shop) {
   <!-- Header -->
   <div class="header">
     <div class="logo-area">
-      ${shop?.logo_url ? `<img src="${getCORSImageUrl(shop.logo_url)}" crossorigin="anonymous" style="height:48px;object-fit:contain;margin-bottom:4px;" />` : ""}
+      ${shop?.logo_url ? `<img src="${getCORSImageUrl(shop.logo_url)}" crossorigin="anonymous" class="logo-img" style="max-height:48px;max-width:150px;width:auto;height:auto;object-fit:contain;margin-bottom:4px;display:block;align-self:flex-start;" />` : ""}
       <div class="shop-name">${(!shop || !shop.shop_name || shop.shop_name === "Vogats") ? "Your Business" : shop.shop_name}</div>
       <div class="shop-info">
         ${shop?.gstin ? `GSTIN: ${shop.gstin}<br>` : ""}

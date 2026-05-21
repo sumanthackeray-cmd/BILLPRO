@@ -4,14 +4,15 @@ import { base44 } from "@/api/base44Client";
 import { INDIAN_STATES } from "@/lib/gst-utils";
 import { auth } from "@/api/firebase";
 import { updateProfile } from "firebase/auth";
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
-import { Save, Store, CreditCard, FileText, Upload, Image, Pen, Crown, Monitor, Sun, Moon, Printer, Bluetooth, Wifi, Usb, RefreshCw, Sliders, Check, Users, Plus, Trash2, UserCheck } from "lucide-react";
+import { Save, Store, CreditCard, FileText, Upload, Image, Pen, Crown, Monitor, Sun, Moon, Printer, Bluetooth, Wifi, Usb, RefreshCw, Sliders, Check, Users, Plus, Trash2, UserCheck, Shield, Lock, User, Eye, EyeOff, Building2 } from "lucide-react";
+import CompanyProfile from './settings/CompanyProfile';
 import { Link } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -28,8 +29,9 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingSig, setUploadingSig] = useState(false);
+  const [showProfilePassword, setShowProfilePassword] = useState(false);
 
-  // ── Staff / Cashier management (stored in localStorage) ──
+  // â”€â”€ Staff / Cashier management (stored in localStorage) â”€â”€
   const [staffList, setStaffList] = useState(() => {
     try { return JSON.parse(localStorage.getItem("gst_shop_staff_list") || "[]"); }
     catch { return []; }
@@ -191,6 +193,9 @@ export default function Settings() {
       <Tabs defaultValue="business" className="w-full">
         <TabsList className="bg-secondary mb-4 flex-wrap h-auto gap-1">
           <TabsTrigger value="business" className="gap-1.5"><Store className="w-3.5 h-3.5" /> {t('settings.general') || 'Business'}</TabsTrigger>
+          <TabsTrigger value="security" className="gap-1.5"><Shield className="w-3.5 h-3.5" /> Security & Roles</TabsTrigger>
+          <TabsTrigger value="company_profile" className="gap-1.5"><Building2 className="w-3.5 h-3.5" /> Company Profile</TabsTrigger>
+          <TabsTrigger value="profile" className="gap-1.5"><User className="w-3.5 h-3.5" /> My Profile</TabsTrigger>
           <TabsTrigger value="staff" className="gap-1.5"><Users className="w-3.5 h-3.5" /> Staff &amp; Cashiers</TabsTrigger>
           <TabsTrigger value="bank" className="gap-1.5"><CreditCard className="w-3.5 h-3.5" /> {t('settings.bank_details') || 'Bank'}</TabsTrigger>
           <TabsTrigger value="invoice" className="gap-1.5"><FileText className="w-3.5 h-3.5" /> {t('settings.invoice_prefix') || 'Invoice'}</TabsTrigger>
@@ -201,7 +206,7 @@ export default function Settings() {
 
         <TabsContent value="business">
           <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-            <h3 className="font-bold text-[15px] mb-2">🏪 {t('settings.general') || 'Business Information'}</h3>
+            <h3 className="font-bold text-[15px] mb-2">{t('settings.general') || 'Business Information'}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><Label className="text-[11px]">{t('settings.shop_name') || 'Shop / Business Name *'}</Label><Input value={form.shop_name} onChange={e => set("shop_name", e.target.value)} placeholder="Ram General Store" /></div>
               <div>
@@ -243,7 +248,7 @@ export default function Settings() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/30">
               <div>
-                <Label className="text-[11px] font-black text-amber-500 flex items-center gap-1">✨ {t('settings.business_type') || 'Business Type / POS Layout'}</Label>
+                <Label className="text-[11px] font-black text-amber-500 flex items-center gap-1">{t('settings.business_type') || 'Business Type / POS Layout'}</Label>
                 <SearchableSelect
                   className="mt-1"
                   options={BUSINESS_TYPES}
@@ -266,25 +271,197 @@ export default function Settings() {
           </div>
         </TabsContent>
 
-        {/* ── STAFF & CASHIERS TAB ── */}
+        <TabsContent value="security">
+          <div className="bg-card border border-border rounded-xl p-5 space-y-5">
+            {/* SAP RBAC Promotion/Control Panel Banner */}
+            {user && user.hierarchy_level <= 3 ? (
+              <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-white dark:from-indigo-950/50 dark:via-purple-950/20 dark:to-slate-900/10 border border-indigo-200 dark:border-indigo-500/30 rounded-xl p-6 flex flex-col gap-5 backdrop-blur-sm shadow-xl shadow-indigo-500/5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+                    <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 tracking-wider uppercase">SAP Enterprise Security Profile</span>
+                  </div>
+                  <h4 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Advanced Role-Based Access Control (RBAC)</h4>
+                  <p className="text-sm text-slate-600 dark:text-muted-foreground max-w-3xl">
+                    Configure staff accounts, enforce hierarchical authority rules, assign dynamic capabilities, and toggle column field-level data protection. This acts as the command center for data and future access control for all users in your organization.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  <div className="bg-white/50 dark:bg-black/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg p-4">
+                    <h5 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2 mb-2">
+                      <Users className="w-4 h-4" /> User Management
+                    </h5>
+                    <p className="text-xs text-slate-600 dark:text-muted-foreground mb-4">
+                      Create staff accounts, assign them to branches, set roles based on hierarchy, and manage their active statuses.
+                    </p>
+                    <Link to="/settings/users">
+                      <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-2 shadow-lg shadow-indigo-600/20">
+                        <Users className="w-4 h-4" /> Manage Staff Users
+                      </Button>
+                    </Link>
+                  </div>
+
+                  <div className="bg-white/50 dark:bg-black/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg p-4 flex flex-col">
+                    <h5 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2 mb-2">
+                      <Lock className="w-4 h-4" /> Data &amp; Future Access
+                    </h5>
+                    <p className="text-xs text-slate-600 dark:text-muted-foreground mb-4 flex-1">
+                      Control module-wise access (View, Create, Edit, Delete, Export) and mask sensitive fields (Purchase Price, Profit Margin, Salary) per role.
+                    </p>
+                    {user.hierarchy_level <= 2 ? (
+                      <Link to="/settings/permissions">
+                        <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold gap-2 shadow-lg shadow-purple-600/20">
+                          <Sliders className="w-4 h-4" /> Open Security Matrix
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Button disabled className="w-full font-bold gap-2 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700 cursor-not-allowed">
+                        <Lock className="w-4 h-4" /> Access Restricted (Requires Owner/CEO)
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5 text-center">
+                <Lock className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                <h4 className="text-red-500 font-bold mb-1">Access Restricted</h4>
+                <p className="text-xs text-red-400/80">You do not have administrative clearance to view or modify security policies.</p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="company_profile">
+          <div className="bg-card border border-border rounded-xl p-5">
+            <CompanyProfile />
+          </div>
+        </TabsContent>
+
+        {/* ── PROFILE TAB ── */}
+        <TabsContent value="profile">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-8 text-white flex items-center gap-5">
+              <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/50 backdrop-blur-sm shadow-xl">
+                <User className="w-10 h-10 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-2xl font-black">{user?.full_name || user?.name || "User Profile"}</h2>
+                <div className="flex flex-wrap items-center gap-2 mt-1 opacity-90 text-sm">
+                  <span className="font-mono bg-black/20 px-2 py-0.5 rounded tracking-wider">{localStorage.getItem('user_code') || user?.id?.substring(0,8).toUpperCase() || "ADMIN-001"}</span>
+                  <span>•</span>
+                  <span className="capitalize font-semibold">{user?.role_id ? user.role_id.replace("role-", "").replace("_", " ") : user?.role ? user.role : "Administrator"}</span>
+                </div>
+                {localStorage.getItem('company_id') && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 bg-white/15 border border-white/30 px-3 py-1 rounded-lg text-xs font-bold backdrop-blur-sm">
+                    <Building2 className="w-3.5 h-3.5" />
+                    Company ID: <span className="font-mono tracking-widest text-yellow-200">{localStorage.getItem('company_id')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <UserCheck className="w-4 h-4" /> Personal Information
+                  </h4>
+                  <div className="space-y-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase">Full Name</p>
+                      <p className="font-medium text-[14px]">{user?.full_name || user?.name || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase">Contact Email</p>
+                      <p className="font-medium text-[14px]">{user?.contact_email || user?.email || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase">Mobile Number</p>
+                      <p className="font-medium text-[14px]">{user?.phone || user?.contact_mobile || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Shield className="w-4 h-4" /> Security & Access
+                  </h4>
+                  <div className="space-y-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase">Assigned Role</p>
+                      <p className="font-medium text-[14px] capitalize text-indigo-600 dark:text-indigo-400">
+                        {user?.role_id ? user.role_id.replace("role-", "").replace("_", " ") : user?.role ? user.role : "Administrator"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase">Company ID</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="font-mono font-bold text-[14px] text-indigo-600 dark:text-indigo-400 tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                          {localStorage.getItem('company_id') || "N/A"}
+                        </p>
+                        {localStorage.getItem('company_id') && (
+                          <button
+                            type="button"
+                            title="Copy Company ID"
+                            onClick={() => { navigator.clipboard.writeText(localStorage.getItem('company_id')); toast.success('Company ID copied!'); }}
+                            className="p-1.5 text-slate-400 hover:text-indigo-500 rounded border bg-white dark:bg-black transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">Share this ID with your staff members to let them log in.</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase">Assigned Branch / Location</p>
+                      <p className="font-medium text-[14px]">{user?.branch_id === "all" ? "All Branches (HQ)" : user?.branch_id || "Headquarters"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase">Profile Password</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="font-mono text-[14px] bg-white dark:bg-black px-2 py-1 rounded border tracking-wider flex-1 truncate">
+                          {showProfilePassword ? (user?.password || user?.profile_password || "••••••••") : "••••••••"}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowProfilePassword(!showProfilePassword)}
+                          className="p-1.5 text-slate-500 hover:text-indigo-500 bg-white dark:bg-black hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded border transition-colors"
+                          title={showProfilePassword ? "Hide Password" : "Show Password"}
+                        >
+                          {showProfilePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
         <TabsContent value="staff">
           <div className="bg-card border border-border rounded-xl p-5 space-y-5">
+
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
                 <Users className="w-5 h-5 text-blue-500" />
               </div>
               <div>
-                <h3 className="font-bold text-[15px]">👤 Staff &amp; Cashier Management</h3>
+                <h3 className="font-bold text-[15px]">Staff &amp; Cashier Management</h3>
                 <p className="text-[11px] text-muted-foreground">Add your staff members with counter number and shift. These will appear as options when opening a cashier shift in POS.</p>
               </div>
             </div>
 
             {/* Add new staff form */}
             <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">➕ Add New Staff Member</p>
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1"><Plus className="w-3.5 h-3.5"/> Add New Staff Member</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-[11px] font-semibold">👤 Staff Name *</Label>
+                  <Label className="text-[11px] font-semibold">Staff Name *</Label>
                   <Input
                     value={newStaff.name}
                     onChange={e => setNewStaff(s => ({ ...s, name: e.target.value }))}
@@ -293,7 +470,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label className="text-[11px] font-semibold">🖥️ Counter / Register *</Label>
+                  <Label className="text-[11px] font-semibold">Counter / Register *</Label>
                   <Input
                     value={newStaff.counter}
                     onChange={e => setNewStaff(s => ({ ...s, counter: e.target.value }))}
@@ -302,17 +479,17 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label className="text-[11px] font-semibold">🕐 Shift</Label>
+                  <Label className="text-[11px] font-semibold">Shift</Label>
                   <Select value={newStaff.shift} onValueChange={v => setNewStaff(s => ({ ...s, shift: v }))}>
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Morning">🌅 Morning (6am – 2pm)</SelectItem>
-                      <SelectItem value="Afternoon">☀️ Afternoon (2pm – 10pm)</SelectItem>
-                      <SelectItem value="Night">🌙 Night (10pm – 6am)</SelectItem>
-                      <SelectItem value="Full Day">📅 Full Day</SelectItem>
-                      <SelectItem value="Custom">⚙️ Custom</SelectItem>
+                      <SelectItem value="Morning">Morning (6am – 2pm)</SelectItem>
+                      <SelectItem value="Afternoon">Afternoon (2pm – 10pm)</SelectItem>
+                      <SelectItem value="Night">Night (10pm – 6am)</SelectItem>
+                      <SelectItem value="Full Day">Full Day</SelectItem>
+                      <SelectItem value="Custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -345,8 +522,8 @@ export default function Settings() {
                       <div>
                         <p className="font-bold text-[13px]">{member.name}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          🖥️ {member.counter} &nbsp;·&nbsp;
-                          {member.shift === 'Morning' ? '🌅' : member.shift === 'Afternoon' ? '☀️' : member.shift === 'Night' ? '🌙' : '📅'} {member.shift}
+                          Counter {member.counter} &nbsp;·&nbsp;
+                          {member.shift}
                         </p>
                       </div>
                     </div>
@@ -363,14 +540,14 @@ export default function Settings() {
             )}
 
             <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 text-[11px] text-amber-700 dark:text-amber-400">
-              <strong>💡 Tip:</strong> When your staff opens POS on their mobile or counter device, they can select their name once from the <strong>"Open Shift"</strong> button. Their counter and shift will be remembered automatically until they change it.
+              <strong>Tip:</strong> When your staff opens POS on their mobile or counter device, they can select their name once from the <strong>"Open Shift"</strong> button. Their counter and shift will be remembered automatically until they change it.
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="bank">
           <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-            <h3 className="font-bold text-[15px] mb-2">🏦 {t('settings.bank_details') || 'Bank Details (for invoices)'}</h3>
+            <h3 className="font-bold text-[15px] mb-2">{t('settings.bank_details') || 'Bank Details (for invoices)'}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><Label className="text-[11px]">{t('settings.bank_name') || 'Bank Name'}</Label><Input value={form.bank_name} onChange={e => set("bank_name", e.target.value)} placeholder="State Bank of India" /></div>
               <div><Label className="text-[11px]">{t('settings.account_number') || 'Account Number'}</Label><Input value={form.account_no} onChange={e => set("account_no", e.target.value)} placeholder="12345678901" /></div>
@@ -383,7 +560,7 @@ export default function Settings() {
 
         <TabsContent value="invoice">
           <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-            <h3 className="font-bold text-[15px] mb-2">📄 {t('settings.invoice_title') || 'Invoice Configuration'}</h3>
+            <h3 className="font-bold text-[15px] mb-2">{t('settings.invoice_title') || 'Invoice Configuration'}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><Label className="text-[11px]">{t('settings.invoice_prefix') || 'Invoice Number Prefix'}</Label><Input value={form.invoice_prefix} onChange={e => set("invoice_prefix", e.target.value)} placeholder="INV-" /></div>
             </div>
@@ -400,7 +577,7 @@ export default function Settings() {
 
         <TabsContent value="branding">
           <div className="bg-card border border-border rounded-xl p-5 space-y-5">
-            <h3 className="font-bold text-[15px] mb-2">🎨 {t('settings.branding') || 'Branding & Logo'}</h3>
+            <h3 className="font-bold text-[15px] mb-2">{t('settings.branding') || 'Branding & Logo'}</h3>
             <p className="text-[12px] text-muted-foreground -mt-3">{t('settings.branding_desc') || 'Upload your shop logo and digital signature to appear on printed invoices.'}</p>
 
             {/* Logo */}
@@ -505,115 +682,95 @@ function PrinterSettingsTab({ form, set, onSave, saving }) {
   const handleStartScan = async () => {
     setScanning(true);
     setScanResults([]);
-    
-    // Simulate scanner discovery delay
     await new Promise(r => setTimeout(r, 1200));
-    
-    const results = form.printer_type === "bluetooth" 
-      ? MOCK_PRINTER_DEVICES.bluetooth 
+    const results = form.printer_type === "bluetooth"
+      ? MOCK_PRINTER_DEVICES.bluetooth
       : MOCK_PRINTER_DEVICES.usb;
-      
     setScanResults(results);
     setScanning(false);
   };
 
   const handlePairDevice = async (device) => {
     setPairingDevice(device.name);
-    await new Promise(r => setTimeout(r, 1000)); // pairing simulation
+    await new Promise(r => setTimeout(r, 1000));
     set("paired_printer_name", device.name);
     setPairingDevice(null);
     setScanResults([]);
-    toast.success(`Connected to ${device.name} successfully!`);
-    
-    // Auto save immediately for seamless experience
-    if (onSave) {
-      setTimeout(() => {
-        onSave();
-      }, 100);
-    }
+    toast.success(`Connected to ${device.name}!`);
+    if (onSave) setTimeout(() => onSave(), 100);
+  };
+
+  const handleDisconnect = () => {
+    set("paired_printer_name", "");
+    toast.success("Printer disconnected.");
   };
 
   const handleTestPrint = async () => {
-    if (form.printer_type === "browser") {
-      window.print();
-      return;
-    }
-    
-    const mockInvoice = {
-      invoice_number: "TEST-8888",
-      date: new Date().toLocaleDateString("en-IN"),
-      customer_name: "Test Customer",
-      billing_type: "B2C",
-      payment_method: "Upi",
-      subtotal: 100.00,
-      tax_amount: 18.00,
-      grand_total: 118.00,
-      items: [
-        { name: "Demo GST Item 1", qty: 1, rate: 60.00 },
-        { name: "Demo GST Item 2", qty: 2, rate: 20.00 }
-      ]
-    };
-
-    toast.loading("Sending test print payload...");
+    if (form.printer_type === "browser") { window.print(); return; }
+    toast.loading("Sending test print...");
+    const mockInvoice = { invoice_number: "TEST-0001", date: new Date().toLocaleDateString("en-IN"), customer_name: "Test Customer", subtotal: 847, tax_amount: 152.46, grand_total: 999.46, payment_method: "UPI", items: [{ name: "Sample Product A", qty: 2, rate: 299 }] };
     try {
       const payload = generateEscPosPayload(mockInvoice, form, false);
       const success = await sendEscPosToPrinter(payload, form);
       toast.dismiss();
-      if (success) {
-        toast.success(`Test receipt printed successfully on ${form.paired_printer_name || form.printer_ip || "printer"}!`);
-      } else {
-        toast.error("Failed to connect or print to printer. Check printer power & connection.");
-      }
-    } catch (err) {
-      toast.dismiss();
-      console.error(err);
-      toast.error(`Test print failed: ${err.message}`);
-    }
+      if (success) toast.success("Test receipt printed!");
+      else toast.error("Print failed. Check printer connection.");
+    } catch (err) { toast.dismiss(); toast.error(`Error: ${err.message}`); }
   };
 
   const isBluetooth = form.printer_type === "bluetooth";
   const isUsb = form.printer_type === "usb";
   const isWifi = form.printer_type === "wifi";
   const isBrowser = form.printer_type === "browser";
+  const isConnected = !!form.paired_printer_name;
+
+  const PRINTER_TYPES = [
+    { id: "browser", label: "System Print", desc: "Native OS print dialog", icon: Sliders },
+    { id: "bluetooth", label: "Bluetooth", desc: "Wireless BT thermal printers", icon: Bluetooth },
+    { id: "usb", label: "USB / OTG", desc: "Direct wired USB", icon: Usb },
+    { id: "wifi", label: "WiFi / LAN", desc: "Network IP printing", icon: Wifi },
+  ];
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 space-y-6">
-      <div>
-        <h3 className="font-bold text-[15px] flex items-center gap-2 text-slate-900 dark:text-slate-100"><Printer className="w-4 h-4 text-amber-500" /> {t('settings.printer_settings') || 'Thermal Printer Integration'}</h3>
-        <p className="text-[12px] text-muted-foreground mt-0.5">{t('settings.printer_settings_desc') || 'Configure thermal receipt printers for handheld POS devices and billing terminals.'}</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h3 className="font-black text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <Printer className="w-5 h-5 text-amber-500" /> Thermal Printer Setup
+          </h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Configure receipt printers for POS billing terminals</p>
+        </div>
+        <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black border",
+          isConnected || isBrowser || (isWifi && form.printer_ip)
+            ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400"
+            : "bg-slate-100 border-slate-200 text-slate-500 dark:bg-slate-800/50 dark:border-slate-700 dark:text-slate-400"
+        )}>
+          <span className={cn("w-1.5 h-1.5 rounded-full", isConnected || isBrowser || (isWifi && form.printer_ip) ? "bg-emerald-500 animate-pulse" : "bg-slate-400")} />
+          {isBrowser ? "System Printer Ready" : isWifi ? (form.printer_ip ? `IP: ${form.printer_ip}` : "IP Not Set") : isConnected ? form.paired_printer_name : "No Printer Paired"}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left column: Interface Selection */}
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('settings.printer_type') || 'Connection Interface'}</Label>
+            <Label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Connection Interface</Label>
             <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: "browser", label: t('settings.system_print') || "System Print", desc: t('settings.system_print_desc') || "Default print dialog", icon: Sliders },
-                { id: "bluetooth", label: "Bluetooth", desc: t('settings.bluetooth_desc') || "Handheld & BT Printers", icon: Bluetooth },
-                { id: "usb", label: "USB OTG", desc: t('settings.usb_desc') || "USB wired connections", icon: Usb },
-                { id: "wifi", label: "WiFi / Network", desc: t('settings.wifi_desc') || "Ethernet & IP printers", icon: Wifi }
-              ].map(opt => {
+              {PRINTER_TYPES.map(opt => {
                 const Icon = opt.icon;
                 const isSelected = form.printer_type === opt.id;
                 return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      set("printer_type", opt.id);
-                      setScanResults([]);
-                    }}
-                    className={cn(
-                      "flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all hover:bg-secondary/50",
-                      isSelected ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/20" : "border-border text-muted-foreground"
+                  <button key={opt.id} type="button"
+                    onClick={() => { set("printer_type", opt.id); setScanResults([]); }}
+                    className={cn("flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all",
+                      isSelected ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10 ring-2 ring-amber-500/25" : "border-border hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-500/5"
                     )}
                   >
-                    <Icon className={cn("w-4 h-4 shrink-0 mt-0.5", isSelected ? "text-amber-500" : "text-muted-foreground")} />
+                    <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5", isSelected ? "bg-amber-500/20" : "bg-slate-100 dark:bg-muted")}>
+                      <Icon className={cn("w-3.5 h-3.5", isSelected ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-muted-foreground")} />
+                    </div>
                     <div>
-                      <p className={cn("text-[12px] font-extrabold", isSelected ? "text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300")}>{opt.label}</p>
-                      <p className={cn("text-[9px] mt-0.5 leading-tight", isSelected ? "text-amber-800/80 dark:text-amber-300/80" : "text-muted-foreground")}>{opt.desc}</p>
+                      <p className={cn("text-[12px] font-extrabold", isSelected ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300")}>{opt.label}</p>
+                      <p className={cn("text-[9px] mt-0.5 leading-tight", isSelected ? "text-amber-600/80 dark:text-amber-400/70" : "text-muted-foreground")}>{opt.desc}</p>
                     </div>
                   </button>
                 );
@@ -622,174 +779,160 @@ function PrinterSettingsTab({ form, set, onSave, saving }) {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('settings.paper_size') || 'Receipt Size'}</Label>
+            <Label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Receipt Paper Width</Label>
             <div className="flex gap-3">
-              {[
-                { id: "58mm", label: "58mm (2-inch)", desc: t('settings.size_58mm_desc') || "Handhelds & Mobile printers" },
-                { id: "80mm", label: "80mm (3-inch)", desc: t('settings.size_80mm_desc') || "Desktop counter printers" }
-              ].map(size => {
+              {[{ id: "58mm", label: "58mm (2-inch)", desc: "Mobile & handheld" }, { id: "80mm", label: "80mm (3-inch)", desc: "Desktop printers" }].map(size => {
                 const isSelected = form.printer_size === size.id;
                 return (
-                  <button
-                    key={size.id}
-                    type="button"
-                    onClick={() => set("printer_size", size.id)}
-                    className={cn(
-                      "flex-1 p-3 rounded-xl border text-left transition-all hover:bg-secondary/50",
-                      isSelected ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/20" : "border-border"
+                  <button key={size.id} type="button" onClick={() => set("printer_size", size.id)}
+                    className={cn("flex-1 p-3 rounded-xl border text-left transition-all",
+                      isSelected ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10 ring-2 ring-amber-500/25" : "border-border hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-500/5"
                     )}
                   >
-                    <p className={cn("text-[12px] font-extrabold", isSelected ? "text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300")}>{size.label}</p>
-                    <p className={cn("text-[9px] mt-0.5", isSelected ? "text-amber-800/80 dark:text-amber-300/80" : "text-muted-foreground")}>{size.desc}</p>
+                    <p className={cn("text-[12px] font-extrabold", isSelected ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300")}>{size.label}</p>
+                    <p className={cn("text-[9px] mt-0.5", isSelected ? "text-amber-600/80 dark:text-amber-400/70" : "text-muted-foreground")}>{size.desc}</p>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-secondary/20">
+          <div className="bg-slate-50 dark:bg-card border border-border rounded-xl p-4 flex items-center justify-between">
             <div>
-              <p className="text-[12px] font-bold text-slate-900 dark:text-slate-100">{t('settings.auto_print') || 'Auto Print on Checkout'}</p>
-              <p className="text-[9px] text-muted-foreground">{t('settings.auto_print_desc') || 'Fires print command instantly when checkout succeeds.'}</p>
+              <p className="text-[13px] font-bold text-slate-900 dark:text-slate-100">Auto Print on Checkout</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Print receipt automatically when sale completes</p>
             </div>
-            <input
-              type="checkbox"
-              checked={form.auto_print}
-              onChange={e => set("auto_print", e.target.checked)}
-              className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
-            />
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" checked={!!form.auto_print} onChange={e => set("auto_print", e.target.checked)} className="sr-only peer" />
+              <div className="w-10 h-5 bg-slate-300 dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500" />
+            </label>
           </div>
         </div>
 
-        {/* Right column: Device Configuration (Contextual) */}
         <div className="space-y-4 border-t md:border-t-0 md:border-l border-border/40 pt-4 md:pt-0 md:pl-6">
           {isBrowser && (
-            <div className="bg-secondary/20 p-4 rounded-xl space-y-2.5">
-              <h4 className="font-extrabold text-[12px] text-slate-900 dark:text-slate-100 flex items-center gap-1.5"><Sliders className="w-3.5 h-3.5 text-amber-500" /> {t('settings.system_printer_mode') || 'System Printer Mode'}</h4>
-              <p className="text-[11px] text-muted-foreground leading-normal">
-                {t('settings.system_printer_mode_desc') || 'Using system dialog to print bills. We format the page layout precisely to fit'} <strong>{form.printer_size}</strong> {t('settings.system_printer_mode_desc_end') || 'paper width rolls. Works on all Android POS devices, PCs, and tablets natively.'}
+            <div className="bg-slate-50 dark:bg-secondary/20 rounded-xl p-4 space-y-3 border border-border">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-amber-500" />
+                <h4 className="font-extrabold text-[13px] text-slate-900 dark:text-slate-100">System Printer Mode</h4>
+                <span className="ml-auto text-[9px] font-black px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 rounded-full">READY</span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-muted-foreground leading-relaxed">
+                Uses OS print dialog. Formats receipt to <strong className="text-slate-900 dark:text-white">{form.printer_size}</strong> rolls. Works on Android POS, Windows and tablets.
               </p>
-              <Button type="button" onClick={handleTestPrint} variant="outline" size="sm" className="w-full text-xs font-bold gap-1 mt-1">
-                <Printer className="w-3.5 h-3.5" /> {t('settings.trigger_test_print') || 'Trigger Test Print'}
+              <div className="space-y-1.5">
+                {["Xprinter XP-58IIH · 58mm", "EPSON TM-T20III · 80mm", "Star TSP143III · 80mm"].map(p => (
+                  <div key={p} className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                    <Check className="w-3 h-3 text-emerald-500 shrink-0" /> {p}
+                  </div>
+                ))}
+              </div>
+              <Button type="button" onClick={handleTestPrint} variant="outline" className="w-full text-xs font-bold gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-400 dark:hover:bg-amber-500/10">
+                <Printer className="w-3.5 h-3.5" /> Trigger Test Print
               </Button>
             </div>
           )}
 
           {(isBluetooth || isUsb) && (
-            <div className="space-y-4">
-              <div className="bg-secondary/20 p-4 rounded-xl space-y-2">
-                <h4 className="font-extrabold text-[12px] text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                  {isBluetooth ? <Bluetooth className="w-3.5 h-3.5 text-amber-500" /> : <Usb className="w-3.5 h-3.5 text-amber-500" />}
-                  {isBluetooth ? (t('settings.bluetooth_connection') || "Bluetooth Connection") : (t('settings.usb_connection') || "USB Port Connection")}
-                </h4>
-                
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-[11px] text-muted-foreground">{t('settings.connected_printer') || 'Connected Printer:'}</span>
-                  <span className="text-[12px] font-black text-amber-600 dark:text-amber-400">{form.paired_printer_name || (t('settings.none_paired') || "None Paired")}</span>
+            <div className="space-y-3">
+              <div className="bg-slate-50 dark:bg-secondary/20 rounded-xl p-4 space-y-3 border border-border">
+                <div className="flex items-center gap-2">
+                  {isBluetooth ? <Bluetooth className="w-4 h-4 text-amber-500" /> : <Usb className="w-4 h-4 text-amber-500" />}
+                  <h4 className="font-extrabold text-[13px] text-slate-900 dark:text-slate-100">{isBluetooth ? "Bluetooth Connection" : "USB Port Connection"}</h4>
                 </div>
-
-                <div className="flex gap-2 mt-2">
-                  <Button
-                    type="button"
-                    onClick={handleStartScan}
-                    disabled={scanning}
-                    className="flex-1 text-xs font-bold gap-1 bg-amber-500 hover:bg-amber-600 text-slate-950 h-8"
-                  >
+                <div className={cn("flex items-center justify-between p-3 rounded-lg border",
+                  isConnected ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/25" : "bg-white dark:bg-card border-border"
+                )}>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground font-medium">Connected Printer</p>
+                    <p className={cn("text-[13px] font-black", isConnected ? "text-emerald-700 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500")}>
+                      {isConnected ? form.paired_printer_name : "None Paired"}
+                    </p>
+                  </div>
+                  {isConnected && (
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <Button type="button" size="sm" variant="ghost" onClick={handleDisconnect} className="h-7 text-[10px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 px-2">Disconnect</Button>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" onClick={handleStartScan} disabled={scanning}
+                    className="flex-1 text-xs font-bold gap-1.5 bg-amber-500 hover:bg-amber-600 text-black h-9">
                     <RefreshCw className={cn("w-3.5 h-3.5", scanning && "animate-spin")} />
-                    {scanning ? (t('common.loading') || "Scanning...") : `${t('settings.scan_for') || 'Scan for'} ${isBluetooth ? "BT Printers" : "USB Devices"}`}
+                    {scanning ? "Scanning..." : `Scan for ${isBluetooth ? "BT Printers" : "USB Devices"}`}
                   </Button>
-                  
-                  {form.paired_printer_name && (
-                    <Button type="button" onClick={handleTestPrint} variant="outline" size="sm" className="text-xs font-bold gap-1 h-8">
-                      {t('settings.test') || 'Test'}
+                  {isConnected && (
+                    <Button type="button" onClick={handleTestPrint} variant="outline" className="h-9 px-3 border-amber-300 dark:border-amber-500/30">
+                      <Printer className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     </Button>
                   )}
                 </div>
               </div>
 
-              {/* Scan discovery list */}
               {scanResults.length > 0 && (
-                <div className="border border-border/80 rounded-xl overflow-hidden divide-y divide-border">
-                  <div className="bg-secondary/40 p-2.5 text-[10px] font-black uppercase text-muted-foreground tracking-wider">
-                    {t('settings.discovered_devices') || 'Discovered Devices'}
+                <div className="border border-border rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 dark:bg-slate-800/60 px-4 py-2.5 border-b border-border">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-muted-foreground">{scanResults.length} Device{scanResults.length > 1 ? "s" : ""} Found</p>
                   </div>
-                  {scanResults.map((dev, i) => (
-                    <div
-                      key={i}
-                      className="w-full flex items-center justify-between p-3 text-left hover:bg-secondary/40 transition-colors text-slate-800 dark:text-slate-200"
-                    >
-                      <div className="flex items-center gap-2">
-                        {isBluetooth ? <Bluetooth className="w-3.5 h-3.5 text-amber-400" /> : <Usb className="w-3.5 h-3.5 text-amber-400" />}
-                        <div>
-                          <p className="text-[12px] font-bold">{dev.name}</p>
-                          <p className="text-[9px] text-muted-foreground font-mono">{dev.address || `VID: ${dev.vendorId} | PID: ${dev.productId}`}</p>
+                  <div className="divide-y divide-border">
+                    {scanResults.map((dev, i) => (
+                      <div key={i} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                            {isBluetooth ? <Bluetooth className="w-3.5 h-3.5 text-amber-500" /> : <Usb className="w-3.5 h-3.5 text-amber-500" />}
+                          </div>
+                          <div>
+                            <p className="text-[12px] font-bold text-slate-800 dark:text-slate-200">{dev.name}</p>
+                            <p className="text-[9px] text-muted-foreground font-mono">{isBluetooth ? dev.address : `VID: ${dev.vendorId} | PID: ${dev.productId}`}</p>
+                          </div>
                         </div>
+                        <Button type="button" size="sm" disabled={pairingDevice !== null} onClick={() => handlePairDevice(dev)}
+                          className={cn("h-7 text-[10px] font-bold px-3 rounded-lg",
+                            form.paired_printer_name === dev.name
+                              ? "bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/25"
+                              : "bg-slate-900 text-white dark:bg-amber-500 dark:text-black"
+                          )}>
+                          {pairingDevice === dev.name ? "Connecting..." : form.paired_printer_name === dev.name ? "Connected" : "Connect"}
+                        </Button>
                       </div>
-                      <Button 
-                        type="button" 
-                        size="sm" 
-                        disabled={pairingDevice !== null}
-                        onClick={() => handlePairDevice(dev)}
-                        variant={form.paired_printer_name === dev.name ? "outline" : "default"}
-                        className={cn("h-7 text-[10px] rounded-lg font-bold transition-all px-2.5", 
-                          form.paired_printer_name === dev.name ? "border-amber-500 text-amber-500 hover:bg-amber-500/10" : "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                        )}
-                      >
-                        {pairingDevice === dev.name ? (t('settings.pairing') || "Pairing...") : form.paired_printer_name === dev.name ? (t('settings.connected') || "Connected") : (t('settings.connect') || "Connect")}
-                      </Button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           )}
 
           {isWifi && (
-            <div className="bg-secondary/20 p-4 rounded-xl space-y-4">
-              <h4 className="font-extrabold text-[12px] text-slate-900 dark:text-slate-100 flex items-center gap-1.5"><Wifi className="w-3.5 h-3.5 text-amber-500" /> {t('settings.network_printer') || 'Network Printer Setup'}</h4>
-              
+            <div className="bg-slate-50 dark:bg-secondary/20 rounded-xl p-4 space-y-4 border border-border">
+              <div className="flex items-center gap-2">
+                <Wifi className="w-4 h-4 text-amber-500" />
+                <h4 className="font-extrabold text-[13px] text-slate-900 dark:text-slate-100">Network Printer Setup</h4>
+              </div>
               <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-[10px]">{t('settings.printer_ip') || 'Printer IP Address *'}</Label>
-                  <Input
-                    value={form.printer_ip}
-                    onChange={e => set("printer_ip", e.target.value)}
-                    placeholder="192.168.1.100"
-                    className="h-8 text-xs font-mono"
-                  />
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold text-slate-600 dark:text-muted-foreground">Printer IP Address</Label>
+                  <Input value={form.printer_ip} onChange={e => set("printer_ip", e.target.value)} placeholder="192.168.1.100" className="h-9 text-sm font-mono" />
                 </div>
-
-                <div className="space-y-1">
-                  <Label className="text-[10px]">{t('settings.printer_port') || 'Port Number'}</Label>
-                  <Input
-                    value={form.printer_port}
-                    onChange={e => set("printer_port", e.target.value)}
-                    placeholder="9100"
-                    className="h-8 text-xs font-mono"
-                  />
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold text-slate-600 dark:text-muted-foreground">Port Number</Label>
+                  <Input value={form.printer_port} onChange={e => set("printer_port", e.target.value)} placeholder="9100" className="h-9 text-sm font-mono" />
                 </div>
               </div>
-
-              <div className="flex gap-2">
-                <Button type="button" onClick={handleTestPrint} disabled={!form.printer_ip} className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold gap-1 h-8">
-                  <Printer className="w-3.5 h-3.5" /> {t('settings.test_connection') || 'Test Connection'}
-                </Button>
-              </div>
+              <Button type="button" onClick={handleTestPrint} disabled={!form.printer_ip}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold gap-1.5 h-9">
+                <Printer className="w-3.5 h-3.5" /> Test Connection and Print
+              </Button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Bottom Save Action */}
       <div className="flex justify-end pt-4 border-t border-border/40">
-        <Button
-          type="button"
-          disabled={saving}
-          onClick={onSave}
-          className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold gap-1.5 h-9 shadow-md shadow-amber-500/10 px-4 rounded-xl"
-        >
+        <Button type="button" disabled={saving} onClick={onSave}
+          className="bg-amber-500 hover:bg-amber-600 text-black text-sm font-bold gap-2 h-9 px-5 rounded-xl">
           <Save className="w-4 h-4" />
-          {saving ? (t('common.saving') || "Saving Configuration...") : (t('settings.save_printer_settings') || "Save Printer Settings")}
+          {saving ? "Saving..." : "Save Printer Settings"}
         </Button>
       </div>
     </div>

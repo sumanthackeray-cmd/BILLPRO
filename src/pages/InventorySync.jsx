@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
 import { Activity, TrendingUp, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +28,19 @@ export default function InventorySync() {
     syncLatency: 0, // ms
     lowStockCount: 0,
   });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => base44.entities.Product.list(),
+  });
+
+  const productsMap = useMemo(() => {
+    const map = {};
+    products.forEach(p => {
+      map[p.id] = p;
+    });
+    return map;
+  }, [products]);
 
   useEffect(() => {
     if (branchId) {
@@ -187,9 +202,21 @@ export default function InventorySync() {
             <div className="space-y-2">
               {lowStockItems.slice(0, 5).map(item => (
                 <div key={item.id} className="flex justify-between items-center p-2 bg-white rounded">
-                  <div>
-                    <p className="font-medium">{item.productId}</p>
-                    <p className="text-sm text-gray-600">Current: {item.quantity} units</p>
+                  <div className="flex flex-col gap-0.5">
+                    <p className="font-bold text-gray-900 leading-tight">
+                      {productsMap[item.productId]?.name || `Unlisted Item (${item.productId})`}
+                    </p>
+                    {productsMap[item.productId]?.barcode && (
+                      <p className="text-[10px] text-gray-500 font-mono">
+                        SKU/Barcode: {productsMap[item.productId].barcode}
+                      </p>
+                    )}
+                    {productsMap[item.productId]?.category && (
+                      <span className="self-start inline-block px-1.5 py-0.5 text-[9px] bg-yellow-500/10 text-yellow-800 border border-yellow-500/20 rounded-md font-bold">
+                        {productsMap[item.productId].category}
+                      </span>
+                    )}
+                    <p className="text-xs text-gray-600 mt-0.5">Current: <span className="font-extrabold">{item.quantity}</span> units</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-yellow-600">Reorder: {item.reorderPoint}</p>
@@ -231,7 +258,7 @@ export default function InventorySync() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-semibold">Product ID</th>
+                    <th className="text-left py-3 px-4 font-semibold">Product Details</th>
                     <th className="text-right py-3 px-4 font-semibold">Current Stock</th>
                     <th className="text-right py-3 px-4 font-semibold">Reorder Point</th>
                     <th className="text-right py-3 px-4 font-semibold">Reorder Qty</th>
@@ -242,7 +269,28 @@ export default function InventorySync() {
                 <tbody>
                   {inventory.slice(0, 20).map(item => (
                     <tr key={item.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4 font-mono">{item.productId}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-gray-900 leading-tight">
+                            {productsMap[item.productId]?.name || `Unlisted Product`}
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <span className="text-[10px] text-muted-foreground font-mono bg-secondary px-1.5 py-0.5 rounded">
+                              ID: {item.productId}
+                            </span>
+                            {productsMap[item.productId]?.barcode && (
+                              <span className="text-[10px] text-muted-foreground font-mono bg-secondary px-1.5 py-0.5 rounded">
+                                Barcode: {productsMap[item.productId].barcode}
+                              </span>
+                            )}
+                            {productsMap[item.productId]?.category && (
+                              <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-black bg-yellow-500/10 text-yellow-800 border border-yellow-500/20">
+                                {productsMap[item.productId].category}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
                       <td className="text-right py-3 px-4">
                         <span className="font-bold">{item.quantity}</span>
                       </td>

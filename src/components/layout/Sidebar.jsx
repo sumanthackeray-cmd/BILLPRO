@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
   Users, BarChart3, Settings, Sparkles, ScanBarcode, LogOut, Crown,
-  Receipt, BookOpen, Landmark, Building2, Zap, GitBranch, RefreshCw, Warehouse, TrendingUp
+  Receipt, BookOpen, Landmark, Building2, Zap, GitBranch, RefreshCw, Warehouse, TrendingUp, Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -32,7 +32,10 @@ const NAV_ITEMS = [
   { path: "/inventory-sync", icon: RefreshCw, label: "Inventory Sync", badge: "LIVE", tKey: "nav.invsync" },
   { path: "/stock-transfer", icon: Truck, label: "Stock Transfer", tKey: "nav.stocktransfer" },
   { path: "/warehouse", icon: Warehouse, label: "Warehouse Hub", badge: "SAP", tKey: "nav.warehouse" },
+  { path: "/manufacturing", icon: Building2, label: "Manufacturing ERP", badge: "FACTORY", tKey: "nav.manufacturing" },
   { path: "/enterprise-intel", icon: TrendingUp, label: "Enterprise Intel", badge: "AI", tKey: "nav.enterprise_intel" },
+  { path: "/finance", icon: Landmark, label: "Finance Hub", badge: "ERP", tKey: "nav.finance" },
+  { path: "/audit-logs", icon: Shield, label: "Audit Logs", tKey: "nav.auditLogs" },
   { path: "/settings", icon: Settings, label: "Settings", tKey: "nav.settings" },
   { path: "/subscription", icon: Crown, label: "Upgrade", badge: "PRO", isPro: true, tKey: "nav.upgrade" },
 ];
@@ -126,6 +129,51 @@ export default function Sidebar({ mobile = false, onClose }) {
     if (mobile && onClose) onClose();
   };
 
+  // Dynamically filter navigation items based on user's SAP permissions
+  const filteredNavItems = NAV_ITEMS.filter((item) => {
+    if (!user) return true;
+    
+    // Hide manufacturing module if shop is not a manufacturer
+    if (item.path === "/manufacturing" && shopSettings.business_type !== "manufacturer") {
+      return false;
+    }
+    
+    // Essential core pages
+    if (item.path === "/" || item.path === "/subscription" || item.path === "/settings") {
+      return true;
+    }
+    
+    // Limit audit log access to owner, ceo, and ca roles
+    if (item.path === "/audit-logs") {
+      return user.role === 'owner' || user.role === 'ceo' || user.role === 'ca';
+    }
+    
+    // Owner role has complete clearance
+    if (user.role === 'owner') return true;
+    
+    // Match paths to module permissions keys
+    let moduleKey = "";
+    if (item.path === "/pos" || item.path === "/invoices" || item.path === "/customers") {
+      moduleKey = "pos";
+    } else if (item.path === "/inventory" || item.path === "/barcode" || item.path === "/inventory-sync" || item.path === "/stock-transfer") {
+      moduleKey = "inventory";
+    } else if (item.path === "/purchases" || item.path === "/waybills" || item.path === "/warehouse") {
+      moduleKey = "warehouse";
+    } else if (item.path === "/expenses" || item.path === "/accounting" || item.path === "/loans" || item.path === "/gst-filing" || item.path === "/finance") {
+      moduleKey = "accounting";
+    } else if (item.path === "/branches") {
+      moduleKey = "hr";
+    } else if (item.path === "/reports" || item.path === "/ai-insights" || item.path === "/enterprise-intel") {
+      moduleKey = "reports";
+    }
+    
+    if (moduleKey) {
+      return !!user.permissions?.[moduleKey]?.view;
+    }
+    
+    return true;
+  });
+
   return (
     <aside className={cn(
       "flex flex-col bg-sidebar border-r border-sidebar-border shrink-0 overflow-hidden",
@@ -164,7 +212,7 @@ export default function Sidebar({ mobile = false, onClose }) {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-2 overflow-y-auto space-y-0.5">
-        {NAV_ITEMS.map((item) => {
+        {filteredNavItems.map((item) => {
           const isActive = location.pathname === item.path ||
             (item.path !== "/" && location.pathname.startsWith(item.path));
           return (

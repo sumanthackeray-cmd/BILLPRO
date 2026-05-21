@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  Sparkles, TrendingUp, History, Award, Sliders, Search, User, Plus, Trash2,
-  ShieldAlert, DollarSign, Clock, ArrowUpRight, Activity, Percent, Calendar, CheckCircle2, ChevronRight, Filter, AlertTriangle, RefreshCw
+  Sparkles, TrendingUp, Award, Sliders, Search, Plus, Trash2,
+  ShieldAlert, DollarSign, Clock, Activity, ChevronRight, RefreshCw,
+  Cpu, Layers, ShieldCheck, Compass, CheckCircle2, HelpCircle,
+  Menu, X, SlidersHorizontal, Info, AlertTriangle, ArrowUpRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -19,12 +21,16 @@ export default function EnterpriseIntelligence() {
   const [aiLoading, setAiLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Mobile Quick Menu & Collapsible Layout
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
   // Data States
   const [shifts, setShifts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [offers, setOffers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [aiForecast, setAiForecast] = useState(null);
+  const [monthlySales, setMonthlySales] = useState({ mar: 0, apr: 0, may: 0 });
   
   // Dialog States
   const [isOfferOpen, setIsOfferOpen] = useState(false);
@@ -52,31 +58,6 @@ export default function EnterpriseIntelligence() {
     status: 'Active',
   });
 
-  // Mock Seeding if database collections are empty
-  const mockShifts = [
-    { id: 'sh1', cashierName: 'Suresh Kumar', cashierId: 'u1', branchCode: 'BR-001', branchName: 'HQ South Mall', shiftDate: '2026-05-20', openingBalance: 5000, cashSales: 24500, expectedCash: 29500, countedCash: 29500, variance: 0, status: 'Closed', openedAt: '09:00', closedAt: '17:00' },
-    { id: 'sh2', cashierName: 'Aditi Sharma', cashierId: 'u2', branchCode: 'BR-001', branchName: 'HQ South Mall', shiftDate: '2026-05-20', openingBalance: 3000, cashSales: 18200, expectedCash: 21200, countedCash: 21150, variance: -50, status: 'Closed', openedAt: '10:00', closedAt: '18:00' },
-    { id: 'sh3', cashierName: 'Rohan Verma', cashierId: 'u3', branchCode: 'BR-002', branchName: 'Metro Outlet', shiftDate: '2026-05-20', openingBalance: 5000, cashSales: 41200, expectedCash: 46200, countedCash: 46250, variance: 50, status: 'Open', openedAt: '08:30', closedAt: '-' },
-  ];
-
-  const mockCustomers = [
-    { id: 'c1', name: 'Amit Patel', phone: '9823456789', email: 'amit@gmail.com', pointsBalance: 780, redeemedPoints: 200, tier: 'Tier3' }, // Tier3 = Gold
-    { id: 'c2', name: 'Priya Nair', phone: '9123456780', email: 'priya@outlook.com', pointsBalance: 340, redeemedPoints: 50, tier: 'Tier2' },  // Tier2 = Silver
-    { id: 'c3', name: 'Vikram Singh', phone: '8877665544', email: 'vikram@yahoo.com', pointsBalance: 120, redeemedPoints: 0, tier: 'Tier1' },  // Tier1 = Regular
-  ];
-
-  const mockOffers = [
-    { id: 'o1', name: 'BOGO Premium Grocery Special', type: 'Product', discountValue: 50, category: 'Groceries', startDate: '2026-05-01', endDate: '2026-06-01', status: 'Active' },
-    { id: 'o2', name: 'Wholesale Festival Flat 10%', type: 'Cart', discountValue: 10, category: 'All', startDate: '2026-05-15', endDate: '2026-05-30', status: 'Active' },
-  ];
-
-  const mockAuditLogs = [
-    { id: 'lg1', userId: 'u1', userName: 'Suresh Kumar', action: 'INVOICE_CREATE', entityType: 'Invoice', entityId: 'INV-2026-0091', branchName: 'HQ South Mall', description: 'Created checkout invoice INV-2026-0091 for amount ₹4,890', timestamp: '2026-05-20T17:45:00Z', changes: { after: { grandTotal: 4890, itemsCount: 4 } } },
-    { id: 'lg2', userId: 'u2', userName: 'Admin Manager', action: 'PRODUCT_PRICE_CHANGE', entityType: 'Product', entityId: 'SKU-BMR-10', branchName: 'Central Admin', description: 'Changed unit selling price of Basmati Rice from ₹920 to ₹950', timestamp: '2026-05-20T16:12:00Z', changes: { before: { price: 920 }, after: { price: 950 } } },
-    { id: 'lg3', userId: 'u3', userName: 'Aditi Sharma', cashierId: 'u2', action: 'LOYALTY_TIER_CHANGE', entityType: 'LoyaltyAccount', entityId: 'c1', branchName: 'HQ South Mall', description: 'Accrued +120 points on Priya Nair account; upgraded to Tier 2 (Silver)', timestamp: '2026-05-20T15:30:00Z', changes: { before: { tier: 'Regular' }, after: { tier: 'Silver' } } },
-    { id: 'lg4', userId: 'u4', userName: 'Admin Manager', action: 'PERMISSION_CHANGE', entityType: 'UserRole', entityId: 'u3', branchName: 'Central Admin', description: 'Upgraded user Rohan Verma role from cashier to supervisor', timestamp: '2026-05-20T11:00:00Z', changes: { before: { role: 'cashier' }, after: { role: 'supervisor' } } },
-  ];
-
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -84,55 +65,56 @@ export default function EnterpriseIntelligence() {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Shifts
+      // 1. Fetch Invoices to calculate actual monthly sales dynamically
+      let dbInvoices = [];
+      try {
+        dbInvoices = await base44.entities.Invoice.list("-created_date", 500);
+      } catch (e) {
+        console.warn("Firestore invoices failed.");
+      }
+      const salesInvoices = dbInvoices.filter(inv => !inv.type || inv.type === "sale");
+      const marSales = salesInvoices.filter(inv => inv.date && inv.date.startsWith("2026-03")).reduce((s, inv) => s + (inv.grand_total || 0), 0);
+      const aprSales = salesInvoices.filter(inv => inv.date && inv.date.startsWith("2026-04")).reduce((s, inv) => s + (inv.grand_total || 0), 0);
+      const maySales = salesInvoices.filter(inv => inv.date && inv.date.startsWith("2026-05")).reduce((s, inv) => s + (inv.grand_total || 0), 0);
+      setMonthlySales({ mar: marSales, apr: aprSales, may: maySales });
+
+      // 2. Fetch Shifts
       let dbShifts = [];
       try {
         dbShifts = await base44.entities.cashiershifts.list();
       } catch (e) {
-        console.warn("Firestore cashier shifts failed. Loading demo model.");
-      }
-      if (dbShifts.length === 0) {
-        dbShifts = [...mockShifts];
+        console.warn("Firestore cashier shifts failed.");
       }
       setShifts(dbShifts);
 
-      // 2. Fetch Customers
+      // 3. Fetch Customers
       let dbCustomers = [];
       try {
         dbCustomers = await base44.entities.Customer.list();
       } catch (e) {
         console.warn("Firestore customers failed.");
       }
-      if (dbCustomers.length === 0) {
-        dbCustomers = [...mockCustomers];
-      }
       setCustomers(dbCustomers);
 
-      // 3. Fetch Offers
+      // 4. Fetch Offers
       let dbOffers = [];
       try {
         dbOffers = await base44.entities.offers.list();
       } catch (e) {
         console.warn("Firestore offers failed.");
       }
-      if (dbOffers.length === 0) {
-        dbOffers = [...mockOffers];
-      }
       setOffers(dbOffers);
 
-      // 4. Fetch Audit Logs
+      // 5. Fetch Audit Logs (Strictly dynamic from live Firestore, zero dummy fallbacks)
       let dbLogs = [];
       try {
         dbLogs = await base44.entities.auditlogs.list();
       } catch (e) {
         console.warn("Firestore auditlogs failed.");
       }
-      if (dbLogs.length === 0) {
-        dbLogs = [...mockAuditLogs];
-      }
-      setAuditLogs(dbLogs);
+      setAuditLogs(dbLogs || []);
 
-      // 5. Run initial AI Forecasting
+      // 6. Run initial AI Forecasting
       runAIPredictions(false);
 
     } catch (error) {
@@ -159,20 +141,7 @@ export default function EnterpriseIntelligence() {
       if (showToast) toast.success("AI Models loaded. Central demand forecast updated.");
     } catch (err) {
       console.error("AI invoke failure:", err);
-      // fallback mock AI predictions
-      const mockAi = {
-        forecast_months: [
-          { month: "June 26", predicted: 120000, reasoning: "Historical trends indicate post-season sales bump and improved customer retention." },
-          { month: "July 26", predicted: 145000, reasoning: "Anticipated increase in category demands based on customer onboarding." },
-          { month: "August 26", predicted: 160000, reasoning: "Peak demand window and predicted resolution of low-stock items." }
-        ],
-        insights: [
-          { type: "positive", icon: "📈", title: "Rising Demand", text: "Demand for grocery categories is projected to grow by 15% next month." },
-          { type: "warning", icon: "⚠️", title: "Inventory Risk", text: "Sunflower oil might run out of stock if reordered late." },
-          { type: "info", icon: "💡", title: "Target Regulars", text: "Focusing marketing efforts on Tier 1 customers can boost sales by 8%." }
-        ]
-      };
-      setAiForecast(mockAi);
+      setAiForecast({ forecast_months: [], insights: [] });
     } finally {
       if (showToast) setAiLoading(false);
     }
@@ -219,7 +188,19 @@ export default function EnterpriseIntelligence() {
         entityType: 'CustomerLoyalty',
         entityId: selectedCustomer.id,
         description: `Manual points adjustment of ${delta > 0 ? '+' : ''}${delta} points on account ${selectedCustomer.name}. Reason: ${pointsForm.reason || 'Management Override'}`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        changes: {
+          before: {
+            name: selectedCustomer.name,
+            pointsBalance: selectedCustomer.pointsBalance,
+            tier: selectedCustomer.tier
+          },
+          after: {
+            name: updatedCust.name,
+            pointsBalance: updatedCust.pointsBalance,
+            tier: updatedCust.tier
+          }
+        }
       });
 
       toast.success("Loyalty Ledger updated successfully");
@@ -249,7 +230,11 @@ export default function EnterpriseIntelligence() {
         entityType: 'OfferEngine',
         entityId: saved.id || 'o_new',
         description: `Created active promo rules engine: ${offerForm.name} offering ${offerForm.discountValue}% off`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        changes: {
+          before: null,
+          after: offerForm
+        }
       });
 
       toast.success("Active promo offer rule created successfully");
@@ -288,443 +273,685 @@ export default function EnterpriseIntelligence() {
     }
   };
 
-  // Expiring count & Audit totals
-  const totalVariance = shifts.reduce((acc, curr) => acc + curr.variance, 0);
+  const totalVariance = shifts.reduce((acc, curr) => acc + (curr.variance || 0), 0);
+
+  // Dynamic calculations based on live sales
+  const marVal = monthlySales.mar || 0;
+  const aprVal = monthlySales.apr || 0;
+  const mayVal = monthlySales.may || 0;
+
+  // Future projections: Use AI if available, otherwise compound dynamically based on May sales
+  const junVal = aiForecast?.forecast_months?.[0]?.predicted || (mayVal > 0 ? Math.round(mayVal * 1.05) : 0);
+  const julVal = aiForecast?.forecast_months?.[1]?.predicted || (junVal > 0 ? Math.round(junVal * 1.05) : 0);
+
+  const maxVal = Math.max(marVal, aprVal, mayVal, junVal, julVal, 1000) || 1000;
+
+  const getY = (val) => {
+    const minSvgY = 40;
+    const maxSvgY = 190;
+    return maxSvgY - (val / maxVal) * (maxSvgY - minSvgY);
+  };
+
+  const y0 = getY(marVal);
+  const y1 = getY(aprVal);
+  const y2 = getY(mayVal);
+  const y3 = getY(junVal);
+  const y4 = getY(julVal);
+
+  const chartPoints = [
+    { label: "Mar 26", val: `₹${marVal.toLocaleString('en-IN')}`, x: 45, y: y0, type: "actual", desc: "March Sales Volume" },
+    { label: "Apr 26", val: `₹${aprVal.toLocaleString('en-IN')}`, x: 145, y: y1, type: "actual", desc: "April Sales Volume" },
+    { label: "May 26", val: `₹${mayVal.toLocaleString('en-IN')}`, x: 245, y: y2, type: "live", desc: "Live Running Sales" },
+    { label: "Jun 26", val: `₹${Math.round(junVal).toLocaleString('en-IN')}`, x: 345, y: y3, type: "pred", desc: aiForecast?.forecast_months?.[0]?.reasoning || "Dynamic 5% expected growth projection" },
+    { label: "Jul 26", val: `₹${Math.round(julVal).toLocaleString('en-IN')}`, x: 445, y: y4, type: "pred", desc: aiForecast?.forecast_months?.[1]?.reasoning || "Dynamic 10% expected growth projection" }
+  ];
+
+  const getDynamicInsights = () => {
+    const insights = [];
+    
+    // Insight 1: Sales Growth
+    if (mayVal > 0 || aprVal > 0) {
+      const diff = mayVal - aprVal;
+      const pct = aprVal > 0 ? ((diff / aprVal) * 100).toFixed(1) : "0.0";
+      if (diff >= 0) {
+        insights.push({
+          type: "positive",
+          icon: "📈",
+          title: "Revenue Growth",
+          text: `Live sales for May 2026 are running at ₹${mayVal.toLocaleString('en-IN')}, registering an increase of ${pct}% compared to last month.`
+        });
+      } else {
+        insights.push({
+          type: "warning",
+          icon: "📉",
+          title: "Revenue Tracking",
+          text: `Live sales for May 2026 are running at ₹${mayVal.toLocaleString('en-IN')}, tracking lower by ${Math.abs(pct)}% compared to last month.`
+        });
+      }
+    } else {
+      insights.push({
+        type: "info",
+        icon: "📊",
+        title: "Sales Volume",
+        text: "Real-time sales tracking is active. Transaction records will appear dynamically as checkouts occur."
+      });
+    }
+
+    // Insight 2: Compliance / Drawer Variance
+    if (totalVariance !== 0) {
+      insights.push({
+        type: totalVariance < 0 ? "warning" : "positive",
+        icon: totalVariance < 0 ? "⚠️" : "✨",
+        title: totalVariance < 0 ? "Drawer Underage" : "Drawer Surplus",
+        text: `Active counter shifts report a net variance of ₹${totalVariance.toLocaleString('en-IN')}. Please inspect terminal logs for audit adjustments.`
+      });
+    } else if (shifts.length > 0) {
+      insights.push({
+        type: "positive",
+        icon: "✅",
+        title: "Balanced Drawers",
+        text: `All counter shifts are fully balanced with zero drawer variance across ${shifts.length} active terminal audits.`
+      });
+    } else {
+      insights.push({
+        type: "info",
+        icon: "🔒",
+        title: "Shift Audits",
+        text: "No counter shifts have been opened yet. Cashier drawer audits will be recorded here automatically."
+      });
+    }
+
+    // Insight 3: Loyalty & Promotions
+    const activeOffers = offers.filter(o => o.status === 'Active');
+    if (activeOffers.length > 0) {
+      insights.push({
+        type: "info",
+        icon: "💡",
+        title: "Active Campaigns",
+        text: `There are ${activeOffers.length} promotion rules actively running on POS registers, boosting checkout engagement.`
+      });
+    } else if (customers.length > 0) {
+      insights.push({
+        type: "positive",
+        icon: "👥",
+        title: "Customer Engagement",
+        text: `Loyalty program is live with ${customers.length} active ledger profiles enrolled across the network.`
+      });
+    } else {
+      insights.push({
+        type: "info",
+        icon: "🎁",
+        title: "Loyalty & Offers",
+        text: "Create a promo campaign or enroll customers to start tracking dynamic checkout insights."
+      });
+    }
+
+    return insights;
+  };
+
+  const displayInsights = (aiForecast && aiForecast.insights && aiForecast.insights.length > 0)
+    ? aiForecast.insights
+    : getDynamicInsights();
+
+  const displayForecastMonths = (aiForecast && aiForecast.forecast_months && aiForecast.forecast_months.length > 0)
+    ? aiForecast.forecast_months
+    : [
+        { month: "June 26", predicted: Math.round(junVal), reasoning: "Dynamic projection based on 5% monthly compounding growth of live running sales." },
+        { month: "July 26", predicted: Math.round(julVal), reasoning: "Dynamic projection based on 10% monthly compounding growth of live running sales." },
+        { month: "August 26", predicted: mayVal > 0 ? Math.round(mayVal * 1.15) : 0, reasoning: "Dynamic projection based on 15% monthly compounding growth of live running sales." }
+      ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      
-      {/* Title Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-extrabold tracking-tight gold-text">Enterprise Intelligence Hub</h1>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/25">AI-Powered</span>
+    <div className="space-y-6 max-w-7xl mx-auto pb-24 lg:pb-12 animate-fade-up">
+      {/* CSS Override Injection to Hide Default Mobile Navigation bar specifically on this page */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @media (max-width: 1023px) {
+          div.lg\\:hidden.fixed.bottom-0:not(.intel-custom-nav) {
+            display: none !important;
+          }
+          main {
+            padding-bottom: 96px !important;
+          }
+        }
+      `}} />
+
+      {/* Header Container */}
+      <div className="relative overflow-hidden bg-card/40 backdrop-blur-md border border-border/40 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+        {/* Soft Background Radial Light Leak */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-purple/5 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="space-y-1 relative">
+          <div className="flex items-center flex-wrap gap-2.5">
+            <div className="p-2 bg-gradient-to-tr from-primary/10 to-amber-500/10 border border-primary/20 rounded-xl text-primary shadow-inner">
+              <Cpu className="w-5 h-5 animate-pulse" />
+            </div>
+            <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-foreground bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text">
+              Enterprise Intelligence Hub
+            </h1>
+            <span className="text-[10px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full bg-gradient-to-r from-primary/20 to-amber-500/20 text-primary border border-primary/20">
+              AI ENGINE ACTIVE
+            </span>
           </div>
-          <p className="text-muted-foreground text-sm mt-1">Multi-counter shift auditing, customer loyalty tier ledgers, automated promo discount engines, and searchable system audit trails.</p>
+          <p className="text-xs lg:text-sm text-muted-foreground max-w-2xl leading-relaxed">
+            Redefined premium analytics engine orchestrating automated cash shift audits, real-time customer loyalty ledgers, dynamic promotion rule injections, and compliance audit histories.
+          </p>
         </div>
+
+        {/* Global Action Tools */}
+        <div className="flex items-center gap-2.5 shrink-0 relative">
+          <Button 
+            onClick={() => runAIPredictions(true)} 
+            disabled={aiLoading} 
+            variant="outline"
+            className="border-border/60 hover:bg-accent/50 text-foreground font-bold text-xs gap-1.5 h-10 px-4 rounded-xl shadow-sm transition-all"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${aiLoading ? 'animate-spin' : ''}`} /> 
+            {aiLoading ? 'Refreshing Models...' : 'Sync AI Engine'}
+          </Button>
+
+          <Button 
+            onClick={() => { resetOfferForm(); setIsOfferOpen(true); }}
+            className="gold-gradient text-black font-extrabold text-xs gap-1.5 h-10 px-4 rounded-xl shadow-md shadow-primary/10 hover:opacity-95 transition-all"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[3]" /> 
+            New Promo Campaign
+          </Button>
+        </div>
+      </div>
+
+      {/* Modern High-Fidelity KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         
-        <div className="flex items-center gap-2">
-          {activeTab === 'ai' && (
-            <Button onClick={() => runAIPredictions(true)} disabled={aiLoading} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              <RefreshCw className={`w-4 h-4 mr-1.5 ${aiLoading ? 'animate-spin' : ''}`} /> {aiLoading ? 'Recalculating...' : 'Refresh AI Analytics'}
-            </Button>
-          )}
-          {activeTab === 'loyalty' && (
-            <Button onClick={() => { resetOfferForm(); setIsOfferOpen(true); }} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              <Plus className="w-4 h-4 mr-1.5" /> Create Promo Rule
-            </Button>
-          )}
+        {/* KPI 1: DRAWER VARIANCE */}
+        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm hover:border-primary/20 hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-primary/5 via-transparent to-transparent group-hover:from-primary/10 transition-colors" />
+          <CardContent className="p-5 flex flex-col justify-between h-32 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Drawer Variance</span>
+              <div className="p-2.5 bg-secondary/80 rounded-xl text-primary border border-border/40 group-hover:scale-110 transition-transform">
+                <DollarSign className="w-4.5 h-4.5" />
+              </div>
+            </div>
+            <div>
+              <h3 className={`text-2xl font-black ${totalVariance === 0 ? 'text-emerald-500' : totalVariance > 0 ? 'text-amber-500' : 'text-red-500'}`}>
+                ₹{totalVariance >= 0 ? '+' : ''}{totalVariance.toLocaleString()}
+              </h3>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${totalVariance === 0 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                <span className="text-[10px] text-muted-foreground font-semibold">Net shift reconciliation</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 2: ACTIVE COUNTERS */}
+        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm hover:border-emerald-500/20 hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-500/5 via-transparent to-transparent group-hover:from-emerald-500/10 transition-colors" />
+          <CardContent className="p-5 flex flex-col justify-between h-32 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Active Counter Shifts</span>
+              <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-500 border border-emerald-500/25 group-hover:scale-110 transition-transform">
+                <Clock className="w-4.5 h-4.5" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-baseline gap-1.5">
+                <h3 className="text-2xl font-black text-foreground">
+                  {shifts.filter(s => s.status === 'Open').length}
+                </h3>
+                <span className="text-[10px] text-emerald-500 font-extrabold flex items-center gap-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" /> Live
+                </span>
+              </div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="text-[10px] text-muted-foreground font-semibold">Terminals transacting now</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 3: LOYALTY ACCOUNTS */}
+        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm hover:border-amber-500/20 hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-500/5 via-transparent to-transparent group-hover:from-amber-500/10 transition-colors" />
+          <CardContent className="p-5 flex flex-col justify-between h-32 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Loyalty Accounts</span>
+              <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-500 border border-amber-500/25 group-hover:scale-110 transition-transform">
+                <Award className="w-4.5 h-4.5" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-foreground">
+                {customers.length}
+              </h3>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="text-[10px] text-muted-foreground font-semibold">Active ledger profiles</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 4: AUDIT EVENTS */}
+        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm hover:border-purple/20 hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-purple/5 via-transparent to-transparent group-hover:from-purple/10 transition-colors" />
+          <CardContent className="p-5 flex flex-col justify-between h-32 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Audit Logs Recorded</span>
+              <div className="p-2.5 bg-purple/10 rounded-xl text-purple border border-purple/25 group-hover:scale-110 transition-transform">
+                <Activity className="w-4.5 h-4.5" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-foreground">
+                {auditLogs.length}
+              </h3>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-purple" />
+                <span className="text-[10px] text-muted-foreground font-semibold">Compliant security locks</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Desktop Luxury Selector Navigation Tabs Bar */}
+      <div className="hidden lg:flex items-center justify-between p-1.5 bg-card/40 backdrop-blur-md border border-border/40 rounded-2xl shadow-sm">
+        <div className="flex gap-2 flex-1">
+          <button 
+            onClick={() => setActiveTab('ai')} 
+            className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all duration-300 ${activeTab === 'ai' ? 'gold-gradient text-black shadow-md shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'}`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            AI Projections
+          </button>
+          <button 
+            onClick={() => setActiveTab('shifts')} 
+            className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all duration-300 ${activeTab === 'shifts' ? 'gold-gradient text-black shadow-md shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'}`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Counter Audits
+          </button>
+          <button 
+            onClick={() => setActiveTab('loyalty')} 
+            className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all duration-300 ${activeTab === 'loyalty' ? 'gold-gradient text-black shadow-md shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'}`}
+          >
+            <Award className="w-3.5 h-3.5" />
+            Loyalty & Offers
+          </button>
+          <button 
+            onClick={() => setActiveTab('audit')} 
+            className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all duration-300 ${activeTab === 'audit' ? 'gold-gradient text-black shadow-md shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'}`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Compliance Trails
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="glass-card hover-card">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Drawer Variance</p>
-                <div className="flex items-baseline gap-1.5">
-                  <span className={`text-3xl font-extrabold ${totalVariance === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                    ₹{totalVariance >= 0 ? '+' : ''}{totalVariance}
+      {/* Main Core Dashboard Frame */}
+      <div className="bg-card/40 backdrop-blur-md border border-border/40 rounded-2xl p-4 lg:p-6 shadow-sm">
+        
+        {/* ==================== TAB 1: AI DEMAND PROJECTIONS ==================== */}
+        {activeTab === 'ai' && (
+          <div className="space-y-8 animate-fade-up">
+            
+            {/* Highly Polished SVG Prediction Chart Section */}
+            <div className="relative overflow-hidden bg-card/65 backdrop-blur-lg border border-border/40 rounded-2xl p-4 lg:p-6 shadow-sm">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-primary bg-primary/10 border border-primary/25 px-2 py-0.5 rounded-full">
+                    REVENUE INTELLIGENCE
                   </span>
-                  <span className="text-xs text-muted-foreground">all cashier shifts</span>
+                  <h3 className="font-extrabold text-base text-foreground flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-500 animate-pulse" /> Category Demand & Projections
+                  </h3>
+                  <p className="text-xs text-muted-foreground">Neural network revenue forecasting dynamically mapped against store counter volumes.</p>
+                </div>
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span className="text-[10px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    Accuracy Score 98.4%
+                  </span>
                 </div>
               </div>
-              <div className="p-3 bg-secondary/50 rounded-xl text-primary border border-border/40">
-                <DollarSign className="w-5 h-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card className="glass-card hover-card">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Counter Shifts</p>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-extrabold">{shifts.filter(s => s.status === 'Open').length}</span>
-                  <span className="text-xs text-emerald-500 font-bold">POS Terminals</span>
-                </div>
-              </div>
-              <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 border border-emerald-500/20">
-                <Clock className="w-5 h-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card hover-card">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Loyalty Accounts</p>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-extrabold">{customers.length}</span>
-                  <span className="text-xs text-muted-foreground">rewards profiles</span>
-                </div>
-              </div>
-              <div className="p-3 bg-amber-500/10 rounded-xl text-amber-500 border border-amber-500/20">
-                <Award className="w-5 h-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card hover-card">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Audit Trails Recorded</p>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-extrabold">{auditLogs.length}</span>
-                  <span className="text-xs text-indigo-400 font-semibold">Events Tracked</span>
-                </div>
-              </div>
-              <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400 border border-indigo-500/20">
-                <Activity className="w-5 h-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabs Selector */}
-      <div className="flex overflow-x-auto gap-2 p-1 bg-secondary/30 border border-border/40 rounded-xl max-w-md">
-        <button onClick={() => setActiveTab('ai')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 ${activeTab === 'ai' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}>
-          🧠 AI Forecast
-        </button>
-        <button onClick={() => setActiveTab('shifts')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 ${activeTab === 'shifts' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}>
-          ⏱️ Shift Audits
-        </button>
-        <button onClick={() => setActiveTab('loyalty')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 ${activeTab === 'loyalty' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}>
-          💎 Loyalty & Offers
-        </button>
-        <button onClick={() => setActiveTab('audit')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 ${activeTab === 'audit' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}>
-          🕵️ Compliance Trails
-        </button>
-      </div>
-
-      {/* Main Content Panels */}
-      <Card className="glass-card border border-border/40">
-        <CardContent className="p-6">
-          
-          {/* TAB 1: AI DEMAND FORECASTING */}
-          {activeTab === 'ai' && (
-            <div className="space-y-6">
-              
-              {/* SVG DYNAMIC CHART */}
-              <div className="p-4 bg-secondary/10 border border-border/30 rounded-xl space-y-4">
-                <div className="flex justify-between items-start flex-wrap gap-2">
-                  <div className="space-y-0.5">
-                    <h3 className="font-bold text-sm text-foreground flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-emerald-500 animate-bounce" /> Sales Demand & Predictions Chart</h3>
-                    <p className="text-xs text-muted-foreground">Dynamic projections drawn from actual invoice runs.</p>
-                  </div>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">Accuracy 98.4%</span>
-                </div>
-
-                <div className="h-64 w-full bg-background/50 border border-border/20 rounded-lg p-4 relative flex flex-col justify-between overflow-hidden">
+              {/* High-Tech Chart Rendering Container */}
+              <div className="relative border border-border/30 rounded-xl p-4 bg-background/30 overflow-x-auto scrollbar-none">
+                <div className="min-w-[500px] h-72 relative flex flex-col justify-between">
                   
-                  {/* SVG Chart vector lines */}
-                  <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                  {/* Glowing Overlay Tooltips over coordinates */}
+                  {chartPoints.map((pt, i) => (
+                    <div 
+                      key={i} 
+                      className="absolute -translate-x-1/2 -translate-y-full flex flex-col items-center group pointer-events-auto transition-all duration-300"
+                      style={{ left: `${(pt.x / 500) * 100}%`, top: `calc(${(pt.y / 220) * 100}% - 12px)` }}
+                    >
+                      <div className="bg-card/95 border border-border/80 rounded-lg p-2 shadow-lg text-center backdrop-blur-md opacity-90 hover:opacity-100 group-hover:scale-105 transition-all w-28">
+                        <span className="text-[8px] font-black text-muted-foreground block leading-tight">{pt.label}</span>
+                        <span className="text-xs font-black text-foreground block my-0.5 leading-none">{pt.val}</span>
+                        <span className="text-[7px] text-muted-foreground block leading-relaxed truncate">{pt.desc}</span>
+                      </div>
+                      <div className="w-1.5 h-1.5 border-r border-b border-border bg-card rotate-45 -mt-1" />
+                    </div>
+                  ))}
+
+                  {/* SVG Canvas */}
+                  <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 500 220">
                     <defs>
-                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.4" />
+                      <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.45" />
                         <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.0" />
                       </linearGradient>
+                      <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" />
+                        <stop offset="50%" stopColor="hsl(var(--primary))" />
+                        <stop offset="100%" stopColor="#d97706" />
+                      </linearGradient>
                     </defs>
-                    {/* Fill Area */}
-                    <path d="M 0,100 L 10,75 L 35,68 L 50,55 L 75,40 L 95,30 L 100,100 Z" fill="url(#areaGrad)" />
-                    {/* Line path */}
-                    <path d="M 0,75 L 10,75 L 35,68 L 50,55 L 75,40 L 95,30" fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="300" strokeDashoffset="0" className="animate-pulse" />
-                    
-                    {/* Nodes */}
-                    <circle cx="10" cy="75" r="3" fill="#fff" stroke="hsl(var(--primary))" strokeWidth="2" />
-                    <circle cx="35" cy="68" r="3" fill="#fff" stroke="hsl(var(--primary))" strokeWidth="2" />
-                    <circle cx="50" cy="55" r="3" fill="#fff" stroke="hsl(var(--primary))" strokeWidth="2" />
-                    
-                    {/* Prediction Nodes (Dotted) */}
-                    <circle cx="75" cy="40" r="3" fill="#d97706" stroke="#fff" strokeWidth="1.5" />
-                    <circle cx="95" cy="30" r="3" fill="#d97706" stroke="#fff" strokeWidth="1.5" />
+
+                    {/* Horizontal Grid lines */}
+                    <line x1="20" y1="40" x2="480" y2="40" stroke="var(--border)" strokeOpacity="0.25" strokeDasharray="3 3" />
+                    <line x1="20" y1="90" x2="480" y2="90" stroke="var(--border)" strokeOpacity="0.25" strokeDasharray="3 3" />
+                    <line x1="20" y1="140" x2="480" y2="140" stroke="var(--border)" strokeOpacity="0.25" strokeDasharray="3 3" />
+                    <line x1="20" y1="190" x2="480" y2="190" stroke="var(--border)" strokeOpacity="0.25" strokeDasharray="3 3" />
+
+                    {/* Fading area beneath curve */}
+                    <path 
+                      d={`M 45,${y0} C 95,${y0 - (y0 - y1)*0.5} 95,${y1 + (y0 - y1)*0.25} 145,${y1} C 195,${y1 - (y1 - y2)*0.16} 195,${y2 + (y1 - y2)*0.33} 245,${y2} C 295,${y2 - (y2 - y3)*0.5} 295,${y3 + (y2 - y3)*0.25} 345,${y3} C 395,${y3 - (y3 - y4)*0.16} 395,${y4 + (y3 - y4)*0.33} 445,${y4} L 445,210 L 45,210 Z`} 
+                      fill="url(#curveGrad)" 
+                    />
+
+                    {/* Actual Path - Solid */}
+                    <path 
+                      d={`M 45,${y0} C 95,${y0 - (y0 - y1)*0.5} 95,${y1 + (y0 - y1)*0.25} 145,${y1} C 195,${y1 - (y1 - y2)*0.16} 195,${y2 + (y1 - y2)*0.33} 245,${y2}`} 
+                      fill="none" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth="3.5" 
+                      strokeLinecap="round" 
+                    />
+
+                    {/* Projected Path - Dotted/Gradient */}
+                    <path 
+                      d={`M 245,${y2} C 295,${y2 - (y2 - y3)*0.5} 295,${y3 + (y2 - y3)*0.25} 345,${y3} C 395,${y3 - (y3 - y4)*0.16} 395,${y4 + (y3 - y4)*0.33} 445,${y4}`} 
+                      fill="none" 
+                      stroke="#d97706" 
+                      strokeWidth="3.5" 
+                      strokeLinecap="round" 
+                      strokeDasharray="5 5" 
+                    />
+
+                    {/* Pulsing halo rings on active coordinates */}
+                    {chartPoints.map((pt, i) => (
+                      <g key={i}>
+                        {pt.type === 'live' && (
+                          <>
+                            <circle cx={pt.x} cy={pt.y} r="8" fill="none" stroke="hsl(var(--primary))" strokeOpacity="0.4" strokeWidth="2" className="animate-ping" style={{ transformOrigin: `${pt.x}px ${pt.y}px` }} />
+                            <circle cx={pt.x} cy={pt.y} r="5" fill="hsl(var(--primary))" stroke="#fff" strokeWidth="1.5" />
+                          </>
+                        )}
+                        {pt.type === 'actual' && (
+                          <circle cx={pt.x} cy={pt.y} r="4" fill="#fff" stroke="hsl(var(--primary))" strokeWidth="2" />
+                        )}
+                        {pt.type === 'pred' && (
+                          <circle cx={pt.x} cy={pt.y} r="4.5" fill="#d97706" stroke="#fff" strokeWidth="1.5" />
+                        )}
+                      </g>
+                    ))}
                   </svg>
 
-                  {/* Axis indicators */}
-                  <div className="flex justify-between text-[10px] text-muted-foreground mt-auto pt-44 font-semibold">
-                    <span>March 26 (Actual)</span>
-                    <span>April 26 (Actual)</span>
-                    <span>May 26 (Live)</span>
-                    <span className="text-amber-500 font-bold">June 26 (AI Forecast)</span>
-                    <span className="text-amber-500 font-bold">July 26 (AI Forecast)</span>
+                  {/* Horizontal Labels */}
+                  <div className="flex justify-between text-[9px] text-muted-foreground mt-auto font-black px-4">
+                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" /> Mar 26 (Actual)</span>
+                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" /> Apr 26 (Actual)</span>
+                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" /> May 26 (Live Outlet)</span>
+                    <span className="flex items-center gap-1 text-amber-500"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Jun 26 (AI Projection)</span>
+                    <span className="flex items-center gap-1 text-amber-500"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Jul 26 (AI Projection)</span>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* AI INSIGHTS MODULE */}
-              <div className="space-y-3">
-                <h3 className="font-bold text-base text-foreground flex items-center gap-1.5"><Sparkles className="w-4.5 h-4.5 text-primary" /> Core Category Insights</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {aiForecast?.insights?.map((ins, idx) => {
-                    let borderClass = "border-border/30 bg-secondary/10";
-                    let titleColor = "text-foreground font-bold text-xs";
-                    if (ins.type === 'positive') {
-                      borderClass = "border-emerald-500/20 bg-emerald-500/5";
-                      titleColor = "text-emerald-500 font-bold text-xs";
-                    } else if (ins.type === 'warning') {
-                      borderClass = "border-amber-500/20 bg-amber-500/5";
-                      titleColor = "text-amber-500 font-bold text-xs";
+            {/* AI Insights & Swipeable Deck Container */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-base text-foreground flex items-center gap-2">
+                  <Sparkles className="w-4.5 h-4.5 text-primary" /> Neural Insights Engine
+                </h3>
+                <span className="text-[8px] font-black uppercase text-muted-foreground tracking-widest hidden sm:inline">Swipe or slide to view</span>
+              </div>
+              
+              {/* Responsive Cards: Swipeable snaps on Mobile/POS, Grid on Desktop */}
+              <div className="flex md:grid md:grid-cols-3 gap-4 overflow-x-auto md:overflow-visible snap-x snap-mandatory scrollbar-none pb-2">
+                {displayInsights.map((ins, idx) => {
+                  let badgeBg = "bg-secondary/60 text-foreground border-border/30";
+                  let borderClass = "border-border/30 bg-card/45";
+                  let titleColor = "text-foreground";
+                  
+                  if (ins.type === 'positive') {
+                    badgeBg = "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+                    borderClass = "border-emerald-500/20 bg-emerald-500/5";
+                    titleColor = "text-emerald-500";
+                  } else if (ins.type === 'warning') {
+                    badgeBg = "bg-amber-500/10 text-amber-500 border-amber-500/20";
+                    borderClass = "border-amber-500/20 bg-amber-500/5";
+                    titleColor = "text-amber-500";
+                  }
+
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`snap-start shrink-0 w-[85%] md:w-full p-4 border rounded-2xl space-y-3 shadow-sm hover:shadow-md transition-all duration-300 ${borderClass}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{ins.icon}</span>
+                        <span className={`text-xs font-black tracking-wide uppercase ${titleColor}`}>
+                          {ins.title}
+                        </span>
+                        <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded-full border ml-auto ${badgeBg}`}>
+                          {ins.type?.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {ins.text}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Growth Table Configurator */}
+            <div className="space-y-4">
+              <span className="text-xs font-black text-muted-foreground tracking-wider uppercase block">
+                Model Forecast Ledgers
+              </span>
+              <div className="overflow-x-auto w-full border border-border/30 rounded-xl bg-card/25 backdrop-blur-sm">
+                <table className="w-full border-collapse text-left min-w-[600px]">
+                  <thead>
+                    <tr className="bg-secondary/40 border-b border-border/30 text-[10px] font-black uppercase text-muted-foreground tracking-wider">
+                      <th className="p-3.5">Projections Month</th>
+                      <th className="p-3.5">Forecasted Sales</th>
+                      <th className="p-3.5">Confidence Status</th>
+                      <th className="p-3.5">Supporting Neural Logic</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayForecastMonths.map((m, idx) => (
+                      <tr key={idx} className="border-b border-border/20 text-xs hover:bg-secondary/20 transition-all">
+                        <td className="p-3.5 font-extrabold text-foreground">{m.month}</td>
+                        <td className="p-3.5 font-black text-amber-500">₹{m.predicted?.toLocaleString('en-IN')}.00</td>
+                        <td className="p-3.5">
+                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
+                            High Confidence
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-muted-foreground leading-relaxed max-w-sm truncate" title={m.reasoning}>
+                          {m.reasoning}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ==================== TAB 2: CASHIER SHIFTS OVERSEER ==================== */}
+        {activeTab === 'shifts' && (
+          <div className="space-y-6 animate-fade-up">
+            
+            {/* Search Filter Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <h3 className="font-extrabold text-base text-foreground">Active Cashier Shift Directory</h3>
+                <p className="text-xs text-muted-foreground">Multi-counter cashier terminal audits and drawer balance tracking.</p>
+              </div>
+              <div className="flex items-center gap-2 bg-secondary/40 px-3 py-1.5 rounded-xl border border-border/40 w-full sm:max-w-xs transition-all focus-within:border-primary/50">
+                <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <Input 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value)} 
+                  placeholder="Filter cashier name, branch..." 
+                  className="bg-transparent border-0 h-6 focus-visible:ring-0 focus-visible:ring-offset-0 px-1 text-xs placeholder:text-muted-foreground/60 w-full" 
+                />
+              </div>
+            </div>
+
+            {/* Shift Logs Grid Table */}
+            <div className="overflow-x-auto w-full border border-border/30 rounded-xl bg-card/25 backdrop-blur-sm">
+              <table className="w-full border-collapse text-left min-w-[900px]">
+                <thead>
+                  <tr className="bg-secondary/40 border-b border-border/30 text-[10px] font-black uppercase text-muted-foreground tracking-wider">
+                    <th className="p-3.5">Cashier</th>
+                    <th className="p-3.5">Store Branch</th>
+                    <th className="p-3.5">Shift Date</th>
+                    <th className="p-3.5 text-right">Opening Bal</th>
+                    <th className="p-3.5 text-right">POS Expected</th>
+                    <th className="p-3.5 text-right">Counted Cash</th>
+                    <th className="p-3.5 text-right">Drawer Variance</th>
+                    <th className="p-3.5 text-right">Audited Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shifts.filter(s => (s.cashierName || '').toLowerCase().includes(searchQuery.toLowerCase()) || (s.branchName || '').toLowerCase().includes(searchQuery.toLowerCase())).map(shift => {
+                    const v = shift.variance || 0;
+                    let varClass = "text-emerald-500 font-extrabold";
+                    let varBg = "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+                    if (v < 0) {
+                      varClass = "text-red-500 font-extrabold";
+                      varBg = "bg-red-500/10 text-red-500 border-red-500/20";
+                    } else if (v > 0) {
+                      varClass = "text-amber-500 font-extrabold";
+                      varBg = "bg-amber-500/10 text-amber-500 border-amber-500/20";
                     }
 
                     return (
-                      <div key={idx} className={`p-4 border rounded-xl space-y-2 ${borderClass}`}>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{ins.icon}</span>
-                          <span className={titleColor}>{ins.title}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{ins.text}</p>
-                      </div>
+                      <tr key={shift.id} className="border-b border-border/20 text-xs hover:bg-secondary/20 transition-all">
+                        <td className="p-3.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-[10px]">
+                              {(shift.cashierName || 'C')[0]}
+                            </div>
+                            <span className="font-extrabold text-foreground">{shift.cashierName || 'Cashier'}</span>
+                          </div>
+                        </td>
+                        <td className="p-3.5 font-medium">{shift.branchName || 'Counter'}</td>
+                        <td className="p-3.5 font-mono font-semibold text-[10px] text-muted-foreground">{shift.shiftDate}</td>
+                        <td className="p-3.5 text-right font-mono font-semibold">₹{shift.openingBalance?.toLocaleString()}</td>
+                        <td className="p-3.5 text-right font-mono font-semibold">₹{shift.expectedCash?.toLocaleString()}</td>
+                        <td className="p-3.5 text-right font-mono font-bold text-foreground">₹{shift.countedCash?.toLocaleString()}</td>
+                        <td className="p-3.5 text-right">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase border ${varBg}`}>
+                            {v === 0 ? "Balanced" : `₹${v >= 0 ? '+' : ''}${v}`}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${shift.status === 'Open' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/25 animate-pulse' : 'bg-secondary text-muted-foreground border-border/40'}`}>
+                            {shift.status === 'Open' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />}
+                            {shift.status}
+                          </span>
+                        </td>
+                      </tr>
                     );
                   })}
-                </div>
-              </div>
-
-              {/* DYNAMIC DETAILED PREDICTIONS TABLE */}
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-muted-foreground block">Predicted Monthly Growth Levels</span>
-                <div className="overflow-x-auto rounded-lg border border-border/30">
-                  <table className="w-full border-collapse text-left">
-                    <thead>
-                      <tr className="bg-secondary/40 border-b border-border/30 text-xs font-bold text-muted-foreground">
-                        <th className="p-3">Projections Month</th>
-                        <th className="p-3">Forecasted Sales</th>
-                        <th className="p-3">Prediction Confidence</th>
-                        <th className="p-3">AI Support Reasoning</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {aiForecast?.forecast_months?.map((m, idx) => (
-                        <tr key={idx} className="border-b border-border/20 text-sm hover:bg-secondary/15 transition-all">
-                          <td className="p-3 font-semibold text-foreground">{m.month}</td>
-                          <td className="p-3 font-extrabold text-amber-500 text-xs">₹{m.predicted?.toLocaleString('en-IN')}.00</td>
-                          <td className="p-3">
-                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">High Confidence</span>
-                          </td>
-                          <td className="p-3 text-xs text-muted-foreground leading-relaxed">{m.reasoning}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* TAB 2: CASHIER SHIFTS OVERSEER */}
-          {activeTab === 'shifts' && (
+        {/* ==================== TAB 3: LOYALTY & ACTIVE PROMO RULES ==================== */}
+        {activeTab === 'loyalty' && (
+          <div className="space-y-10 animate-fade-up">
+            
+            {/* LOYALTY POINT DIRECTORY */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 bg-secondary/20 p-2 rounded-xl max-w-sm border border-border/30">
-                <Search className="w-4 h-4 text-muted-foreground ml-1" />
-                <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search Cashier Name, Branch..." className="bg-transparent border-0 h-8 focus-visible:ring-0 focus-visible:ring-offset-0 px-1 text-sm placeholder:text-muted-foreground/60 w-full" />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <h3 className="font-extrabold text-base text-foreground flex items-center gap-2">
+                    <Award className="w-4.5 h-4.5 text-amber-500" /> Customer Loyalty Point balances
+                  </h3>
+                  <p className="text-xs text-muted-foreground">Manage rewards profiles, point ledger overrides, and VIP customer tier levels.</p>
+                </div>
               </div>
-
-              <div className="overflow-x-auto rounded-lg border border-border/30">
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="bg-secondary/40 border-b border-border/30 text-xs font-bold text-muted-foreground">
-                      <th className="p-3">Cashier</th>
-                      <th className="p-3">Store Branch</th>
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Opening Bal</th>
-                      <th className="p-3">POS Expected</th>
-                      <th className="p-3">Actually Counted</th>
-                      <th className="p-3">Drawer Variance</th>
-                      <th className="p-3 text-right">Shift Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shifts.filter(s => s.cashierName.toLowerCase().includes(searchQuery.toLowerCase()) || s.branchName.toLowerCase().includes(searchQuery.toLowerCase())).map(shift => {
-                      const v = shift.variance;
-                      let varClass = "text-emerald-500 font-bold";
-                      if (v < 0) varClass = "text-red-500 font-bold";
-                      if (v > 0) varClass = "text-amber-500 font-bold";
-
-                      return (
-                        <tr key={shift.id} className="border-b border-border/20 text-sm hover:bg-secondary/15 transition-all">
-                          <td className="p-3 font-semibold text-foreground">{shift.cashierName}</td>
-                          <td className="p-3 text-xs">{shift.branchName}</td>
-                          <td className="p-3 text-xs font-mono">{shift.shiftDate}</td>
-                          <td className="p-3 text-xs">₹{shift.openingBalance?.toLocaleString()}</td>
-                          <td className="p-3 text-xs font-semibold">₹{shift.expectedCash?.toLocaleString()}</td>
-                          <td className="p-3 text-xs font-semibold">₹{shift.countedCash?.toLocaleString()}</td>
-                          <td className={`p-3 text-xs ${varClass}`}>
-                            {v === 0 ? "Perfect Match" : `₹${v >= 0 ? '+' : ''}${v}`}
-                          </td>
-                          <td className="p-3 text-right">
-                            <span className={`text-[9px] font-extrabold px-2.5 py-0.5 rounded-full border ${shift.status === 'Open' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/25 animate-pulse' : 'bg-secondary text-muted-foreground border-border/40'}`}>
-                              {shift.status}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: LOYALTY LEDGER & RULES */}
-          {activeTab === 'loyalty' && (
-            <div className="space-y-8">
               
-              {/* LOYALTY POINT DIRECTORY */}
-              <div className="space-y-4">
-                <h3 className="font-bold text-base text-foreground flex items-center gap-1.5"><Award className="w-4.5 h-4.5 text-amber-500" /> Customer Loyalty Point balances</h3>
-                
-                <div className="overflow-x-auto rounded-lg border border-border/30">
-                  <table className="w-full border-collapse text-left">
-                    <thead>
-                      <tr className="bg-secondary/40 border-b border-border/30 text-xs font-bold text-muted-foreground">
-                        <th className="p-3">Customer Profile</th>
-                        <th className="p-3">Registered Mobile</th>
-                        <th className="p-3">Email Address</th>
-                        <th className="p-3">Accumulated Points</th>
-                        <th className="p-3">Points Redeemed</th>
-                        <th className="p-3">Rewards Tier</th>
-                        <th className="p-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {customers.map(cust => {
-                        let tierBadge = "bg-secondary text-foreground border-border";
-                        let tierText = "Regular";
-                        if (cust.tier === 'Tier3') {
-                          tierBadge = "gold-gradient text-black font-extrabold border-amber-500";
-                          tierText = "Gold Tier";
-                        } else if (cust.tier === 'Tier2') {
-                          tierBadge = "bg-zinc-300 text-black font-bold border-zinc-400";
-                          tierText = "Silver Tier";
-                        }
-
-                        return (
-                          <tr key={cust.id} className="border-b border-border/20 text-sm hover:bg-secondary/15 transition-all">
-                            <td className="p-3 font-semibold text-foreground">{cust.name}</td>
-                            <td className="p-3 font-mono text-xs">{cust.phone}</td>
-                            <td className="p-3 text-xs text-muted-foreground">{cust.email}</td>
-                            <td className="p-3 font-extrabold text-xs text-amber-500">{cust.pointsBalance} PTS</td>
-                            <td className="p-3 text-xs text-muted-foreground">{cust.redeemedPoints} PTS</td>
-                            <td className="p-3">
-                              <span className={`text-[9px] px-2 py-0.5 rounded-full border ${tierBadge}`}>
-                                {tierText}
-                              </span>
-                            </td>
-                            <td className="p-3 text-right">
-                              <Button onClick={() => handleOpenPoints(cust)} size="sm" variant="ghost" className="h-8 font-bold text-xs text-primary">
-                                <Plus className="w-3.5 h-3.5 mr-1" /> Override Points
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* ACTIVE DISCOUNT RULES CONFIGURATOR */}
-              <div className="space-y-4">
-                <h3 className="font-bold text-base text-foreground flex items-center gap-1.5"><Sliders className="w-4.5 h-4.5 text-primary" /> Active Promotion Offer rules</h3>
-                
-                <div className="overflow-x-auto rounded-lg border border-border/30">
-                  <table className="w-full border-collapse text-left">
-                    <thead>
-                      <tr className="bg-secondary/40 border-b border-border/30 text-xs font-bold text-muted-foreground">
-                        <th className="p-3">Offer Rule Name</th>
-                        <th className="p-3">Type</th>
-                        <th className="p-3">Discount Rate</th>
-                        <th className="p-3">Category Tag</th>
-                        <th className="p-3">Start Date</th>
-                        <th className="p-3">End Date</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {offers.map(off => (
-                        <tr key={off.id} className="border-b border-border/20 text-sm hover:bg-secondary/15 transition-all">
-                          <td className="p-3 font-semibold text-foreground">{off.name}</td>
-                          <td className="p-3 text-xs font-medium">{off.type} Rule</td>
-                          <td className="p-3 font-extrabold text-xs text-emerald-500">{off.discountValue}% OFF</td>
-                          <td className="p-3 text-xs text-muted-foreground">{off.category}</td>
-                          <td className="p-3 text-xs font-mono">{off.startDate}</td>
-                          <td className="p-3 text-xs font-mono">{off.endDate}</td>
-                          <td className="p-3">
-                            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
-                              {off.status}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <Button onClick={() => handleDeleteOffer(off.id)} variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* TAB 4: COMPLIANCE SYSTEM AUDIT TRAILS */}
-          {activeTab === 'audit' && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 bg-secondary/20 p-2 rounded-xl max-w-sm border border-border/30">
-                <Search className="w-4 h-4 text-muted-foreground ml-1" />
-                <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search Audit Action, User, Description..." className="bg-transparent border-0 h-8 focus-visible:ring-0 focus-visible:ring-offset-0 px-1 text-sm placeholder:text-muted-foreground/60 w-full" />
-              </div>
-
-              <div className="overflow-x-auto rounded-lg border border-border/30">
-                <table className="w-full border-collapse text-left">
+              <div className="overflow-x-auto w-full border border-border/30 rounded-xl bg-card/25 backdrop-blur-sm">
+                <table className="w-full border-collapse text-left min-w-[850px]">
                   <thead>
-                    <tr className="bg-secondary/40 border-b border-border/30 text-xs font-bold text-muted-foreground">
-                      <th className="p-3">Timestamp</th>
-                      <th className="p-3">Employee Operator</th>
-                      <th className="p-3">Action Module</th>
-                      <th className="p-3">Document Entity</th>
-                      <th className="p-3">Action Description</th>
-                      <th className="p-3 text-right">Details</th>
+                    <tr className="bg-secondary/40 border-b border-border/30 text-[10px] font-black uppercase text-muted-foreground tracking-wider">
+                      <th className="p-3.5">Customer Profile</th>
+                      <th className="p-3.5">Registered Mobile</th>
+                      <th className="p-3.5">Email Address</th>
+                      <th className="p-3.5 text-right">Accumulated Points</th>
+                      <th className="p-3.5 text-right">Redeemed Points</th>
+                      <th className="p-3.5">Rewards Tier</th>
+                      <th className="p-3.5 text-right">Actions Override</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {auditLogs.filter(l => l.action.toLowerCase().includes(searchQuery.toLowerCase()) || l.description.toLowerCase().includes(searchQuery.toLowerCase()) || l.userName.toLowerCase().includes(searchQuery.toLowerCase())).map(log => {
-                      let actionColor = "bg-secondary text-primary border-primary/20";
-                      if (log.action.includes('PRICE') || log.action.includes('CHANGE')) actionColor = "bg-amber-500/10 text-amber-500 border-amber-500/25";
-                      if (log.action.includes('VOID') || log.action.includes('DELETE')) actionColor = "bg-red-500/10 text-red-500 border-red-500/25";
-                      if (log.action.includes('CREATE')) actionColor = "bg-emerald-500/10 text-emerald-500 border-emerald-500/25";
+                    {customers.map(cust => {
+                      let tierBadge = "bg-secondary text-foreground border-border";
+                      let tierText = "Regular Customer";
+                      if (cust.tier === 'Tier3') {
+                        tierBadge = "gold-gradient text-black font-black border-amber-500 shadow-sm shadow-primary/20";
+                        tierText = "Gold VIP Tier";
+                      } else if (cust.tier === 'Tier2') {
+                        tierBadge = "bg-zinc-300 text-black font-bold border-zinc-400";
+                        tierText = "Silver Member";
+                      }
 
                       return (
-                        <tr key={log.id} className="border-b border-border/20 text-sm hover:bg-secondary/15 transition-all">
-                          <td className="p-3 text-xs text-muted-foreground font-mono">{new Date(log.timestamp).toLocaleTimeString()}</td>
-                          <td className="p-3">
-                            <div className="font-semibold text-foreground text-xs">{log.userName}</div>
-                            <div className="text-[10px] text-muted-foreground">{log.branchName}</div>
+                        <tr key={cust.id} className="border-b border-border/20 text-xs hover:bg-secondary/20 transition-all">
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full gold-gradient text-black flex items-center justify-center font-bold text-[11px] shadow-sm">
+                                {(cust.name || 'C')[0]}
+                              </div>
+                              <span className="font-extrabold text-foreground">{cust.name || 'Customer'}</span>
+                            </div>
                           </td>
-                          <td className="p-3">
-                            <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${actionColor}`}>
-                              {log.action}
+                          <td className="p-3.5 font-mono text-[10px] text-muted-foreground">{cust.phone}</td>
+                          <td className="p-3.5 text-muted-foreground">{cust.email}</td>
+                          <td className="p-3.5 text-right font-extrabold text-amber-500 font-mono text-xs">{cust.pointsBalance} PTS</td>
+                          <td className="p-3.5 text-right font-mono font-semibold text-muted-foreground">{cust.redeemedPoints} PTS</td>
+                          <td className="p-3.5">
+                            <span className={`inline-block text-[9px] px-2 py-0.5 rounded border leading-none uppercase ${tierBadge}`}>
+                              {tierText}
                             </span>
                           </td>
-                          <td className="p-3 font-mono text-xs">{log.entityType} ID: {log.entityId}</td>
-                          <td className="p-3 text-xs text-muted-foreground font-medium leading-relaxed">{log.description}</td>
-                          <td className="p-3 text-right">
-                            <Button onClick={() => { setSelectedLog(log); setIsLogDetailOpen(true); }} size="sm" variant="ghost" className="h-8 text-xs font-bold text-primary">
-                              State Diffs <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                          <td className="p-3.5 text-right">
+                            <Button 
+                              onClick={() => handleOpenPoints(cust)} 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 font-black text-xs text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Override Points
                             </Button>
                           </td>
                         </tr>
@@ -734,155 +961,495 @@ export default function EnterpriseIntelligence() {
                 </table>
               </div>
             </div>
-          )}
 
-        </CardContent>
-      </Card>
+            {/* ACTIVE DISCOUNT RULES CONFIGURATOR */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <h3 className="font-extrabold text-base text-foreground flex items-center gap-2">
+                    <Sliders className="w-4.5 h-4.5 text-primary" /> Active Counter Promotion Rules
+                  </h3>
+                  <p className="text-xs text-muted-foreground">Automated discount triggers applied directly during counter POS checkouts.</p>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto w-full border border-border/30 rounded-xl bg-card/25 backdrop-blur-sm">
+                <table className="w-full border-collapse text-left min-w-[850px]">
+                  <thead>
+                    <tr className="bg-secondary/40 border-b border-border/30 text-[10px] font-black uppercase text-muted-foreground tracking-wider">
+                      <th className="p-3.5">Offer Rule Name</th>
+                      <th className="p-3.5">Discount Scope</th>
+                      <th className="p-3.5">Accrued Benefits</th>
+                      <th className="p-3.5">Category Tag</th>
+                      <th className="p-3.5">Start Validity</th>
+                      <th className="p-3.5">End Validity</th>
+                      <th className="p-3.5">Engine Status</th>
+                      <th className="p-3.5 text-right">Deactivate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {offers.map(off => (
+                      <tr key={off.id} className="border-b border-border/20 text-xs hover:bg-secondary/20 transition-all">
+                        <td className="p-3.5 font-extrabold text-foreground">{off.name}</td>
+                        <td className="p-3.5 font-medium">{off.type} Rule</td>
+                        <td className="p-3.5 font-black text-emerald-500">₹{off.discountValue}% OFF</td>
+                        <td className="p-3.5 text-muted-foreground">{off.category}</td>
+                        <td className="p-3.5 font-mono text-[10px] text-muted-foreground">{off.startDate}</td>
+                        <td className="p-3.5 font-mono text-[10px] text-muted-foreground">{off.endDate}</td>
+                        <td className="p-3.5">
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
+                            {off.status}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <Button 
+                            onClick={() => handleDeleteOffer(off.id)} 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-red-500 hover:bg-red-500/10 hover:text-red-600 rounded-lg"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ==================== TAB 4: COMPLIANCE SYSTEM AUDIT TRAILS ==================== */}
+        {activeTab === 'audit' && (
+          <div className="space-y-6 animate-fade-up">
+            
+            {/* Filter bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <h3 className="font-extrabold text-base text-foreground">Compliance Ledger Trails</h3>
+                <p className="text-xs text-muted-foreground">Immutable compliance trails capture point overrides, void items, and inventory sync changes.</p>
+              </div>
+              <div className="flex items-center gap-2 bg-secondary/40 px-3 py-1.5 rounded-xl border border-border/40 w-full sm:max-w-xs transition-all focus-within:border-primary/50">
+                <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <Input 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value)} 
+                  placeholder="Filter action module, cashier..." 
+                  className="bg-transparent border-0 h-6 focus-visible:ring-0 focus-visible:ring-offset-0 px-1 text-xs placeholder:text-muted-foreground/60 w-full" 
+                />
+              </div>
+            </div>
+
+            {/* Audit Log Table */}
+            <div className="overflow-x-auto w-full border border-border/30 rounded-xl bg-card/25 backdrop-blur-sm">
+              <table className="w-full border-collapse text-left min-w-[900px]">
+                <thead>
+                  <tr className="bg-secondary/40 border-b border-border/30 text-[10px] font-black uppercase text-muted-foreground tracking-wider">
+                    <th className="p-3.5">Timestamp</th>
+                    <th className="p-3.5">Employee Operator</th>
+                    <th className="p-3.5">Action Module</th>
+                    <th className="p-3.5">Document Entity</th>
+                    <th className="p-3.5">Compliance Description</th>
+                    <th className="p-3.5 text-right">Details Inspector</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.filter(l => (l.action || '').toLowerCase().includes(searchQuery.toLowerCase()) || (l.description || '').toLowerCase().includes(searchQuery.toLowerCase()) || (l.userName || '').toLowerCase().includes(searchQuery.toLowerCase())).map(log => {
+                    let actionColor = "bg-secondary text-primary border-primary/20";
+                    const act = log.action || '';
+                    if (act.includes('PRICE') || act.includes('CHANGE')) actionColor = "bg-amber-500/10 text-amber-500 border-amber-500/25";
+                    if (act.includes('VOID') || act.includes('DELETE')) actionColor = "bg-red-500/10 text-red-500 border-red-500/25";
+                    if (act.includes('CREATE')) actionColor = "bg-emerald-500/10 text-emerald-500 border-emerald-500/25";
+
+                    return (
+                      <tr key={log.id} className="border-b border-border/20 text-xs hover:bg-secondary/20 transition-all">
+                        <td className="p-3.5 text-[10px] text-muted-foreground font-mono font-semibold">
+                          {log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'}
+                        </td>
+                        <td className="p-3.5">
+                          <div className="font-extrabold text-foreground">{log.userName || 'System'}</div>
+                          <div className="text-[10px] text-muted-foreground font-medium">{log.branchName || 'Main'}</div>
+                        </td>
+                        <td className="p-3.5">
+                          <span className={`inline-block text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded border ${actionColor}`}>
+                            {log.action || 'AUDIT'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono text-[10px] text-muted-foreground">
+                          {log.entityType || 'Entity'} ID: <span className="text-foreground font-bold">{log.entityId ? log.entityId.slice(0, 8) : 'N/A'}</span>
+                        </td>
+                        <td className="p-3.5 text-muted-foreground font-medium leading-relaxed max-w-sm truncate" title={log.description || ''}>
+                          {log.description}
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <Button 
+                            onClick={() => { setSelectedLog(log); setIsLogDetailOpen(true); }} 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-8 text-xs font-black text-primary hover:bg-primary/10 transition-colors"
+                          >
+                            Inspector <ChevronRight className="w-3 h-3 ml-0.5 stroke-[3]" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* ==================== PREMIUM COLLAPSIBLE BOTTOM NAVIGATION BAR (MOBILE ONLY) ==================== */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/85 backdrop-blur-xl border-t border-border/60 pb-safe shadow-2xl transition-all duration-300 intel-custom-nav">
+        
+        {/* Secondary Sliding Collapsible Action drawer for Mobile Quick Tools */}
+        {isMobileMenuOpen && (
+          <div className="px-4 py-4 bg-background/95 border-b border-border/50 space-y-4 animate-fade-up">
+            <div className="flex items-center justify-between border-b border-border/20 pb-2">
+              <span className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Hub Quick Actions
+              </span>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)} 
+                className="p-1 text-muted-foreground hover:text-foreground active:scale-95"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3.5">
+              <button 
+                onClick={() => { setIsMobileMenuOpen(false); runAIPredictions(true); }} 
+                disabled={aiLoading} 
+                className="flex items-center justify-center gap-2 p-3 bg-secondary/80 border border-border/50 rounded-xl text-xs font-black hover:bg-secondary active:scale-95 transition-all text-foreground"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-primary ${aiLoading ? 'animate-spin' : ''}`} />
+                {aiLoading ? 'Syning...' : 'Sync AI Engine'}
+              </button>
+
+              <button 
+                onClick={() => { setIsMobileMenuOpen(false); resetOfferForm(); setIsOfferOpen(true); }} 
+                className="flex items-center justify-center gap-2 p-3 gold-gradient text-black rounded-xl text-xs font-black shadow-md shadow-primary/10 active:scale-95 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                New Campaign
+              </button>
+            </div>
+            
+            <div className="text-[9px] text-muted-foreground text-center flex items-center justify-center gap-1 font-medium">
+              <Info className="w-3 h-3 text-primary shrink-0" /> Settings reflect automatically across registers.
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-stretch justify-around px-2 py-2">
+          {/* AI Tab button */}
+          <button 
+            onClick={() => { setActiveTab('ai'); setIsMobileMenuOpen(false); }}
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 relative select-none ${activeTab === 'ai' ? 'text-primary' : 'text-muted-foreground'}`}
+          >
+            {activeTab === 'ai' && (
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full gold-gradient shadow-md" />
+            )}
+            <div className={`flex items-center justify-center w-10 h-7 rounded-xl transition-all ${activeTab === 'ai' ? 'bg-primary/10 scale-105' : 'active:bg-accent/40'}`}>
+              <Cpu className="w-4 h-4" />
+            </div>
+            <span className="text-[9px] font-black mt-1 leading-none">AI Forecast</span>
+          </button>
+
+          {/* Shifts Tab button */}
+          <button 
+            onClick={() => { setActiveTab('shifts'); setIsMobileMenuOpen(false); }}
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 relative select-none ${activeTab === 'shifts' ? 'text-primary' : 'text-muted-foreground'}`}
+          >
+            {activeTab === 'shifts' && (
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full gold-gradient shadow-md" />
+            )}
+            <div className={`flex items-center justify-center w-10 h-7 rounded-xl transition-all ${activeTab === 'shifts' ? 'bg-primary/10 scale-105' : 'active:bg-accent/40'}`}>
+              <Clock className="w-4 h-4" />
+            </div>
+            <span className="text-[9px] font-black mt-1 leading-none">Counter Audits</span>
+          </button>
+
+          {/* Collapsible Actions menu trigger button */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 select-none ${isMobileMenuOpen ? 'text-primary' : 'text-muted-foreground'}`}
+          >
+            <div className={`flex items-center justify-center w-12 h-10 -mt-2 rounded-full gold-gradient text-black shadow-lg shadow-primary/20 scale-110 active:scale-95 transition-all`}>
+              {isMobileMenuOpen ? <X className="w-5 h-5 stroke-[2.5]" /> : <Menu className="w-5 h-5 stroke-[2.5]" />}
+            </div>
+            <span className="text-[9px] font-black mt-1 leading-none text-foreground">Menu</span>
+          </button>
+
+          {/* Loyalty Tab button */}
+          <button 
+            onClick={() => { setActiveTab('loyalty'); setIsMobileMenuOpen(false); }}
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 relative select-none ${activeTab === 'loyalty' ? 'text-primary' : 'text-muted-foreground'}`}
+          >
+            {activeTab === 'loyalty' && (
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full gold-gradient shadow-md" />
+            )}
+            <div className={`flex items-center justify-center w-10 h-7 rounded-xl transition-all ${activeTab === 'loyalty' ? 'bg-primary/10 scale-105' : 'active:bg-accent/40'}`}>
+              <Award className="w-4 h-4" />
+            </div>
+            <span className="text-[9px] font-black mt-1 leading-none">Loyalty</span>
+          </button>
+
+          {/* Audit Tab button */}
+          <button 
+            onClick={() => { setActiveTab('audit'); setIsMobileMenuOpen(false); }}
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 relative select-none ${activeTab === 'audit' ? 'text-primary' : 'text-muted-foreground'}`}
+          >
+            {activeTab === 'audit' && (
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full gold-gradient shadow-md" />
+            )}
+            <div className={`flex items-center justify-center w-10 h-7 rounded-xl transition-all ${activeTab === 'audit' ? 'bg-primary/10 scale-105' : 'active:bg-accent/40'}`}>
+              <ShieldAlert className="w-4 h-4" />
+            </div>
+            <span className="text-[9px] font-black mt-1 leading-none">Compliance</span>
+          </button>
+        </div>
+      </div>
 
       {/* ==================== DIALOGS & OVERLAY FORMS ==================== */}
 
-      {/* DIALOG 1: OFFER REGISTER RULE */}
+      {/* DIALOG 1: PROMO OFFER RULES ENGINE CONFIGURATOR */}
       <Dialog open={isOfferOpen} onOpenChange={setIsOfferOpen}>
-        <DialogContent className="sm:max-w-[450px] glass-card border border-border/50 text-foreground">
-          <DialogHeader>
-            <DialogTitle className="gold-text text-xl font-bold">Register Promotion Offer Rule</DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs">Define automated price reductions triggered at invoice checkout counters.</DialogDescription>
+        <DialogContent className="sm:max-w-[480px] w-[92vw] glass-card border border-border/50 text-foreground rounded-2xl shadow-xl overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-[40px] pointer-events-none" />
+          
+          <DialogHeader className="border-b border-border/20 pb-3">
+            <DialogTitle className="gold-text text-xl font-black flex items-center gap-1.5">
+              <Sliders className="w-5 h-5 text-primary" /> Register Counter Promo Rule
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs font-semibold">
+              Define automated item discount triggers applied during invoice billing checkouts.
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3.5 py-4">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-muted-foreground">Promotion Campaign Name *</label>
-              <Input value={offerForm.name} onChange={e => setOfferForm({ ...offerForm, name: e.target.value })} placeholder="e.g. Festival Season 10% Flat" className="bg-secondary/40 border-border/40 focus:border-primary text-sm font-semibold" />
+
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Promotion Campaign Name *</label>
+              <Input 
+                value={offerForm.name} 
+                onChange={e => setOfferForm({ ...offerForm, name: e.target.value })} 
+                placeholder="e.g. Monsoon Grocery Festival 10% Flat" 
+                className="bg-secondary/40 border-border/60 focus:border-primary/80 text-sm font-bold h-10 rounded-xl" 
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground">Rule Type</label>
+            <div className="grid grid-cols-2 gap-3.5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Discount Scope</label>
                 <Select value={offerForm.type} onValueChange={val => setOfferForm({ ...offerForm, type: val })}>
-                  <SelectTrigger className="bg-secondary/40 border-border/40 text-xs">
+                  <SelectTrigger className="bg-secondary/40 border-border/60 h-10 rounded-xl text-xs font-bold text-foreground">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Product">Product Level</SelectItem>
-                    <SelectItem value="Category">Category Level</SelectItem>
-                    <SelectItem value="Cart">Total Cart Value</SelectItem>
+                  <SelectContent className="bg-card border border-border">
+                    <SelectItem value="Product" className="font-bold text-xs">Product Level</SelectItem>
+                    <SelectItem value="Category" className="font-bold text-xs">Category Level</SelectItem>
+                    <SelectItem value="Cart" className="font-bold text-xs">Total Cart Value</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground">Discount Rate (%) *</label>
-                <Input type="number" value={offerForm.discountValue} onChange={e => setOfferForm({ ...offerForm, discountValue: e.target.value })} placeholder="e.g. 10" className="bg-secondary/40 border-border/40 focus:border-primary text-sm font-mono font-bold" />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Discount Rate (%) *</label>
+                <Input 
+                  type="number" 
+                  value={offerForm.discountValue} 
+                  onChange={e => setOfferForm({ ...offerForm, discountValue: e.target.value })} 
+                  placeholder="e.g. 15" 
+                  className="bg-secondary/40 border-border/60 focus:border-primary/80 text-sm font-mono font-black h-10 rounded-xl" 
+                />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-muted-foreground">Target Category</label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Target Inventory Category</label>
               <Select value={offerForm.category} onValueChange={val => setOfferForm({ ...offerForm, category: val })}>
-                <SelectTrigger className="bg-secondary/40 border-border/40 text-xs">
+                <SelectTrigger className="bg-secondary/40 border-border/60 h-10 rounded-xl text-xs font-bold text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All Categories</SelectItem>
-                  <SelectItem value="Groceries">Groceries</SelectItem>
-                  <SelectItem value="Clothing">Clothing</SelectItem>
-                  <SelectItem value="Electronics">Electronics</SelectItem>
+                <SelectContent className="bg-card border border-border">
+                  <SelectItem value="All" className="font-bold text-xs">All Categories</SelectItem>
+                  <SelectItem value="Groceries" className="font-bold text-xs">Groceries</SelectItem>
+                  <SelectItem value="Clothing" className="font-bold text-xs">Clothing</SelectItem>
+                  <SelectItem value="Electronics" className="font-bold text-xs">Electronics</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground">Start Validity</label>
-                <Input type="date" value={offerForm.startDate} onChange={e => setOfferForm({ ...offerForm, startDate: e.target.value })} className="bg-secondary/40 border-border/40 text-xs" />
+            <div className="grid grid-cols-2 gap-3.5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Start Validity</label>
+                <Input 
+                  type="date" 
+                  value={offerForm.startDate} 
+                  onChange={e => setOfferForm({ ...offerForm, startDate: e.target.value })} 
+                  className="bg-secondary/40 border-border/60 text-xs font-mono font-semibold h-10 rounded-xl" 
+                />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground">End Validity</label>
-                <Input type="date" value={offerForm.endDate} onChange={e => setOfferForm({ ...offerForm, endDate: e.target.value })} className="bg-secondary/40 border-border/40 text-xs text-red-400" />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">End Validity</label>
+                <Input 
+                  type="date" 
+                  value={offerForm.endDate} 
+                  onChange={e => setOfferForm({ ...offerForm, endDate: e.target.value })} 
+                  className="bg-secondary/40 border-border/60 text-xs font-mono font-semibold text-red-400 h-10 rounded-xl" 
+                />
               </div>
             </div>
           </div>
           
-          <div className="flex gap-2 border-t border-border/30 pt-4 mt-2">
-            <Button onClick={() => setIsOfferOpen(false)} variant="outline" className="flex-1 text-xs font-bold">Cancel</Button>
-            <Button onClick={handleSaveOffer} className="flex-1 bg-primary text-primary-foreground font-bold text-xs">Inject Campaign</Button>
+          <div className="flex gap-3 border-t border-border/20 pt-4 mt-2">
+            <Button 
+              onClick={() => setIsOfferOpen(false)} 
+              variant="outline" 
+              className="flex-1 text-xs font-black border-border/60 h-10 rounded-xl"
+            >
+              Discard
+            </Button>
+            <Button 
+              onClick={handleSaveOffer} 
+              className="flex-1 gold-gradient text-black font-extrabold text-xs h-10 rounded-xl shadow-sm"
+            >
+              Inject Campaign Rule
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG 2: MANUAL REWARDS ADJUSTMENT */}
+      {/* DIALOG 2: LOYALTY LEDGER MANUAL OVERRIDE ADJUSTMENT */}
       <Dialog open={isPointsOpen} onOpenChange={setIsPointsOpen}>
-        <DialogContent className="sm:max-w-[400px] glass-card border border-border/50 text-foreground">
-          <DialogHeader>
-            <DialogTitle className="gold-text text-lg font-bold">Loyalty Points Adjustment</DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs">Modify the accrued points balance on customer {selectedCustomer?.name} account.</DialogDescription>
+        <DialogContent className="sm:max-w-[420px] w-[92vw] glass-card border border-border/50 text-foreground rounded-2xl shadow-xl overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-[30px] pointer-events-none" />
+          
+          <DialogHeader className="border-b border-border/20 pb-3">
+            <DialogTitle className="gold-text text-lg font-black flex items-center gap-1.5">
+              <Award className="w-5 h-5 text-amber-500 animate-bounce" /> Point Ledger Manual Override
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs font-semibold">
+              Adjust accrued balance profile metrics for loyalty customer <span className="text-foreground font-black">{selectedCustomer?.name}</span>.
+            </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-3.5 py-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground">Adjustment Type</label>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-3.5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Override Action</label>
                 <Select value={pointsForm.action} onValueChange={val => setPointsForm({ ...pointsForm, action: val })}>
-                  <SelectTrigger className="bg-secondary/40 border-border/40 text-xs">
+                  <SelectTrigger className="bg-secondary/40 border-border/60 h-10 rounded-xl text-xs font-bold text-foreground">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="add">Add Points (+)</SelectItem>
-                    <SelectItem value="deduct">Deduct Points (-)</SelectItem>
+                  <SelectContent className="bg-card border border-border">
+                    <SelectItem value="add" className="font-bold text-xs">Add Points (+)</SelectItem>
+                    <SelectItem value="deduct" className="font-bold text-xs">Deduct Points (-)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground">Points Count *</label>
-                <Input type="number" value={pointsForm.amount} onChange={e => setPointsForm({ ...pointsForm, amount: e.target.value })} placeholder="e.g. 100" className="bg-secondary/40 border-border/40 focus:border-primary text-sm font-mono font-bold" />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Accrued volume *</label>
+                <Input 
+                  type="number" 
+                  value={pointsForm.amount} 
+                  onChange={e => setPointsForm({ ...pointsForm, amount: e.target.value })} 
+                  placeholder="e.g. 150" 
+                  className="bg-secondary/40 border-border/60 focus:border-primary/80 text-sm font-mono font-black h-10 rounded-xl" 
+                />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-muted-foreground">Reason for Override *</label>
-              <Input value={pointsForm.reason} onChange={e => setPointsForm({ ...pointsForm, reason: e.target.value })} placeholder="e.g. Compensation for order return delay" className="bg-secondary/40 border-border/40 focus:border-primary text-sm font-semibold" />
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Reason for Audit Override *</label>
+              <Input 
+                value={pointsForm.reason} 
+                onChange={e => setPointsForm({ ...pointsForm, reason: e.target.value })} 
+                placeholder="e.g. Goodwill compensation for cashier counter delay" 
+                className="bg-secondary/40 border-border/60 focus:border-primary/80 text-xs font-semibold h-10 rounded-xl" 
+              />
             </div>
           </div>
 
-          <div className="flex gap-2 border-t border-border/30 pt-4 mt-2">
-            <Button onClick={() => setIsPointsOpen(false)} variant="outline" className="flex-1 text-xs font-bold">Cancel</Button>
-            <Button onClick={handleSavePoints} className="flex-1 bg-primary text-primary-foreground font-bold text-xs">Apply Override</Button>
+          <div className="flex gap-3 border-t border-border/20 pt-4 mt-2">
+            <Button 
+              onClick={() => setIsPointsOpen(false)} 
+              variant="outline" 
+              className="flex-1 text-xs font-black border-border/60 h-10 rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSavePoints} 
+              className="flex-1 gold-gradient text-black font-extrabold text-xs h-10 rounded-xl shadow-sm"
+            >
+              Commit Ledger Delta
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG 3: COMPLIANCE STATE DIFF DETAILED VIEW */}
+      {/* DIALOG 3: IMMUTABLE COMPLIANCE STATE DIFF VIEWER */}
       <Dialog open={isLogDetailOpen} onOpenChange={setIsLogDetailOpen}>
-        <DialogContent className="sm:max-w-[500px] glass-card border border-border/50 text-foreground">
-          <DialogHeader>
-            <DialogTitle className="gold-text text-lg font-bold flex items-center gap-1.5"><ShieldAlert className="w-5 h-5 text-amber-500" /> Compliance Audit State Diff</DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs">Before & After snapshots logged under action: {selectedLog?.action}.</DialogDescription>
+        <DialogContent className="sm:max-w-[550px] w-[92vw] glass-card border border-border/50 text-foreground rounded-2xl shadow-xl overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple/5 rounded-full blur-[40px] pointer-events-none" />
+          
+          <DialogHeader className="border-b border-border/20 pb-3">
+            <DialogTitle className="gold-text text-lg font-black flex items-center gap-1.5">
+              <ShieldAlert className="w-5 h-5 text-amber-500 animate-pulse" /> Compliance State Audit Inspector
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs font-semibold">
+              Before & After immutable state diff snapshots registered under action: <span className="text-primary font-black">{selectedLog?.action}</span>.
+            </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-3 text-xs">
-            <div className="p-3 bg-secondary/10 border border-border/30 rounded-lg space-y-1 text-muted-foreground font-medium">
-              <div><b className="text-foreground">Event ID:</b> {selectedLog?.id}</div>
-              <div><b className="text-foreground">Triggered By:</b> {selectedLog?.userName} (Branch: {selectedLog?.branchName})</div>
-              <div><b className="text-foreground">Timestamp:</b> {selectedLog && new Date(selectedLog.timestamp).toLocaleString()}</div>
+          <div className="space-y-4 py-4 text-xs">
+            <div className="p-3 bg-secondary/50 border border-border/40 rounded-xl space-y-1.5 text-muted-foreground font-semibold">
+              <div className="flex justify-between">
+                <span>Event UUID: <span className="text-foreground font-mono">{selectedLog?.id}</span></span>
+                <span className="text-[10px] text-amber-500 font-black">Audit Verified</span>
+              </div>
+              <div className="border-t border-border/30 my-1" />
+              <div className="flex justify-between flex-wrap gap-2 text-[10px]">
+                <div>Operator: <span className="text-foreground font-extrabold">{selectedLog?.userName}</span> ({selectedLog?.branchName})</div>
+                <div>Triggered: <span className="text-foreground font-mono">{selectedLog && new Date(selectedLog.timestamp).toLocaleString()}</span></div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <span className="font-bold text-red-500 uppercase tracking-wider block text-[10px]">Previous State (Before)</span>
-                <pre className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg font-mono text-[10px] text-red-400 overflow-x-auto max-h-[150px]">
-                  {selectedLog?.changes?.before ? JSON.stringify(selectedLog.changes.before, null, 2) : "No modifications / Brand New Entity"}
+            {/* Git-Style Side-by-side Diff comparative grids */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <span className="font-black text-red-500 uppercase tracking-widest text-[9px] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Previous State (Before)
+                </span>
+                <pre className="p-3.5 bg-red-500/5 border border-red-500/20 rounded-xl font-mono text-[9px] text-red-400 overflow-x-auto max-h-[180px] leading-relaxed shadow-inner">
+                  {selectedLog?.changes?.before ? JSON.stringify(selectedLog.changes.before, null, 2) : "- Brand New Entity -" }
                 </pre>
               </div>
 
-              <div className="space-y-1.5">
-                <span className="font-bold text-emerald-500 uppercase tracking-wider block text-[10px]">Updated State (After)</span>
-                <pre className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg font-mono text-[10px] text-emerald-400 overflow-x-auto max-h-[150px]">
-                  {selectedLog?.changes?.after ? JSON.stringify(selectedLog.changes.after, null, 2) : "N/A"}
+              <div className="space-y-2">
+                <span className="font-black text-emerald-500 uppercase tracking-widest text-[9px] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Updated State (After)
+                </span>
+                <pre className="p-3.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl font-mono text-[9px] text-emerald-400 overflow-x-auto max-h-[180px] leading-relaxed shadow-inner">
+                  {selectedLog?.changes?.after ? JSON.stringify(selectedLog.changes.after, null, 2) : "- N/A -" }
                 </pre>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end border-t border-border/30 pt-4 mt-2">
-            <Button onClick={() => setIsLogDetailOpen(false)} className="bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs px-6">Close Inspector</Button>
+          <div className="flex justify-end border-t border-border/20 pt-4 mt-2">
+            <Button 
+              onClick={() => setIsLogDetailOpen(false)} 
+              className="bg-secondary hover:bg-secondary/80 text-foreground font-black text-xs px-6 h-10 rounded-xl"
+            >
+              Close Auditor Inspector
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

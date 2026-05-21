@@ -27,6 +27,9 @@ const TRANSLATIONS = {
     "nav.stocktransfer": "Stock Transfer",
     "nav.warehouse": "Warehouse Hub",
     "nav.enterprise_intel": "Enterprise Intel",
+    "nav.finance": "Finance Hub",
+    "nav.auditLogs": "Audit Logs",
+    "nav.manufacturing": "Manufacturing ERP",
 
     // Common
     "common.save": "Save",
@@ -92,7 +95,7 @@ const TRANSLATIONS = {
     "dashboard.business_summary": "Business Summary",
 
     // Settings
-    "settings.title": "⚙️ Settings",
+    "settings.title": "️ Settings",
     "settings.subtitle": "Configure your business profile",
     "settings.shop_name": "Shop / Business Name",
     "settings.business_type": "Business Type",
@@ -112,6 +115,38 @@ const TRANSLATIONS = {
     "settings.billing": "Billing",
     "settings.printer_settings": "Printer Settings",
     "settings.bank_details": "Bank Account Details",
+    "settings.account_number": "Account Number",
+    "settings.bank_name": "Bank Name",
+    "settings.ifsc_code": "IFSC Code",
+    "settings.branch": "Branch",
+    "settings.upi_id": "UPI ID",
+    "settings.invoice_prefix": "Invoice Prefix",
+    "settings.terms_conditions": "Terms & Conditions",
+    "settings.terms_placeholder": "Terms text...",
+    "settings.invoice_title": "Invoice Configuration",
+    "settings.branding_desc": "Upload your shop logo and digital signature to appear on printed invoices.",
+    "settings.change_logo": "Change Logo",
+    "settings.upload_logo": "Upload Logo",
+    "settings.logo_requirements": "PNG, JPG up to 2MB. Recommended: 300×100px",
+    "settings.change_signature": "Change Signature",
+    "settings.upload_signature": "Upload Signature",
+    "settings.sig_requirements": "PNG with transparent background recommended",
+    "settings.appearance": "Appearance",
+    "settings.appearance_desc": "Customize the look and feel of the POS terminal and dashboard.",
+    "settings.theme_preference": "Theme Preference",
+    "settings.light": "Light",
+    "settings.dark": "Dark",
+    "settings.system": "System",
+    "settings.business_entity_type": "Business Entity Type",
+    "settings.select_entity_type": "Select Entity Type",
+    "settings.search_entity_type": "Search entity type...",
+    "settings.owner_name": "Owner / Proprietor Name",
+    "settings.select_state": "Select State",
+    "settings.search_state": "Search state...",
+    "settings.select_layout": "Select Layout",
+    "settings.search_layout": "Search layout...",
+    "settings.enter_custom_business": "Enter your business type...",
+    "settings.business_type_desc": "Sets the default industry-specific theme & fields inside your POS billing terminal.",
 
     // Inventory
     "inventory.title": "Inventory",
@@ -356,7 +391,7 @@ const TRANSLATIONS = {
     "reports.cashier_no_data_sub": "Start and close shifts in the POS to see leaderboard.",
     "reports.peak_business_hours": "Peak Business Hours",
     "reports.peak_hours_sub": "Invoice frequency and revenue heatmap by hour of day",
-    "reports.bills_per_hour": "Bills per Hour (6am – 11pm)",
+    "reports.bills_per_hour": "Bills per Hour (6am  11pm)",
     "reports.heatmap_title": "Transaction Density Heatmap",
     "reports.ai_sales_forecast": "AI Sales Forecast",
     "reports.ai_forecast_sub": "7-day rolling average + next 7-day revenue prediction",
@@ -452,7 +487,7 @@ const TRANSLATIONS = {
     "warehouse.warehouse_address": "Office / Warehouse Address",
     "warehouse.vendor_gstin": "Vendor GSTIN",
     "warehouse.terms": "Terms",
-    "warehouse.credit_limit": "Credit limit (₹)",
+    "warehouse.credit_limit": "Credit limit ()",
     "warehouse.save_supplier_profile": "Save Supplier Profile",
     "warehouse.configure_structural_location": "Configure Structural Location",
     "warehouse.rack_desc": "Map the product to a physical layout section inside the warehouse.",
@@ -602,13 +637,13 @@ const TRANSLATIONS = {
     "metric.customers": "Customers",
     "metric.products": "Products",
     "metric.loan_debt": "Loan Debt",
-    "metric.sales_vs_expenses": "📊 Sales vs Expenses (Daily)",
-    "metric.payment_status": "💰 Payment Status",
-    "metric.monthly_pl": "📈 Monthly P&L (6 Months)",
-    "metric.expense_breakdown": "💸 Expense Breakdown",
+    "metric.sales_vs_expenses": " Sales vs Expenses (Daily)",
+    "metric.payment_status": " Payment Status",
+    "metric.monthly_pl": " Monthly P&L (6 Months)",
+    "metric.expense_breakdown": " Expense Breakdown",
     "metric.profit_trend": "Profit Trend",
-    "metric.recent_invoices": "📄 Recent Invoices",
-    "metric.stock_alerts": "⚠️ Stock Alerts",
+    "metric.recent_invoices": " Recent Invoices",
+    "metric.stock_alerts": "️ Stock Alerts",
     "metric.top_customers": "⭐ Top Customers",
 
     // Voice
@@ -645,6 +680,9 @@ const TRANSLATIONS = {
     "nav.stocktransfer": "स्टॉक ट्रांसफर",
     "nav.warehouse": "वेयरहाउस",
     "nav.enterprise_intel": "एंटरप्राइज़",
+    "nav.finance": "वित्त हब",
+    "nav.auditLogs": "ऑडिट लॉग्स",
+    "nav.manufacturing": "उत्पादन ईआरपी",
 
     // Common
     "common.save": "सेव करें",
@@ -710,7 +748,7 @@ const TRANSLATIONS = {
     "dashboard.business_summary": "व्यापार सारांश",
 
     // Settings
-    "settings.title": "⚙️ सेटिंग्स",
+    "settings.title": "️ सेटिंग्स",
     "settings.subtitle": "अपने व्यापार की प्रोफ़ाइल सेट करें",
     "settings.shop_name": "दुकान / व्यापार का नाम",
     "settings.business_type": "व्यापार का प्रकार",
@@ -1070,7 +1108,7 @@ const TRANSLATIONS = {
     "warehouse.warehouse_address": "कार्यालय / गोदाम का पता",
     "warehouse.vendor_gstin": "विक्रेता जीएसटीआईएन",
     "warehouse.terms": "शर्तें",
-    "warehouse.credit_limit": "क्रेडिट सीमा (₹)",
+    "warehouse.credit_limit": "क्रेडिट सीमा ()",
     "warehouse.save_supplier_profile": "आपूर्तिकर्ता प्रोफ़ाइल सहेजें",
     "warehouse.configure_structural_location": "संरचनात्मक स्थान कॉन्फ़िगर करें",
     "warehouse.rack_desc": "उत्पाद को गोदाम के अंदर एक भौतिक लेआउट अनुभाग से मैप करें।",
@@ -1220,13 +1258,13 @@ const TRANSLATIONS = {
     "metric.customers": "कुल ग्राहक",
     "metric.products": "कुल उत्पाद",
     "metric.loan_debt": "लोन कर्ज़",
-    "metric.sales_vs_expenses": "📊 बिक्री बनाम खर्चे (दैनिक)",
-    "metric.payment_status": "💰 भुगतान स्थिति",
-    "metric.monthly_pl": "📈 मासिक लाभ-हानि (6 महीने)",
-    "metric.expense_breakdown": "💸 खर्चों का विवरण",
+    "metric.sales_vs_expenses": " बिक्री बनाम खर्चे (दैनिक)",
+    "metric.payment_status": " भुगतान स्थिति",
+    "metric.monthly_pl": " मासिक लाभ-हानि (6 महीने)",
+    "metric.expense_breakdown": " खर्चों का विवरण",
     "metric.profit_trend": "मुनाफ़े का ग्राफ़",
-    "metric.recent_invoices": "📄 हालिया बिल",
-    "metric.stock_alerts": "⚠️ स्टॉक अलर्ट",
+    "metric.recent_invoices": " हालिया बिल",
+    "metric.stock_alerts": "️ स्टॉक अलर्ट",
     "metric.top_customers": "⭐ खास ग्राहक",
 
     // Voice
@@ -1258,7 +1296,12 @@ export const LanguageProvider = ({ children }) => {
   }, [voiceEnabled]);
 
   const t = (key) => {
-    return TRANSLATIONS[language]?.[key] || TRANSLATIONS["en"]?.[key] || key;
+    // If translation doesn't exist, gracefully format the key into readable text
+    // to prevent backend variable names (like settings.account_number) from showing up
+    const fallbackText = key.includes('.') 
+      ? key.split('.').pop().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      : key;
+    return TRANSLATIONS[language]?.[key] || TRANSLATIONS["en"]?.[key] || fallbackText;
   };
 
   const speak = (keyOrText, raw = false) => {
