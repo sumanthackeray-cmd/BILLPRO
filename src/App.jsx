@@ -42,6 +42,7 @@ import InventorySync from "@/pages/InventorySync";
 import StockTransfer from "@/pages/StockTransfer";
 import WarehouseManagement from "@/pages/WarehouseManagement";
 import ManufacturingERP from "@/pages/ManufacturingERP";
+import ManufacturingWorkstation from "@/pages/ManufacturingWorkstation";
 import EnterpriseIntelligence from "@/pages/EnterpriseIntelligence";
 import FinanceModule from "@/modules/accounting/FinanceModule";
 import AuditLogPage from "@/modules/audit/AuditLogPage";
@@ -127,6 +128,7 @@ const AuthenticatedApp = () => {
           <Route path="/stock-transfer" element={<StockTransfer />} />
           <Route path="/warehouse" element={<WarehouseManagement />} />
           <Route path="/manufacturing" element={<ManufacturingERP />} />
+          <Route path="/manufacturing-workstation" element={<ManufacturingWorkstation />} />
           <Route path="/enterprise-intel" element={<EnterpriseIntelligence />} />
           <Route path="/finance" element={<FinanceModule />} />
           <Route path="/audit-logs" element={
