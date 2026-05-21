@@ -39,6 +39,8 @@ import InventorySync from "@/pages/InventorySync";
 import StockTransfer from "@/pages/StockTransfer";
 import WarehouseManagement from "@/pages/WarehouseManagement";
 import EnterpriseIntelligence from "@/pages/EnterpriseIntelligence";
+import AccountingModule from "@/modules/accounting/AccountingModule";
+import { featureFlags } from "@/lib/featureFlags";
 
 
 const AuthenticatedApp = () => {
@@ -117,6 +119,7 @@ const AuthenticatedApp = () => {
           <Route path="/stock-transfer" element={<StockTransfer />} />
           <Route path="/warehouse" element={<WarehouseManagement />} />
           <Route path="/enterprise-intel" element={<EnterpriseIntelligence />} />
+          {featureFlags.ENABLE_ACCOUNTING && <Route path="/erp-accounting" element={<AccountingModule />} />}
         </Route>
       </Route>
 

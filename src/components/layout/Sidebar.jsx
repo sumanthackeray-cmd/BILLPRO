@@ -12,6 +12,7 @@ import { useLanguage } from "@/lib/LanguageContext";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getAllBranches, getCachedBranches, createBranch } from "@/api/branchService";
+import { featureFlags } from "@/lib/featureFlags";
 
 const NAV_ITEMS = [
   { path: "/", icon: LayoutDashboard, label: "Dashboard", tKey: "nav.dashboard" },
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { path: "/customers", icon: Users, label: "Customers", tKey: "nav.customers" },
   { path: "/expenses", icon: Receipt, label: "Expenses", tKey: "nav.expenses" },
   { path: "/accounting", icon: BookOpen, label: "Accounting", tKey: "nav.accounting" },
+  { path: "/erp-accounting", icon: BookOpen, label: "ERP Finance", badge: "NEW", tKey: "nav.erp_finance", featureFlag: "ENABLE_ACCOUNTING" },
   { path: "/loans", icon: Landmark, label: "Loans", tKey: "nav.loans" },
   { path: "/barcode", icon: ScanBarcode, label: "Barcode", tKey: "nav.barcode" },
   { path: "/gst-filing", icon: Building2, label: "GST Filing", badge: "NEW", tKey: "nav.gstfiling" },
@@ -164,7 +166,7 @@ export default function Sidebar({ mobile = false, onClose }) {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-2 overflow-y-auto space-y-0.5">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.featureFlag || featureFlags[item.featureFlag]).map((item) => {
           const isActive = location.pathname === item.path ||
             (item.path !== "/" && location.pathname.startsWith(item.path));
           return (
@@ -182,7 +184,7 @@ export default function Sidebar({ mobile = false, onClose }) {
               )}
             >
               <item.icon className={cn("w-4 h-4 shrink-0", isActive || item.isPro ? "text-primary" : item.badge && !item.isPro ? "text-purple" : "")} />
-              <span>{t(item.tKey)}</span>
+              <span>{item.tKey ? (t(item.tKey) || item.label) : item.label}</span>
               {item.badge && (
                 <span className={cn("ml-auto text-[9px] font-extrabold px-1.5 py-0.5 rounded-full",
                   item.isPro ? "gold-gradient text-black" :
