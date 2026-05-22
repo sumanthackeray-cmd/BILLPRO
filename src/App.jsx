@@ -41,6 +41,7 @@ import BranchManagement from "@/pages/BranchManagement";
 import InventorySync from "@/pages/InventorySync";
 import StockTransfer from "@/pages/StockTransfer";
 import WarehouseManagement from "@/pages/WarehouseManagement";
+import HRMS from "@/pages/HRMS";
 
 import EnterpriseIntelligence from "@/pages/EnterpriseIntelligence";
 import FinanceModule from "@/modules/accounting/FinanceModule";
@@ -126,6 +127,7 @@ const AuthenticatedApp = () => {
           <Route path="/inventory-sync" element={<InventorySync />} />
           <Route path="/stock-transfer" element={<StockTransfer />} />
           <Route path="/warehouse" element={<WarehouseManagement />} />
+          <Route path="/hrms" element={<HRMS />} />
 
           <Route path="/enterprise-intel" element={<EnterpriseIntelligence />} />
           <Route path="/finance" element={<FinanceModule />} />

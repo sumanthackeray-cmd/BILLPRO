@@ -30,6 +30,7 @@ const TRANSLATIONS = {
     "nav.finance": "Finance Hub",
     "nav.auditLogs": "Audit Logs",
     "nav.manufacturing": "Manufacturing ERP",
+    "nav.hrms": "HRMS & Payroll",
 
     // Common
     "common.save": "Save",
@@ -683,6 +684,7 @@ const TRANSLATIONS = {
     "nav.finance": "वित्त हब",
     "nav.auditLogs": "ऑडिट लॉग्स",
     "nav.manufacturing": "उत्पादन ईआरपी",
+    "nav.hrms": "HRMS और पेरोल",
 
     // Common
     "common.save": "सेव करें",

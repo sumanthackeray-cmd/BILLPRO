@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { path: "/reports", icon: BarChart3, label: "Reports", tKey: "nav.reports" },
   { path: "/ai-insights", icon: Sparkles, label: "AI Insights", badge: "AI", tKey: "nav.aiinsights" },
   { path: "/branches", icon: GitBranch, label: "Branches", tKey: "nav.branches" },
+  { path: "/hrms", icon: Users, label: "HRMS & Payroll", badge: "SAP", tKey: "nav.hrms" },
   { path: "/inventory-sync", icon: RefreshCw, label: "Inventory Sync", badge: "LIVE", tKey: "nav.invsync" },
   { path: "/stock-transfer", icon: Truck, label: "Stock Transfer", tKey: "nav.stocktransfer" },
   { path: "/warehouse", icon: Warehouse, label: "Warehouse Hub", badge: "SAP", tKey: "nav.warehouse" },
@@ -159,7 +160,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       moduleKey = "warehouse";
     } else if (item.path === "/expenses" || item.path === "/accounting" || item.path === "/loans" || item.path === "/gst-filing" || item.path === "/finance") {
       moduleKey = "accounting";
-    } else if (item.path === "/branches") {
+    } else if (item.path === "/branches" || item.path === "/hrms") {
       moduleKey = "hr";
     } else if (item.path === "/reports" || item.path === "/ai-insights" || item.path === "/enterprise-intel") {
       moduleKey = "reports";
