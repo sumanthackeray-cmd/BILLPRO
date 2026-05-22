@@ -21,6 +21,12 @@ export default function SalaryEngine({
 }) {
   const [activeSubTab, setActiveSubTab] = useState("calculator");
 
+  // Create guaranteed safe arrays to prevent any undefined/null pointer crashes
+  const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
+  const safeMonthlyPayrolls = useMemo(() => Array.isArray(monthlyPayrolls) ? monthlyPayrolls : [], [monthlyPayrolls]);
+  const safeSalaryStructures = useMemo(() => Array.isArray(salaryStructures) ? salaryStructures : [], [salaryStructures]);
+  const safeLoansList = useMemo(() => Array.isArray(loansList) ? loansList : [], [loansList]);
+
   // --- CTC CALCULATOR STATES ---
   const [calcInputType, setCalcInputType] = useState("monthly"); // monthly, annual
   const [calcInputValue, setCalcInputValue] = useState("35000");
@@ -72,8 +78,8 @@ export default function SalaryEngine({
 
   // Loaded Employee Structures & Loans relative to payroll run
   const activeTechnicians = useMemo(() => {
-    return employees.filter(emp => emp.status === "active" || emp.is_active);
-  }, [employees]);
+    return safeEmployees.filter(emp => emp && (emp.status === "active" || emp.is_active));
+  }, [safeEmployees]);
 
   // Handle setting up Step 2 attendance rosters
   const handleProceedToAttendance = () => {
@@ -110,7 +116,7 @@ export default function SalaryEngine({
 
     return activeTechnicians.map(emp => {
       // Find salary structure
-      const struct = salaryStructures.find(s => s.employeeId === emp.id) || {
+      const struct = safeSalaryStructures.find(s => s && s.employeeId === emp.id) || {
         basic_salary: 20000,
         hra: 8000,
         special_allowance: 4750,
@@ -141,7 +147,7 @@ export default function SalaryEngine({
       const tds = calculateTDS(grossCalculated);
 
       // Check advances outstanding
-      const loan = loansList.find(l => l.employeeId === emp.id && l.status === "active") || null;
+      const loan = safeLoansList.find(l => l && l.employeeId === emp.id && l.status === "active") || null;
       const loanEMI = loan ? Math.min(Number(loan.emi_amount), Number(loan.balance_outstanding)) : 0;
 
       const totalDeductions = pf.employee + esic.employee + pt + tds + loanEMI;
@@ -168,7 +174,7 @@ export default function SalaryEngine({
         employerCost: grossCalculated + pf.employer + esic.employer
       };
     });
-  }, [payrollStep, activeTechnicians, salaryStructures, attendanceOverrides, loansList]);
+  }, [payrollStep, activeTechnicians, safeSalaryStructures, attendanceOverrides, safeLoansList]);
 
   // Grand totals of preview
   const previewTotals = useMemo(() => {
@@ -212,7 +218,7 @@ export default function SalaryEngine({
       // 2. Clear outstanding balances for processed loans/advances
       for (const item of payrollPreviewList) {
         if (item.loanEMI > 0 && item.loanId) {
-          const loanObj = loansList.find(l => l.id === item.loanId);
+          const loanObj = safeLoansList.find(l => l && l.id === item.loanId);
           if (loanObj) {
             const nextOutstanding = Math.max(0, Number(loanObj.balance_outstanding) - item.loanEMI);
             await base44.entities.EmployeeLoan.update(item.loanId, {

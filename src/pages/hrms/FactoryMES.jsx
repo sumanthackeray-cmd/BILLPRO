@@ -16,14 +16,17 @@ export default function FactoryMES({
 }) {
   const [activeTab, setActiveTab] = useState("biometrics");
 
+  // Create guaranteed safe arrays to prevent any undefined/null pointer crashes
+  const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
+
   // Filter for factory workers (manufacturers have worker_category === 'floor_worker' or 'mfg')
   const factoryWorkers = useMemo(() => {
-    return employees.filter(e => 
+    return safeEmployees.filter(e => e && (
       e.worker_category === "floor_worker" || 
       e.department === "Manufacturing" || 
       e.is_piece_rate
-    );
-  }, [employees]);
+    ));
+  }, [safeEmployees]);
 
   // --- BIOMETRICS TERMINAL SIMULATOR ---
   const [terminalEmpId, setTerminalEmpId] = useState("");
@@ -33,8 +36,8 @@ export default function FactoryMES({
   const [simulatedLog, setSimulatedLog] = useState(null);
 
   const targetTerminalEmp = useMemo(() => {
-    return employees.find(e => e.id === terminalEmpId) || null;
-  }, [employees, terminalEmpId]);
+    return safeEmployees.find(e => e && e.id === terminalEmpId) || null;
+  }, [safeEmployees, terminalEmpId]);
 
   const handleSimulateSwipe = async () => {
     if (!terminalEmpId) {
@@ -82,8 +85,8 @@ export default function FactoryMES({
   const [isSubmittingProd, setIsSubmittingProd] = useState(false);
 
   const targetProdEmp = useMemo(() => {
-    return employees.find(e => e.id === prodEmpId) || null;
-  }, [employees, prodEmpId]);
+    return safeEmployees.find(e => e && e.id === prodEmpId) || null;
+  }, [safeEmployees, prodEmpId]);
 
   const calculatedWages = useMemo(() => {
     const rate = Number(targetProdEmp?.piece_rate_per_unit || 15);
@@ -125,8 +128,8 @@ export default function FactoryMES({
   const [fenceRadius, setFenceRadius] = useState(250); // meters
 
   const gpsTargetEmp = useMemo(() => {
-    return employees.find(e => e.id === gpsEmployeeId) || null;
-  }, [employees, gpsEmployeeId]);
+    return safeEmployees.find(e => e && e.id === gpsEmployeeId) || null;
+  }, [safeEmployees, gpsEmployeeId]);
 
   // Simulate current coordinate checks relative to factory geofence center
   const simulatedGPS = useMemo(() => {
@@ -427,7 +430,7 @@ export default function FactoryMES({
                   className="w-full bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
                 >
                   <option value="">-- Choose Employee --</option>
-                  {employees.map(emp => (
+                  {safeEmployees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name || emp.full_name} ({emp.employee_code})</option>
                   ))}
                 </select>

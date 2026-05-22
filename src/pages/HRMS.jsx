@@ -162,8 +162,11 @@ export default function HRMS() {
 
   // Combine baseline Auth records with custom Employee collections details
   const employees = useMemo(() => {
-    return users.map(u => {
-      const ext = employeeDetails.find(e => e.id === u.id) || {};
+    const safeUsers = Array.isArray(users) ? users : [];
+    const safeEmployeeDetails = Array.isArray(employeeDetails) ? employeeDetails : [];
+    return safeUsers.map(u => {
+      if (!u) return {};
+      const ext = safeEmployeeDetails.find(e => e && e.id === u.id) || {};
       return {
         ...u,
         ...ext,

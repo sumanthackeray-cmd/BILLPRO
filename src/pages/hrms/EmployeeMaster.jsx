@@ -12,7 +12,7 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "@/lib/toast";
 
 export default function EmployeeMaster({ 
-  employees, 
+  employees = [], 
   activeBusinessType, 
   refetchUsers, 
   refetchDetails, 
@@ -26,6 +26,17 @@ export default function EmployeeMaster({
   performanceList = [],
   documentsList = []
 }) {
+  const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
+  const safeDepartmentsList = useMemo(() => Array.isArray(departmentsList) ? departmentsList : [], [departmentsList]);
+  const safeDesignationsList = useMemo(() => Array.isArray(designationsList) ? designationsList : [], [designationsList]);
+  const safeShiftsList = useMemo(() => Array.isArray(shiftsList) ? shiftsList : [], [shiftsList]);
+  const safeLeavesList = useMemo(() => Array.isArray(leavesList) ? leavesList : [], [leavesList]);
+  const safeAttendanceLogs = useMemo(() => Array.isArray(attendanceLogs) ? attendanceLogs : [], [attendanceLogs]);
+  const safeLoansList = useMemo(() => Array.isArray(loansList) ? loansList : [], [loansList]);
+  const safePerformanceList = useMemo(() => Array.isArray(performanceList) ? performanceList : [], [performanceList]);
+  const safeDocumentsList = useMemo(() => Array.isArray(documentsList) ? documentsList : [], [documentsList]);
+  const safeRoles = useMemo(() => Array.isArray(AVAILABLE_ROLES) ? AVAILABLE_ROLES : [], [AVAILABLE_ROLES]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [deptFilter, setDeptFilter] = useState("all");
@@ -80,9 +91,9 @@ export default function EmployeeMaster({
   // Unique Employee Code generation helper (EMP-YYYY-NNN)
   const autoGenerateCode = useMemo(() => {
     const year = new Date().getFullYear();
-    const count = (employees.length + 1).toString().padStart(3, "0");
+    const count = (safeEmployees.length + 1).toString().padStart(3, "0");
     return `EMP-${year}-${count}`;
-  }, [employees]);
+  }, [safeEmployees]);
 
   // Set default generated code on mount / form open
   const handleOpenOnboarding = () => {
@@ -229,8 +240,9 @@ export default function EmployeeMaster({
 
   // Filtered employees list
   const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => {
-      const name = emp.name || emp.full_name || `${emp.first_name} ${emp.last_name}` || "";
+    return safeEmployees.filter(emp => {
+      if (!emp) return false;
+      const name = emp.name || emp.full_name || (emp.first_name && emp.last_name ? `${emp.first_name} ${emp.last_name}` : "") || "";
       const code = emp.employeeId || emp.employee_code || "";
       const searchLower = searchTerm.toLowerCase();
       
@@ -242,20 +254,19 @@ export default function EmployeeMaster({
 
       return nameMatch && roleMatch && deptMatch;
     });
-  }, [employees, searchTerm, roleFilter, deptFilter]);
+  }, [safeEmployees, searchTerm, roleFilter, deptFilter]);
 
   // Selected Employee Profile Data Bindings
   const profileDetails = useMemo(() => {
-    if (!selectedEmployee) return null;
-    const emp = selectedEmployee;
-    const leaves = leavesList.filter(l => l.employeeId === emp.id);
-    const attendance = attendanceLogs.filter(a => a.employeeId === emp.id);
-    const loans = loansList.filter(l => l.employeeId === emp.id);
-    const performance = performanceList.filter(p => p.employeeId === emp.id);
-    const documents = documentsList.filter(d => d.employeeId === emp.id);
+    const emp = selectedEmployee || {};
+    const leaves = safeLeavesList.filter(l => l && emp.id && l.employeeId === emp.id);
+    const attendance = safeAttendanceLogs.filter(a => a && emp.id && a.employeeId === emp.id);
+    const loans = safeLoansList.filter(l => l && emp.id && l.employeeId === emp.id);
+    const performance = safePerformanceList.filter(p => p && emp.id && p.employeeId === emp.id);
+    const documents = safeDocumentsList.filter(d => d && emp.id && d.employeeId === emp.id);
     
     const leavesLeft = emp.leavesBalance || 15;
-    const presentCount = attendance.filter(a => a.status === "Verified" || a.status === "present").length;
+    const presentCount = attendance.filter(a => a && (a.status === "Verified" || a.status === "present")).length;
     const attendanceRate = attendance.length > 0 ? Math.round((presentCount / attendance.length) * 100) : 94.2;
 
     return {
@@ -269,7 +280,7 @@ export default function EmployeeMaster({
       attendanceRate,
       presentCount
     };
-  }, [selectedEmployee, leavesList, attendanceLogs, loansList, performanceList, documentsList]);
+  }, [selectedEmployee, safeLeavesList, safeAttendanceLogs, safeLoansList, safePerformanceList, safeDocumentsList]);
 
   return (
     <div className="space-y-6">
@@ -295,7 +306,7 @@ export default function EmployeeMaster({
                 className="bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
               >
                 <option value="all">All Departments</option>
-                {departmentsList.map((d, i) => (
+                {safeDepartmentsList.map((d, i) => (
                   <option key={i} value={d.name}>{d.name}</option>
                 ))}
               </select>
@@ -306,7 +317,7 @@ export default function EmployeeMaster({
                 className="bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
               >
                 <option value="all">All Roles</option>
-                {AVAILABLE_ROLES.map(r => (
+                {safeRoles.map(r => (
                   <option key={r.id} value={r.role_name}>{r.label}</option>
                 ))}
               </select>
@@ -892,7 +903,7 @@ export default function EmployeeMaster({
                     className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
                   >
                     <option value="">Select Department...</option>
-                    {departmentsList.map((d, i) => (
+                    {safeDepartmentsList.map((d, i) => (
                       <option key={i} value={d.name}>{d.name}</option>
                     ))}
                   </select>
@@ -905,7 +916,7 @@ export default function EmployeeMaster({
                     className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
                   >
                     <option value="">Select Designation...</option>
-                    {designationsList.map((d, i) => (
+                    {safeDesignationsList.map((d, i) => (
                       <option key={i} value={d.name}>{d.name}</option>
                     ))}
                   </select>
@@ -918,7 +929,7 @@ export default function EmployeeMaster({
                     className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
                   >
                     <option value="">Select Shift...</option>
-                    {shiftsList.map((s, i) => (
+                    {safeShiftsList.map((s, i) => (
                       <option key={i} value={s.name}>{s.name} ({s.start_time} - {s.end_time})</option>
                     ))}
                   </select>

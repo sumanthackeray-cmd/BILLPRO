@@ -17,6 +17,10 @@ export default function DocumentVault({
 }) {
   const [activeSubTab, setActiveSubTab] = useState("letters");
 
+  // Create guaranteed safe arrays to prevent any undefined/null pointer crashes
+  const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
+  const safeDocumentsList = useMemo(() => Array.isArray(documentsList) ? documentsList : [], [documentsList]);
+
   // --- LETTER WRITER STATES ---
   const [selectedEmpId, setSelectedEmpId] = useState("");
   const [letterType, setLetterType] = useState("offer");
@@ -36,8 +40,8 @@ export default function DocumentVault({
 
   // Target Employee for letter writer
   const targetEmployee = useMemo(() => {
-    return employees.find(e => e.id === selectedEmpId) || null;
-  }, [employees, selectedEmpId]);
+    return safeEmployees.find(e => e.id === selectedEmpId) || null;
+  }, [safeEmployees, selectedEmpId]);
 
   // Letter content generator
   const letterPreview = useMemo(() => {
@@ -133,7 +137,7 @@ export default function DocumentVault({
   // DL/Passport expiration analytics
   const alertDocuments = useMemo(() => {
     const alerts = [];
-    employees.forEach(emp => {
+    safeEmployees.forEach(emp => {
       const today = new Date();
       if (emp.passport_expiry) {
         const pExp = new Date(emp.passport_expiry);
@@ -151,7 +155,7 @@ export default function DocumentVault({
       }
     });
     return alerts;
-  }, [employees]);
+  }, [safeEmployees]);
 
   // Handle file select
   const handleFileChange = (e) => {
@@ -242,7 +246,7 @@ export default function DocumentVault({
                   className="w-full bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
                 >
                   <option value="">-- Choose Target Employee --</option>
-                  {employees.map(emp => (
+                  {safeEmployees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name || emp.full_name} ({emp.employee_code})</option>
                   ))}
                 </select>
@@ -374,7 +378,7 @@ export default function DocumentVault({
                   required
                 >
                   <option value="">-- Choose Employee --</option>
-                  {employees.map(emp => (
+                  {safeEmployees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name || emp.full_name} ({emp.employee_code})</option>
                   ))}
                 </select>
@@ -465,7 +469,7 @@ export default function DocumentVault({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20 leading-relaxed font-sans">
-                    {documentsList.map((doc, i) => (
+                    {safeDocumentsList.map((doc, i) => (
                       <tr key={i} className="hover:bg-secondary/15 font-medium">
                         <td className="p-3 capitalize font-bold text-primary">{doc.doc_type}</td>
                         <td className="p-3 font-semibold text-slate-200">{doc.doc_name}</td>
@@ -482,7 +486,7 @@ export default function DocumentVault({
                         </td>
                       </tr>
                     ))}
-                    {documentsList.length === 0 && (
+                    {safeDocumentsList.length === 0 && (
                       <tr>
                         <td colSpan="4" className="p-4 text-center text-muted-foreground font-medium">
                           No identity documents currently logged in vault storage.

@@ -14,6 +14,8 @@ export default function ComplianceCenter({
   monthlyPayrolls = [], 
   refetchDetails 
 }) {
+  const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
+  const safeMonthlyPayrolls = useMemo(() => Array.isArray(monthlyPayrolls) ? monthlyPayrolls : [], [monthlyPayrolls]);
   const [selectedMonth, setSelectedMonth] = useState("2026-05");
   const [selectedCalculator, setSelectedCalculator] = useState("gratuity");
 
@@ -29,12 +31,12 @@ export default function ComplianceCenter({
 
   // Target Employee for calculators
   const gratuityTargetEmp = useMemo(() => {
-    return employees.find(e => e.id === calcEmployeeId) || null;
-  }, [employees, calcEmployeeId]);
+    return safeEmployees.find(e => e.id === calcEmployeeId) || null;
+  }, [safeEmployees, calcEmployeeId]);
 
   const bonusTargetEmp = useMemo(() => {
-    return employees.find(e => e.id === bonusEmployeeId) || null;
-  }, [employees, bonusEmployeeId]);
+    return safeEmployees.find(e => e.id === bonusEmployeeId) || null;
+  }, [safeEmployees, bonusEmployeeId]);
 
   // Gratuity Output
   const gratuityOutput = useMemo(() => {
@@ -55,13 +57,14 @@ export default function ComplianceCenter({
 
   // File download helper (EPF ECR text format with `#~#` delimiter)
   const handleDownloadECR = () => {
-    if (employees.length === 0) {
+    if (safeEmployees.length === 0) {
       return toast.error("No employee roster available to generate ECR file.");
     }
 
     try {
       let ecrText = "";
-      employees.forEach((emp, index) => {
+      safeEmployees.forEach((emp, index) => {
+        if (!emp) return;
         const uan = emp.uan_number || "100987654321";
         const name = (emp.name || emp.full_name || "Employee").toUpperCase();
         const basic = Number(emp.basicSalary || emp.salary || 15000);
@@ -94,13 +97,14 @@ export default function ComplianceCenter({
 
   // ESIC Excel/CSV generation
   const handleDownloadESIC = () => {
-    if (employees.length === 0) {
+    if (safeEmployees.length === 0) {
       return toast.error("No employee roster available.");
     }
 
     try {
       let csvContent = "IP Number,IP Name,No of Days for which wages paid/payable,Total Monthly Wages,Reason Code for Zero Work,Last Working Day\r\n";
-      employees.forEach((emp) => {
+      safeEmployees.forEach((emp) => {
+        if (!emp) return;
         const esicNo = emp.esic_number || "1234567890";
         const name = (emp.name || emp.full_name || "Employee").toUpperCase();
         const basic = Number(emp.basicSalary || emp.salary || 15000);
@@ -126,13 +130,14 @@ export default function ComplianceCenter({
 
   // Form 24Q TDS summaries CSV download
   const handleDownload24Q = () => {
-    if (employees.length === 0) {
+    if (safeEmployees.length === 0) {
       return toast.error("No active payroll entries to compile.");
     }
 
     try {
       let csvContent = "PAN of Employee,Name of Employee,Category,Date of Payment,Gross Salary Amount,TDS Amount,Surcharge,Education Cess,Total TDS Deducted\r\n";
-      employees.forEach((emp) => {
+      safeEmployees.forEach((emp) => {
+        if (!emp) return;
         const pan = emp.pan_number || "PANNOTFILE";
         const name = (emp.name || emp.full_name || "Employee").toUpperCase();
         const basic = Number(emp.basicSalary || emp.salary || 15000);
@@ -318,7 +323,7 @@ export default function ComplianceCenter({
                     className="w-full bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
                   >
                     <option value="">-- Choose Employee --</option>
-                    {employees.map(emp => (
+                    {safeEmployees.map(emp => (
                       <option key={emp.id} value={emp.id}>{emp.name || emp.full_name} ({emp.employee_code})</option>
                     ))}
                   </select>
@@ -394,7 +399,7 @@ export default function ComplianceCenter({
                     className="w-full bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
                   >
                     <option value="">-- Choose Employee --</option>
-                    {employees.map(emp => (
+                    {safeEmployees.map(emp => (
                       <option key={emp.id} value={emp.id}>{emp.name || emp.full_name} ({emp.employee_code})</option>
                     ))}
                   </select>

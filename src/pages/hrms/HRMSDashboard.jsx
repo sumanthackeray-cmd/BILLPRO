@@ -7,8 +7,49 @@ import {
 } from "recharts";
 import { fmtINR } from "@/modules/accounting/accountingService";
 
-export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests, holidays, stats }) {
+export default function HRMSDashboard({ employees = [], attendanceLogs = [], leaveRequests = [], holidays = [], stats }) {
   
+  // Create guaranteed safe arrays to prevent any undefined/null pointer crashes
+  const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
+  const safeAttendanceLogs = useMemo(() => Array.isArray(attendanceLogs) ? attendanceLogs : [], [attendanceLogs]);
+  const safeLeaveRequests = useMemo(() => Array.isArray(leaveRequests) ? leaveRequests : [], [leaveRequests]);
+  const safeHolidays = useMemo(() => Array.isArray(holidays) ? holidays : [], [holidays]);
+
+  // Dynamic self-calculating stats block to ensure that if stats is not passed or undefined, 
+  // the page still computes metrics in real-time and remains perfectly active.
+  const activeStats = useMemo(() => {
+    const total = safeEmployees.length;
+    
+    // Calculate today's present count
+    const todayStr = new Date().toISOString().split("T")[0];
+    const present = safeAttendanceLogs.filter(log => log && log.date === todayStr).length;
+    
+    const presentRate = total > 0 ? Math.round((present / total) * 100) : 100;
+    
+    const leave = safeLeaveRequests.filter(r => r && r.status === "approved").length;
+    
+    const totalExpenses = safeEmployees.reduce((sum, emp) => {
+      if (!emp) return sum;
+      return sum + (Number(emp.basicSalary || 0) + Number(emp.hra || 0) + Number(emp.allowances || 0));
+    }, 0);
+    
+    const anomalies = safeAttendanceLogs.filter(log => log && (log.anomaly || log.geofenceAnomaly || log.geofence_status === "failed")).length;
+
+    const base = {
+      total,
+      present,
+      presentRate,
+      leave,
+      totalExpenses,
+      anomalies
+    };
+
+    return {
+      ...base,
+      ...(stats || {}) // Merge any passed stats securely
+    };
+  }, [safeEmployees, safeAttendanceLogs, safeLeaveRequests, stats]);
+
   // Format currency
   const formatCurrency = (val) => {
     return "₹" + Number(val || 0).toLocaleString("en-IN");
@@ -17,32 +58,34 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
   // Salary Cost breakdown by Department
   const departmentCosts = useMemo(() => {
     const map = {};
-    employees.forEach(emp => {
+    safeEmployees.forEach(emp => {
+      if (!emp) return;
       const dep = emp.department || "Operations";
       const total = Number(emp.basicSalary || 0) + Number(emp.hra || 0) + Number(emp.allowances || 0);
       map[dep] = (map[dep] || 0) + total;
     });
     return Object.keys(map).map(k => ({ name: k, Cost: map[k] }));
-  }, [employees]);
+  }, [safeEmployees]);
 
   // Headcount by Department
   const headcountBreakdown = useMemo(() => {
     const map = {};
-    employees.forEach(emp => {
+    safeEmployees.forEach(emp => {
+      if (!emp) return;
       const dep = emp.department || "Operations";
       map[dep] = (map[dep] || 0) + 1;
     });
     return Object.keys(map).map(k => ({ name: k, value: map[k] }));
-  }, [employees]);
+  }, [safeEmployees]);
 
   const COLORS = ["#4f46e5", "#06b6d4", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6"];
 
   // Upcoming corporate events
   const upcomingEvents = useMemo(() => {
     const events = [];
-    employees.forEach(emp => {
+    safeEmployees.forEach(emp => {
+      if (!emp) return;
       if (emp.dob) {
-        const dobMonthDay = emp.dob.substring(5); // "MM-DD"
         events.push({
           type: "birthday",
           title: `🍰 ${emp.name}'s Birthday`,
@@ -61,17 +104,18 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
     });
 
     // Add standard holidays
-    holidays.forEach(h => {
+    safeHolidays.forEach(h => {
+      if (!h) return;
       events.push({
         type: "holiday",
         title: `🎉 ${h.name} (Holiday)`,
-        date: h.date,
+        date: h.date || "Upcoming",
         desc: "Office remains closed"
       });
     });
 
     return events.slice(0, 4);
-  }, [employees, holidays]);
+  }, [safeEmployees, safeHolidays]);
 
   return (
     <div className="space-y-6">
@@ -83,7 +127,7 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
         <div className="bg-card/40 backdrop-blur-md border border-border/50 p-5 rounded-2xl flex items-center justify-between shadow-xl scale-[1.01] hover:scale-[1.03] transition-all duration-300">
           <div className="space-y-1">
             <span className="text-[10px] uppercase font-extrabold tracking-wider text-muted-foreground">Active Staff</span>
-            <h3 className="text-3xl font-black">{stats.total}</h3>
+            <h3 className="text-3xl font-black">{activeStats.total}</h3>
             <p className="text-[10px] text-muted-foreground font-medium">Headcount in database</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400">
@@ -95,8 +139,8 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
         <div className="bg-card/40 backdrop-blur-md border border-border/50 p-5 rounded-2xl flex items-center justify-between shadow-xl scale-[1.01] hover:scale-[1.03] transition-all duration-300">
           <div className="space-y-1">
             <span className="text-[10px] uppercase font-extrabold tracking-wider text-muted-foreground">Attendance Rate</span>
-            <h3 className="text-3xl font-black">{stats.presentRate}%</h3>
-            <p className="text-[10px] text-muted-foreground font-medium">{stats.present} present today</p>
+            <h3 className="text-3xl font-black">{activeStats.presentRate}%</h3>
+            <p className="text-[10px] text-muted-foreground font-medium">{activeStats.present} present today</p>
           </div>
           
           <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
@@ -104,11 +148,11 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
               <circle cx="28" cy="28" r="23" stroke="rgba(255,255,255,0.05)" strokeWidth="4" fill="transparent" />
               <circle cx="28" cy="28" r="23" stroke="#10b981" strokeWidth="4" fill="transparent"
                 strokeDasharray={144.5}
-                strokeDashoffset={144.5 - (144.5 * stats.presentRate) / 100}
+                strokeDashoffset={144.5 - (144.5 * (activeStats.presentRate || 0)) / 100}
                 strokeLinecap="round"
               />
             </svg>
-            <span className="absolute text-[10px] font-black text-emerald-500">{stats.presentRate}%</span>
+            <span className="absolute text-[10px] font-black text-emerald-500">{activeStats.presentRate}%</span>
           </div>
         </div>
 
@@ -116,7 +160,7 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
         <div className="bg-card/40 backdrop-blur-md border border-border/50 p-5 rounded-2xl flex items-center justify-between shadow-xl scale-[1.01] hover:scale-[1.03] transition-all duration-300">
           <div className="space-y-1">
             <span className="text-[10px] uppercase font-extrabold tracking-wider text-muted-foreground">Approved Leaves</span>
-            <h3 className="text-3xl font-black">{stats.leave}</h3>
+            <h3 className="text-3xl font-black">{activeStats.leave}</h3>
             <p className="text-[10px] text-muted-foreground font-medium">Currently out-of-office</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500">
@@ -128,7 +172,7 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
         <div className="bg-card/40 backdrop-blur-md border border-border/50 p-5 rounded-2xl flex items-center justify-between shadow-xl scale-[1.01] hover:scale-[1.03] transition-all duration-300">
           <div className="space-y-1">
             <span className="text-[10px] uppercase font-extrabold tracking-wider text-muted-foreground">Monthly Salary Run</span>
-            <h3 className="text-2xl font-black tracking-tight">{formatCurrency(stats.totalExpenses)}</h3>
+            <h3 className="text-2xl font-black tracking-tight">{formatCurrency(activeStats.totalExpenses)}</h3>
             <p className="text-[10px] text-muted-foreground font-medium">Gross Salary allocation</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-500">
@@ -162,7 +206,7 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
               </div>
 
               <div className={`p-3 rounded-xl border ${
-                stats.anomalies > 0 
+                activeStats.anomalies > 0 
                   ? "bg-destructive/10 border-destructive/20 text-destructive font-semibold" 
                   : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
               }`}>
@@ -170,8 +214,8 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
                   <ShieldAlert className="w-4 h-4" /> Geofence Location Alerts
                 </div>
                 <p className="text-[10px] leading-normal font-medium">
-                  {stats.anomalies > 0 
-                    ? `AI detected ${stats.anomalies} check-ins outside standard coordinates! Verify operator terminal geofence mapping.`
+                  {activeStats.anomalies > 0 
+                    ? `AI detected ${activeStats.anomalies} check-ins outside standard coordinates! Verify operator terminal geofence mapping.`
                     : "Zero GPS drifts or biometric matching variances recorded today. 100% verified check-ins."}
                 </p>
               </div>
@@ -274,7 +318,7 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute flex flex-col items-center justify-center">
-                    <span className="text-2xl font-black text-foreground">{stats.total}</span>
+                    <span className="text-2xl font-black text-foreground">{activeStats.total}</span>
                     <span className="text-[9px] uppercase font-extrabold text-muted-foreground">Total Staff</span>
                   </div>
                 </>
@@ -288,11 +332,11 @@ export default function HRMSDashboard({ employees, attendanceLogs, leaveRequests
             <div className="h-44">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={[
-                  { month: "Jan 2026", Run: stats.totalExpenses * 0.9 },
-                  { month: "Feb 2026", Run: stats.totalExpenses * 0.92 },
-                  { month: "Mar 2026", Run: stats.totalExpenses * 0.95 },
-                  { month: "Apr 2026", Run: stats.totalExpenses * 0.98 },
-                  { month: "May 2026", Run: stats.totalExpenses }
+                  { month: "Jan 2026", Run: activeStats.totalExpenses * 0.9 },
+                  { month: "Feb 2026", Run: activeStats.totalExpenses * 0.92 },
+                  { month: "Mar 2026", Run: activeStats.totalExpenses * 0.95 },
+                  { month: "Apr 2026", Run: activeStats.totalExpenses * 0.98 },
+                  { month: "May 2026", Run: activeStats.totalExpenses }
                 ]}>
                   <XAxis dataKey="month" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#888888" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v/1000}k`} />
