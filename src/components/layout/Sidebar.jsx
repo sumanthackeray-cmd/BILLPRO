@@ -230,7 +230,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       mobile ? "w-full h-full" : "hidden lg:flex w-[220px] h-full"
     )}>
       {/* Logo & Brand */}
-      <div className="px-5 pt-5 pb-[1px] border-b border-sidebar-border/30 shrink-0">
+      <div className="px-5 pt-[5px] pb-[1px] border-b border-sidebar-border/30 shrink-0">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-2xl font-black gold-text">EasyBMT</span>
         </div>
@@ -279,7 +279,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 pt-0 pb-2 overflow-y-auto space-y-0.5">
+      <nav className="flex-1 px-2 pt-0 pb-2 overflow-y-auto space-y-0.5 no-scrollbar">
         {filteredNavItems.map((item) => {
           const isActive = location.pathname === item.path ||
             (item.path !== "/" && location.pathname.startsWith(item.path));

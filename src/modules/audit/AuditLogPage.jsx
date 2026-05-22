@@ -25,6 +25,7 @@ export default function AuditLogPage() {
   const [search, setSearch] = useState("");
   const [userFilter, setUserFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
+  const [moduleFilter, setModuleFilter] = useState("all");
   const [selectedLog, setSelectedLog] = useState(null);
   const [showRawPayload, setShowRawPayload] = useState(false);
 
@@ -60,7 +61,11 @@ export default function AuditLogPage() {
           log.action?.toLowerCase().includes(query) ||
           log.userId?.toLowerCase().includes(query) ||
           log.entityId?.toLowerCase().includes(query) ||
-          log.entityType?.toLowerCase().includes(query)
+          log.entityType?.toLowerCase().includes(query) ||
+          // Add timestamp search
+          (log.created_date && new Date(log.created_date).toISOString().toLowerCase().includes(query)) ||
+          (log.createdAt && new Date(log.createdAt).toISOString().toLowerCase().includes(query)) ||
+          (log.timestamp && new Date(log.timestamp).toISOString().toLowerCase().includes(query))
       );
     }
 
@@ -72,8 +77,12 @@ export default function AuditLogPage() {
       result = result.filter((log) => log.action === actionFilter);
     }
 
+    if (moduleFilter !== "all") {
+      result = result.filter((log) => log.entityType === moduleFilter);
+    }
+
     setFilteredLogs(result);
-  }, [search, userFilter, actionFilter, logs]);
+  }, [search, userFilter, actionFilter, moduleFilter, logs]);
 
   const handleCloseModal = () => {
     setSelectedLog(null);
@@ -307,6 +316,7 @@ export default function AuditLogPage() {
   // Generate lists for search and filters
   const uniqueUsers = Array.from(new Set(logs.map((log) => log.userCode || log.userId).filter(Boolean)));
   const uniqueActions = Array.from(new Set(logs.map((log) => log.action).filter(Boolean)));
+  const uniqueModules = Array.from(new Set(logs.map((log) => log.entityType).filter(Boolean))).sort();
 
   // Calculate statistics from the log trail
   const accessViolations = logs.filter(l => l.action === 'ACCESS_DENIED').length;
@@ -493,7 +503,7 @@ export default function AuditLogPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-card border border-border rounded-2xl p-4 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-card border border-border rounded-2xl p-4 shadow-sm">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <Input
@@ -531,6 +541,22 @@ export default function AuditLogPage() {
             {uniqueActions.map((a) => (
               <option key={a} value={a} className="bg-card text-foreground font-bold">
                 {getActionLabel(a).text}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2 bg-background px-3 border border-input rounded-xl transition-all focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <select
+            value={moduleFilter}
+            onChange={(e) => setModuleFilter(e.target.value)}
+            className="w-full bg-transparent border-0 text-foreground h-10 rounded-lg text-xs font-bold focus:outline-none cursor-pointer"
+          >
+            <option value="all" className="bg-card text-foreground font-bold">All Modules</option>
+            {uniqueModules.map((m) => (
+              <option key={m} value={m} className="bg-card text-foreground font-bold">
+                {m}
               </option>
             ))}
           </select>

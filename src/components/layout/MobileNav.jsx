@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, Package, BarChart3, Receipt, Settings, Menu, X, Zap } from "lucide-react";
+import { LayoutDashboard, FileText, Package, BarChart3, Receipt, Settings, Menu, X, Zap, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -22,25 +22,39 @@ export default function MobileNav() {
 
   useBackButton(() => setOpen(false), open);
 
+  const isPOS = location.pathname.toLowerCase().includes('pos');
+
   return (
     <>
       {/* Top bar for mobile */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between">
+      <div className={cn(
+        "lg:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-b border-border px-4 flex items-center justify-between",
+        isPOS ? "py-3" : "h-[30px]"
+      )}>
         <div className="flex items-center gap-2">
-          <span className="text-xl font-black gold-text">EasyBMT</span>
+          <span className={cn("font-black gold-text", isPOS ? "text-xl" : "text-base")}>EasyBMT</span>
         </div>
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <button className="p-2 rounded-lg hover:bg-accent transition-colors active:scale-95">
-              {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </SheetTrigger>
+        <div className="flex items-center gap-[5px]">
+          <button 
+            onClick={() => window.dispatchEvent(new CustomEvent('open-internal-chat'))}
+            className="p-1 rounded-full hover:bg-accent transition-colors active:scale-95 flex items-center justify-center"
+            title="Internal Staff Message Box"
+          >
+            <Info className="w-4 h-4 text-primary" />
+          </button>
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <button className={cn("rounded-lg hover:bg-accent transition-colors active:scale-95", isPOS ? "p-2" : "p-1")}>
+                {open ? <X className={isPOS ? "w-5 h-5" : "w-4 h-4"} /> : <Menu className={isPOS ? "w-5 h-5" : "w-4 h-4"} />}
+              </button>
+            </SheetTrigger>
           <SheetContent side="left" className="p-0 w-[260px] bg-sidebar border-r border-sidebar-border">
             <div className="h-full overflow-y-auto">
               <Sidebar mobile onClose={() => setOpen(false)} />
             </div>
           </SheetContent>
         </Sheet>
+        </div>
       </div>
 
       {/* Bottom navigation bar */}

@@ -10,7 +10,7 @@ import {
   orderBy
 } from "firebase/firestore";
 import { 
-  MessageSquare, Send, Paperclip, X, User, 
+  MessageSquare, Send, Paperclip, X, User, Info,
   Check, CheckCheck, Clock, FileText, ChevronRight,
   ShoppingCart, ShieldAlert, Phone, Video, Search, MoreVertical,
   Smile, File, Image, Download, Mic, Inbox, Loader2, Maximize2
@@ -69,6 +69,15 @@ export default function InternalStaffChat() {
 
   const messagesEndRef = useRef(null);
   const companyId = localStorage.getItem("company_id");
+
+  useEffect(() => {
+    const handleOpen = () => {
+      setIsOpen(true);
+      // Optional: loadAttachments() if needed
+    };
+    window.addEventListener('open-internal-chat', handleOpen);
+    return () => window.removeEventListener('open-internal-chat', handleOpen);
+  }, []);
 
   // 1. Fetch company staff users
   useEffect(() => {
@@ -395,15 +404,15 @@ export default function InternalStaffChat() {
         </div>
       )}
 
-      {/* FLOATING TOP RIGHT BELL / CHAT BUTTON */}
+      {/* FLOATING TOP RIGHT BELL / CHAT BUTTON - DESKTOP ONLY */}
       <button 
         onClick={() => { setIsOpen(!isOpen); loadAttachments(); }}
-        className="fixed top-3.5 right-14 lg:top-4 lg:right-6 z-[60] p-2.5 rounded-full border bg-card/85 backdrop-blur-md border-border/80 text-foreground shadow-lg hover:border-primary/50 transition-all hover:scale-105 active:scale-95 duration-200 flex items-center justify-center"
+        className="hidden lg:flex fixed top-[3px] right-[5px] z-[60] rounded-full border-none text-foreground hover:scale-105 active:scale-95 duration-200 items-center justify-center cursor-pointer"
         title="Internal Staff Message Box"
       >
-        <MessageSquare className="w-5 h-5 text-primary animate-pulse" />
+        <Info className="w-4 h-4 text-primary" />
         {globalUnreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 flex items-center justify-center text-[10px] font-black text-black bg-primary rounded-full px-1 border border-card shadow animate-bounce">
+          <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 flex items-center justify-center text-[9px] font-black text-black bg-primary rounded-full px-1 border border-card shadow animate-bounce">
             {globalUnreadCount}
           </span>
         )}

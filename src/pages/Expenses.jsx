@@ -87,6 +87,7 @@ export default function Expenses() {
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("all");
+  const [filterPayMode, setFilterPayMode] = useState("all");
 
   const { data: expenses = [] } = useQuery({
     queryKey: ["expenses"],
@@ -103,10 +104,17 @@ export default function Expenses() {
     setShowForm(false); setEditing(null);
   };
 
-  const filtered = expenses.filter(e =>
-    (filterCat === "all" || e.category === filterCat) &&
-    (e.title?.toLowerCase().includes(search.toLowerCase()) || e.paid_to?.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = expenses.filter(e => {
+    const q = search.toLowerCase();
+    const matchesSearch = !q ||
+      e.title?.toLowerCase().includes(q) ||
+      e.paid_to?.toLowerCase().includes(q) ||
+      e.notes?.toLowerCase().includes(q) ||
+      String(e.amount || "").includes(q);
+    const matchesCat = filterCat === "all" || e.category === filterCat;
+    const matchesPayMode = filterPayMode === "all" || e.payment_mode === filterPayMode;
+    return matchesSearch && matchesCat && matchesPayMode;
+  });
 
   const totalAmount = expenses.reduce((s, e) => s + (e.amount || 0), 0);
   const thisMonthTotal = expenses.filter(e => e.date?.startsWith(new Date().toISOString().slice(0, 7))).reduce((s, e) => s + (e.amount || 0), 0);
@@ -194,6 +202,17 @@ export default function Expenses() {
               onValueChange={setFilterCat}
               placeholder={t("expenses.all_categories")}
               searchPlaceholder={t("common.search")}
+            />
+            <SearchableSelect
+              className="w-36 h-8 text-[12px]"
+              options={[
+                { value: "all", label: "All Payment Modes" },
+                ...PAYMENT_MODES.map(m => ({ value: m, label: m }))
+              ]}
+              value={filterPayMode}
+              onValueChange={setFilterPayMode}
+              placeholder="Paid By"
+              searchPlaceholder="Search mode..."
             />
           </div>
 

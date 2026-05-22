@@ -12,6 +12,7 @@ import { toast } from "@/lib/toast";
 import { generateAndUploadInvoicePDF } from "@/lib/pdf-share-utils";
 import { FileText, Eye, MessageCircle, Check, Plus, Search } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export default function Invoices() {
   const { t } = useLanguage();
@@ -20,6 +21,7 @@ export default function Invoices() {
   const [editing, setEditing] = useState(null);
   const [formType, setFormType] = useState("sale");
   const [filter, setFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [previewInv, setPreviewInv] = useState(null);
 
@@ -102,13 +104,23 @@ export default function Invoices() {
 
   const filtered = invoices.filter(i => {
     const matchSearch = (i.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
-      (i.customer_name || "").toLowerCase().includes(search.toLowerCase());
+      (i.customer_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      String(i.grand_total || "").includes(search);
     if (!matchSearch) return false;
-    if (filter === "paid") return i.status === "paid";
-    if (filter === "unpaid") return i.status === "unpaid" || i.status === "partial";
-    if (filter === "overdue") return isOverdue(i);
-    if (filter === "credit") return i.type === "credit_note";
-    if (filter === "debit") return i.type === "debit_note";
+    
+    // Status filter
+    if (filter === "paid" && i.status !== "paid") return false;
+    if (filter === "unpaid" && i.status !== "unpaid" && i.status !== "partial") return false;
+    if (filter === "overdue" && !isOverdue(i)) return false;
+    if (filter === "credit" && i.type !== "credit_note") return false;
+    if (filter === "debit" && i.type !== "debit_note") return false;
+
+    // Payment Mode filter
+    if (paymentFilter !== "all") {
+      const pm = i.payment_mode || "Cash";
+      if (pm.toLowerCase() !== paymentFilter.toLowerCase()) return false;
+    }
+    
     return true;
   });
 
@@ -142,10 +154,27 @@ export default function Invoices() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder={t("invoices.search_placeholder")} value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="flex flex-wrap gap-3 items-center justify-between">
+        <div className="flex flex-wrap gap-2 items-center flex-1 max-w-lg">
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+            <Input className="pl-9" placeholder={t("invoices.search_placeholder") + " (No, Cust, Amt)..."} value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <SearchableSelect
+            className="w-44 h-10"
+            options={[
+              { value: "all", label: "All Payment Modes" },
+              { value: "Cash", label: "Cash" },
+              { value: "UPI", label: "UPI" },
+              { value: "Bank Transfer", label: "Bank Transfer" },
+              { value: "Card", label: "Card" },
+              { value: "Cheque", label: "Cheque" }
+            ]}
+            value={paymentFilter}
+            onValueChange={setPaymentFilter}
+            placeholder="Payment Mode"
+            searchPlaceholder="Search payment mode..."
+          />
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {FILTERS.map(f => (

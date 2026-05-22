@@ -29,6 +29,7 @@ export default function InvoiceForm({ open, onOpenChange, invoice, customers, pr
     place_of_supply: invoice?.place_of_supply || "",
     po_number: invoice?.po_number || "",
     status: invoice?.status || "unpaid",
+    payment_mode: invoice?.payment_mode || "Cash",
     items: invoice?.items || [],
     discount: invoice?.discount || 0,
     paid_amount: invoice?.paid_amount || 0,
@@ -120,7 +121,7 @@ export default function InvoiceForm({ open, onOpenChange, invoice, customers, pr
 
         <div className="space-y-5">
           {/* Dates & Status */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div><Label className="text-[11px]">Date</Label><Input type="date" value={form.date} onChange={e => set("date", e.target.value)} /></div>
             <div><Label className="text-[11px]">Due Date</Label><Input type="date" value={form.due_date} onChange={e => set("due_date", e.target.value)} /></div>
             <div><Label className="text-[11px]">PO / Ref No.</Label><Input placeholder="Optional" value={form.po_number} onChange={e => set("po_number", e.target.value)} /></div>
@@ -136,6 +137,22 @@ export default function InvoiceForm({ open, onOpenChange, invoice, customers, pr
                 onValueChange={v => set("status", v)}
                 placeholder="Status"
                 searchPlaceholder="Search status..."
+              />
+            </div>
+            <div>
+              <Label className="text-[11px]">Payment Mode</Label>
+              <SearchableSelect
+                options={[
+                  { label: "Cash", value: "Cash" },
+                  { label: "UPI", value: "UPI" },
+                  { label: "Bank Transfer", value: "Bank Transfer" },
+                  { label: "Card", value: "Card" },
+                  { label: "Cheque", value: "Cheque" },
+                ]}
+                value={form.payment_mode || "Cash"}
+                onValueChange={v => set("payment_mode", v)}
+                placeholder="Payment Mode"
+                searchPlaceholder="Search payment mode..."
               />
             </div>
           </div>

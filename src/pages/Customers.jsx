@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { fmtINR, INDIAN_STATES } from "@/lib/gst-utils";
@@ -6,9 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Users, Edit, Trash2, Phone, Mail } from "lucide-react";
+import { Plus, Search, Users, Edit, Trash2, Phone, Mail, Filter, X } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLanguage } from "@/lib/LanguageContext";
@@ -27,6 +26,7 @@ function CustomerForm({ open, onOpenChange, customer, onSave }) {
     pincode: customer?.pincode || "",
     credit_limit: customer?.credit_limit || 0,
     category: customer?.category || "Retail",
+    status: customer?.status || "Active",
     notes: customer?.notes || "",
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -71,6 +71,28 @@ function CustomerForm({ open, onOpenChange, customer, onSave }) {
               />
             </div>
           </div>
+          {/* Status field */}
+          <div>
+            <Label className="text-[11px]">Status</Label>
+            <div className="flex gap-2 mt-1">
+              {["Active", "Inactive"].map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => set("status", s)}
+                  className={`flex-1 py-1.5 rounded-lg text-[12px] font-bold border transition-all ${
+                    form.status === s
+                      ? s === "Active"
+                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40"
+                        : "bg-destructive/15 text-destructive border-destructive/40"
+                      : "bg-card text-muted-foreground border-border hover:border-primary/30"
+                  }`}
+                >
+                  {s === "Active" ? "🟢 Active" : "🔴 Inactive"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div><Label className="text-[11px]">{t("customers.notes")}</Label><Input placeholder="..." value={form.notes} onChange={e => set("notes", e.target.value)} /></div>
           <div className="flex gap-3 pt-2">
             <Button className="gold-gradient text-black font-bold" onClick={() => onSave(form)} disabled={!form.name}>💾 {t("common.save")}</Button>
@@ -88,11 +110,19 @@ export default function Customers() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
+  const [cityFilter, setCityFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const { data: customers = [] } = useQuery({
     queryKey: ["customers"],
     queryFn: () => base44.entities.Customer.list("-created_date"),
   });
+
+  // Derive unique cities from data
+  const uniqueCities = useMemo(() => {
+    const cities = [...new Set(customers.map(c => c.city).filter(Boolean))].sort();
+    return cities;
+  }, [customers]);
 
   const handleSave = async (formData) => {
     if (editing) {
@@ -114,12 +144,32 @@ export default function Customers() {
     toast.success(t("customers.toast_deleted"));
   };
 
-  const filtered = customers.filter(c =>
-    (c.name + (c.phone || "") + (c.city || "") + (c.gstin || "")).toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return customers.filter(c => {
+      const matchesSearch = !q ||
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.toLowerCase().includes(q) ||
+        c.gstin?.toLowerCase().includes(q) ||
+        c.city?.toLowerCase().includes(q) ||
+        c.contact_person?.toLowerCase().includes(q);
+      const matchesCity = cityFilter === "all" || c.city === cityFilter;
+      const matchesStatus = statusFilter === "all" || (c.status || "Active") === statusFilter;
+      return matchesSearch && matchesCity && matchesStatus;
+    });
+  }, [customers, search, cityFilter, statusFilter]);
+
+  const hasActiveFilters = search || cityFilter !== "all" || statusFilter !== "all";
+
+  const clearFilters = () => {
+    setSearch("");
+    setCityFilter("all");
+    setStatusFilter("all");
+  };
 
   return (
     <div className="animate-fade-up space-y-5">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-black">👥 {t("customers.title")}</h1>
@@ -130,52 +180,125 @@ export default function Customers() {
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-        <Input className="pl-9" placeholder={t("customers.search_placeholder")} value={search} onChange={e => setSearch(e.target.value)} />
+      {/* Smart Search + Filters */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        {/* Search */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            className="pl-9"
+            placeholder="Search by Name, Phone, GST No..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
+        {/* City filter */}
+        <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 min-w-[150px]">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <select
+            value={cityFilter}
+            onChange={e => setCityFilter(e.target.value)}
+            className="w-full bg-transparent text-xs font-bold h-10 focus:outline-none cursor-pointer text-foreground"
+          >
+            <option value="all" className="bg-card">All Cities</option>
+            {uniqueCities.map(city => (
+              <option key={city} value={city} className="bg-card">{city}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status filter */}
+        <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 min-w-[140px]">
+          <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="w-full bg-transparent text-xs font-bold h-10 focus:outline-none cursor-pointer text-foreground"
+          >
+            <option value="all" className="bg-card">All Status</option>
+            <option value="Active" className="bg-card">🟢 Active</option>
+            <option value="Inactive" className="bg-card">🔴 Inactive</option>
+          </select>
+        </div>
       </div>
 
+      {/* Results summary + clear */}
+      {hasActiveFilters && (
+        <div className="flex items-center justify-between text-[12px]">
+          <span className="text-muted-foreground">
+            Showing <span className="font-bold text-foreground">{filtered.length}</span> of {customers.length} customers
+          </span>
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 transition font-semibold"
+          >
+            <X className="w-3 h-3" /> Clear filters
+          </button>
+        </div>
+      )}
+
+      {/* Customer Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {filtered.length === 0 && (
           <div className="col-span-full text-center py-16 text-muted-foreground">
             <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>{t("customers.no_customers")}</p>
+            <p className="font-semibold">
+              {customers.length === 0 ? t("customers.no_customers") : "No customers match your filters"}
+            </p>
+            {hasActiveFilters && (
+              <button onClick={clearFilters} className="mt-3 text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition">
+                Clear filters
+              </button>
+            )}
           </div>
         )}
-        {filtered.map(c => (
-          <div key={c.id} className="bg-card border border-border rounded-xl p-4 hover:border-primary/20 transition-all">
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full gold-gradient flex items-center justify-center text-sm font-bold text-black shrink-0">
-                  {c.name?.[0]?.toUpperCase()}
+        {filtered.map(c => {
+          const isActive = (c.status || "Active") === "Active";
+          return (
+            <div key={c.id} className="bg-card border border-border rounded-xl p-4 hover:border-primary/20 transition-all">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full gold-gradient flex items-center justify-center text-sm font-bold text-black shrink-0">
+                    {c.name?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-bold text-[14px]">{c.name}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                      <Badge variant="outline" className="text-[10px]">{c.category || "Retail"}</Badge>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                        isActive
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                          : "bg-destructive/10 text-destructive border-destructive/30"
+                      }`}>
+                        {isActive ? "● Active" : "● Inactive"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-bold text-[14px]">{c.name}</p>
-                  <Badge variant="outline" className="text-[10px]">{c.category || "Retail"}</Badge>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => { setEditing(c); setShowForm(true); }} className="p-1.5 rounded hover:bg-accent text-muted-foreground">
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-1">
-                <button onClick={() => { setEditing(c); setShowForm(true); }} className="p-1.5 rounded hover:bg-accent text-muted-foreground">
-                  <Edit className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+              <div className="space-y-1 text-[12px] text-muted-foreground mt-3">
+                {c.contact_person && <p className="flex items-center gap-1.5 text-foreground font-semibold">👤 {c.contact_person}</p>}
+                {c.phone && <p className="flex items-center gap-1.5"><Phone className="w-3 h-3" /> {c.phone}</p>}
+                {c.email && <p className="flex items-center gap-1.5"><Mail className="w-3 h-3" /> {c.email}</p>}
+                {c.city && <p>📍 {c.city}{c.state ? `, ${c.state}` : ""}</p>}
+                {c.gstin && <p className="font-mono text-[11px]">{t("customers.gstin")}: {c.gstin}</p>}
+              </div>
+              <div className="mt-3 pt-3 border-t border-border flex justify-between text-[12px]">
+                <span className="text-muted-foreground">{t("reports.total_purchases")}</span>
+                <span className="font-bold text-primary font-mono">{fmtINR(c.total_purchases || 0)}</span>
               </div>
             </div>
-            <div className="space-y-1 text-[12px] text-muted-foreground mt-3">
-              {c.contact_person && <p className="flex items-center gap-1.5 text-foreground font-semibold">👤 {c.contact_person}</p>}
-              {c.phone && <p className="flex items-center gap-1.5"><Phone className="w-3 h-3" /> {c.phone}</p>}
-              {c.email && <p className="flex items-center gap-1.5"><Mail className="w-3 h-3" /> {c.email}</p>}
-              {c.city && <p>📍 {c.city}{c.state ? `, ${c.state}` : ""}</p>}
-              {c.gstin && <p className="font-mono text-[11px]">{t("customers.gstin")}: {c.gstin}</p>}
-            </div>
-            <div className="mt-3 pt-3 border-t border-border flex justify-between text-[12px]">
-              <span className="text-muted-foreground">{t("reports.total_purchases")}</span>
-              <span className="font-bold text-primary font-mono">{fmtINR(c.total_purchases || 0)}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {showForm && <CustomerForm open={showForm} onOpenChange={setShowForm} customer={editing} onSave={handleSave} />}

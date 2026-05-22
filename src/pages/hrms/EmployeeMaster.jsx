@@ -142,6 +142,7 @@ export default function EmployeeMaster({
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [deptFilter, setDeptFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   
   // Selected employee for detailed 10-tab profile view
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -171,6 +172,7 @@ export default function EmployeeMaster({
     grade: "L3", date_of_joining: new Date().toISOString().split("T")[0], probation_end_date: "",
     confirmation_date: "", date_of_leaving: "", notice_period_days: "30", reporting_manager: "",
     work_location: "Main Plant", shift_id: "", cost_center: "", work_from_home: false,
+    status: "Active",
     
     // Qualification
     education: "", certifications: "", skills: "", previous_experience: "",
@@ -1085,10 +1087,11 @@ export default function EmployeeMaster({
       const nameMatch = name.toLowerCase().includes(searchLower) || code.toLowerCase().includes(searchLower);
       const roleMatch = roleFilter === "all" || emp.role_id === roleFilter || (emp.role && emp.role.toLowerCase() === roleFilter.toLowerCase());
       const deptMatch = deptFilter === "all" || emp.department === deptFilter || emp.department_id === deptFilter;
+      const statusMatch = statusFilter === "all" || (emp.status || "Active")?.toLowerCase() === statusFilter.toLowerCase();
 
-      return nameMatch && roleMatch && deptMatch;
+      return nameMatch && roleMatch && deptMatch && statusMatch;
     });
-  }, [safeEmployees, searchTerm, roleFilter, deptFilter]);
+  }, [safeEmployees, searchTerm, roleFilter, deptFilter, statusFilter]);
 
   // Selected Employee Profile Data Bindings
   const profileDetails = useMemo(() => {
@@ -1154,6 +1157,16 @@ export default function EmployeeMaster({
                 {safeRoles.map(r => (
                   <option key={r.id} value={r.role_name}>{r.label}</option>
                 ))}
+              </select>
+
+              <select 
+                value={statusFilter} 
+                onChange={e => setStatusFilter(e.target.value)}
+                className="bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold h-9"
+              >
+                <option value="all">All Status</option>
+                <option value="active">🟢 Active</option>
+                <option value="inactive">🔴 Inactive</option>
               </select>
               
               <Button 

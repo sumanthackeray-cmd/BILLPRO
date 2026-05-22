@@ -13,6 +13,7 @@ import OCRUpload from "@/components/purchases/OCRUpload";
 import { ProductForm } from "@/components/inventory/ProductForm";
 import BarcodeGenerator from "@/components/inventory/BarcodeGenerator";
 import { useLanguage } from "@/lib/LanguageContext";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 function PurchaseForm({ open, onOpenChange, purchase, products, purchases, onSave, businessType }) {
   const { t } = useLanguage();
@@ -600,6 +601,9 @@ export default function Purchases() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const { data: purchases = [] } = useQuery({
     queryKey: ["purchases"],
@@ -610,6 +614,34 @@ export default function Purchases() {
     queryKey: ["products"],
     queryFn: () => base44.entities.Product.list(),
   });
+
+  const uniqueCategories = useMemo(() => {
+    return [...new Set(products.map(p => p.category).filter(Boolean))];
+  }, [products]);
+
+  const filteredPurchases = useMemo(() => {
+    return purchases.filter(p => {
+      const matchSearch = 
+        (p.purchase_number || "").toLowerCase().includes(search.toLowerCase()) ||
+        (p.vendor_name || "").toLowerCase().includes(search.toLowerCase()) ||
+        String(p.grand_total || "").includes(search);
+        
+      if (!matchSearch) return false;
+
+      if (statusFilter !== "all" && p.payment_status !== statusFilter) return false;
+
+      if (categoryFilter !== "all") {
+        const purchaseItems = p.items || [];
+        const hasCategory = purchaseItems.some(it => {
+          const prod = products.find(pr => pr.id === it.product_id);
+          return prod && prod.category === categoryFilter;
+        });
+        if (!hasCategory) return false;
+      }
+
+      return true;
+    });
+  }, [purchases, products, search, statusFilter, categoryFilter]);
 
   const { data: settings = [] } = useQuery({
     queryKey: ["shopSettings"],
@@ -718,14 +750,53 @@ export default function Purchases() {
         </Button>
       </div>
 
+      {/* Search & Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 bg-card border border-border rounded-xl p-4">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground animate-none" />
+          <Input 
+            className="pl-9 h-10 text-xs font-bold" 
+            placeholder="Search PO No, Vendor, Amount..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <SearchableSelect
+            className="w-40 h-10"
+            options={[
+              { value: "all", label: "All Statuses" },
+              { value: "paid", label: "Paid" },
+              { value: "partial", label: "Partial" },
+              { value: "unpaid", label: "Unpaid" }
+            ]}
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+            placeholder="Status"
+            searchPlaceholder="Search status..."
+          />
+          <SearchableSelect
+            className="w-48 h-10"
+            options={[
+              { value: "all", label: "All Categories" },
+              ...uniqueCategories.map(cat => ({ value: cat, label: cat }))
+            ]}
+            value={categoryFilter}
+            onValueChange={setCategoryFilter}
+            placeholder="Category"
+            searchPlaceholder="Search category..."
+          />
+        </div>
+      </div>
+
       <div className="space-y-3">
-        {purchases.length === 0 && (
+        {filteredPurchases.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>{t("purchases.no_purchases")}</p>
           </div>
         )}
-        {purchases.map(p => (
+        {filteredPurchases.map(p => (
           <div 
             key={p.id} 
             className="bg-card border border-border rounded-xl p-4 hover:border-primary/20 transition-all cursor-pointer"

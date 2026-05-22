@@ -120,6 +120,14 @@
 }
 
 @layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   .font-mono {
     font-family: var(--font-mono);
   }
@@ -230,7 +238,7 @@
    All dialogs must not overflow viewport on mobile
    ==================================================== */
 [role="dialog"] {
-  max-height: 95dvh !important;
+  max-height: 100dvh !important;
   display: flex !important;
   flex-direction: column;
 }
@@ -246,9 +254,16 @@
 }
 
 /* Ensure select content doesn't overflow on mobile */
-[role="listbox"] {
+[role="listbox"],
+[data-radix-scroll-area-viewport] {
   max-height: 40vh !important;
   overflow-y: auto !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[role="listbox"]::-webkit-scrollbar,
+[data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  display: none;
 }
 
 /* ====================================================
@@ -358,4 +373,10 @@ table {
 .dark .whatsapp-wallpaper {
   background-color: #0b141a;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M10 20c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zm30 10c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zM20 50c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zm40 10c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zM60 10c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Hide native browser password reveal buttons (Edge/IE) to prevent double eye icons */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
 }

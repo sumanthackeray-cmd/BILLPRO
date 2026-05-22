@@ -815,6 +815,7 @@ export default function Inventory() {
       list = list.filter(p =>
         p.name?.toLowerCase().includes(q) ||
         p.barcode?.toLowerCase().includes(q) ||
+        p.sku?.toLowerCase().includes(q) ||
         p.category?.toLowerCase().includes(q) ||
         p.hsn?.toLowerCase().includes(q)
       );

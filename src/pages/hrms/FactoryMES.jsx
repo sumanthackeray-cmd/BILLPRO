@@ -38,8 +38,20 @@ export default function FactoryMES({
 
   // Smart filters and search for the biometrics roster
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, Verified, Verification Required
+  const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, Present, Late, Absent, Verified, Verification Required
   const [typeFilter, setTypeFilter] = useState("ALL"); // ALL, CHECK_IN, CHECK_OUT
+
+  // Helper function to classify attendance status based on punch time
+  const getAttendanceStatus = (log) => {
+    if (!log || !log.date || !log.time) return "Absent";
+    
+    const [hours, minutes] = log.time.split(":").map(Number);
+    const checkInTime = hours * 60 + minutes; // Convert to minutes since midnight
+    const cutoffTime = 9 * 60 + 15; // 09:15 AM in minutes since midnight
+    
+    // If check-in time is before 09:15 AM, it's Present; otherwise Late
+    return checkInTime <= cutoffTime ? "Present" : "Late";
+  };
 
   const targetTerminalEmp = useMemo(() => {
     return safeEmployees.find(e => e && e.id === terminalEmpId) || null;
@@ -109,9 +121,22 @@ export default function FactoryMES({
       const matchesSearch = 
         (log.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (log.employee_code || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (log.date || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (log.branchId || "").toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStatus = statusFilter === "ALL" || log.status === statusFilter;
+      // For status filtering, check both the stored status and computed attendance status
+      let matchesStatus = false;
+      if (statusFilter === "ALL") {
+        matchesStatus = true;
+      } else if (statusFilter === "Present" || statusFilter === "Late" || statusFilter === "Absent") {
+        // Use computed attendance status based on punch time
+        const attendanceStatus = getAttendanceStatus(log);
+        matchesStatus = attendanceStatus === statusFilter;
+      } else {
+        // Use stored verification status (Verified, Verification Required)
+        matchesStatus = log.status === statusFilter;
+      }
+      
       const matchesType = typeFilter === "ALL" || log.type === typeFilter;
       
       return matchesSearch && matchesStatus && matchesType;
@@ -388,9 +413,9 @@ export default function FactoryMES({
             {/* Smart Filters pills */}
             <div className="flex flex-wrap items-center gap-4 text-[10px]">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-muted-foreground uppercase">Status:</span>
-                <div className="flex bg-secondary/25 p-0.5 rounded-lg border border-border/20">
-                  {["ALL", "Verified", "Verification Required"].map(status => (
+                <span className="font-extrabold text-muted-foreground uppercase">Attendance:</span>
+                <div className="flex flex-wrap bg-secondary/25 p-0.5 rounded-lg border border-border/20">
+                  {["ALL", "Present", "Late", "Absent"].map(status => (
                     <button
                       key={status}
                       onClick={() => setStatusFilter(status)}
@@ -400,7 +425,7 @@ export default function FactoryMES({
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {status}
+                      {status === "ALL" ? "ALL" : status === "Present" ? "✓ Present" : status === "Late" ? "⏱ Late" : "✗ Absent"}
                     </button>
                   ))}
                 </div>
@@ -477,13 +502,19 @@ export default function FactoryMES({
                             </span>
                           </td>
                           <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              log.status === "Verified" 
-                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                                : "bg-red-500/15 text-red-400 border border-red-500/20"
-                            }`}>
-                              {log.status}
-                            </span>
+                            {(() => {
+                              const attendanceStatus = getAttendanceStatus(log);
+                              const statusColors = {
+                                "Present": "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+                                "Late": "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
+                                "Absent": "bg-red-500/10 text-red-400 border border-red-500/20"
+                              };
+                              return (
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${statusColors[attendanceStatus] || "bg-slate-500/10 text-slate-400"}`}>
+                                  {attendanceStatus}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="p-3 text-slate-400">{log.branchId || "Factory Floor A"}</td>
                         </tr>
