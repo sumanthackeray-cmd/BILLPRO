@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"ren invoiceForm.jsx InvoiceForm.jsx\")",
+      "Bash(git -C \"C:/Users/Admin/Desktop/GST\" mv src/components/invoices/invoiceForm.jsx src/components/invoices/InvoiceForm.jsx)",
+      "Bash(git -C \"C:/Users/Admin/Desktop/GST\" status)"
+    ]
+  }
+}
