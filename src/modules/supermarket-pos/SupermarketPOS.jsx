@@ -68,7 +68,7 @@ export default function SupermarketPOS() {
     },
     enabled: !!companyId
   });
-  const companyName = companyProfile?.business_name || companyProfile?.name || "GSTBill Supermarket";
+  const companyName = companyProfile?.business_name || companyProfile?.name || "EasyBMT Supermarket";
 
   // Automatically find active open session for terminal
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function SupermarketPOS() {
           </div>
           <div>
             <h1 className="text-3xl font-black text-slate-900 dark:text-slate-50 tracking-tight">
-              GSTBill Supermarket POS
+              EasyBMT Supermarket POS
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
               It looks like this company has no loaded supermarket departments, loose products, or promotional pricing rules. Initialize now to run a trial session.
@@ -747,7 +747,7 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
     let cleanPhone = whatsappNumber.replace(/\D/g, "");
     if (cleanPhone.length === 10) cleanPhone = "91" + cleanPhone;
 
-    const message = `🧾 *Invoice from ${shopSettings?.shop_name || "GSTBILL SUPERMARKET"}*\n\nDear ${lastInvoice?.customer_name || "Customer"},\nThank you for shopping with us! Your total is ₹${lastInvoice?.grand_total}.\n\nHave a great day!`;
+    const message = `🧾 *Invoice from ${shopSettings?.shop_name || "EASYBMT SUPERMARKET"}*\n\nDear ${lastInvoice?.customer_name || "Customer"},\nThank you for shopping with us! Your total is ₹${lastInvoice?.grand_total}.\n\nHave a great day!`;
 
     try {
       toast.info("Generating PDF...");
@@ -819,7 +819,7 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
           <span className="text-sm md:text-base">🏪</span>
           <div className="flex items-center gap-2">
             <h1 className="text-[10px] md:text-xs font-black tracking-tight flex items-center gap-1.5 truncate">
-              {companyName ? companyName.toUpperCase() : "GSTBILL SUPERMARKET"}
+              {companyName ? companyName.toUpperCase() : "EASYBMT SUPERMARKET"}
               <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white border-none font-bold text-[8px] h-3 px-1">
                 ACTIVE
               </Badge>

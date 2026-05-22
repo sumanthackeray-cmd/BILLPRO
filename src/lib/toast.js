@@ -1,5 +1,5 @@
 /**
- * GSTBill Pro — Custom Toast Notification System
+ * EasyBMT — Custom Toast Notification System
  * Drop-in replacement for sonner's toast API.
  * Renders via ToastContainer (place in App.jsx).
  * 

@@ -95,7 +95,7 @@ export default function UsersSettings() {
       }
 
       const newUserCode = form.userCode.trim().toUpperCase();
-      const internalEmail = `${newUserCode}@${companyId.replace("-", "")}.gstbill.app`;
+      const internalEmail = `${newUserCode}@${companyId.replace("-", "")}.easybmt.app`;
 
       const empName = selectedEmployee.full_name || selectedEmployee.name || `${selectedEmployee.first_name || ""} ${selectedEmployee.last_name || ""}`;
       const empContactEmail = selectedEmployee.personal_email || selectedEmployee.work_email || selectedEmployee.email || "";

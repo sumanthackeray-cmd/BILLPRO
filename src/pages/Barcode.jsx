@@ -79,7 +79,7 @@ export default function Barcode() {
 
     const html = `<!DOCTYPE html><html>
     <head>
-      <title>Barcode Labels - GSTBill Pro</title>
+      <title>Barcode Labels - EasyBMT</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: white; }

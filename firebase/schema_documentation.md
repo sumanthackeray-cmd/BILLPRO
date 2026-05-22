@@ -1,6 +1,6 @@
 # Google Firebase Backend Database Schema & Architecture
 
-This document defines the database architecture, schema collections, entity relations, and authentication integration for the **GSTBill PRO** platform.
+This document defines the database architecture, schema collections, entity relations, and authentication integration for the **EasyBMT** platform.
 
 ---
 

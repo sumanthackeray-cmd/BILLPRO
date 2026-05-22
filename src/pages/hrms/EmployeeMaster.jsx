@@ -405,7 +405,7 @@ export default function EmployeeMaster({
             const ot = colIndex("overtime_hours") !== -1 ? String(row[colIndex("overtime_hours")]?.trim() || "0") : "0";
             const email = colIndex("email") !== -1 && row[colIndex("email")]?.trim() 
               ? row[colIndex("email")]?.trim() 
-              : `${code.replace(/[-\s]/g, "").toLowerCase()}@${companyId.toLowerCase()}.gstbill.app`;
+              : `${code.replace(/[-\s]/g, "").toLowerCase()}@${companyId.toLowerCase()}.easybmt.app`;
             const phone = colIndex("phone") !== -1 && row[colIndex("phone")]?.trim() 
               ? row[colIndex("phone")]?.trim() 
               : "9876543210";
@@ -762,7 +762,7 @@ export default function EmployeeMaster({
     try {
       const companyId = localStorage.getItem("company_id") || "VOGATS";
       const uCode = onboardForm.employee_code.replace(/[-\s]/g, "");
-      const internalEmail = `${uCode.toLowerCase()}@${companyId.toLowerCase()}.gstbill.app`;
+      const internalEmail = `${uCode.toLowerCase()}@${companyId.toLowerCase()}.easybmt.app`;
 
       // Dynamic Department creation if manual typed and unique
       let deptVal = onboardForm.department_id;

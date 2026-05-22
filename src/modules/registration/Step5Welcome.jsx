@@ -40,7 +40,7 @@ export default function Step5Welcome({ formData, onFinish }) {
           <PartyPopper className="w-10 h-10 text-emerald-500" />
         </div>
         <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">
-          🎉 WELCOME TO GSTBILL!
+          🎉 WELCOME TO EASYBMT!
         </h2>
         <p className="text-lg text-slate-600 dark:text-slate-300 font-bold">
           {formData.business_name || "Your Company"}

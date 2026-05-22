@@ -111,7 +111,7 @@ export default function DocumentVault({
       doc.setFont("helvetica", "bold");
       doc.setFontSize(22);
       doc.setTextColor(212, 175, 55); // Gold color
-      doc.text("GSTBILL ERP - HCM MODULE", 20, 30);
+      doc.text("EASYBMT ERP - HCM MODULE", 20, 30);
       
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
@@ -352,7 +352,7 @@ export default function DocumentVault({
               {/* Header Letterhead */}
               <div className="border-b border-border/20 pb-4 text-center md:text-left space-y-1">
                 <span className="font-sans font-black tracking-wider text-xs text-amber-500 flex items-center gap-1.5 justify-center md:justify-start">
-                  <Building className="w-4 h-4" /> GSTBILL SYSTEM INTEGRATION
+                  <Building className="w-4 h-4" /> EASYBMT SYSTEM INTEGRATION
                 </span>
                 <span className="font-sans text-[10px] text-muted-foreground block">Enterprise HCM Corporate Letterhead Layout</span>
               </div>

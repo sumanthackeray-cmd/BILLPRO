@@ -357,7 +357,7 @@ export default function SalaryEngine({
       doc.setFont("helvetica", "bold");
       doc.setFontSize(20);
       doc.setTextColor(212, 175, 55); // Gold Accent
-      doc.text("GSTBILL INTERNATIONAL ERP", 20, 25);
+      doc.text("EASYBMT INTERNATIONAL ERP", 20, 25);
       
       doc.setFontSize(9);
       doc.setTextColor(100, 100, 100);

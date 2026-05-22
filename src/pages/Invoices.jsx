@@ -88,7 +88,7 @@ export default function Invoices() {
     const loadingToast = toast.loading(t("invoices.toast_pdf_generating"));
     try {
       const pdfUrl = await generateAndUploadInvoicePDF(inv, shopSettings, true);
-      const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "GSTBILL PRO SHOP" : shopSettings.shop_name;
+      const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "EASYBMT SHOP" : shopSettings.shop_name;
       const msg = `🏪 *${shopName}*\n🧾 Invoice: *${inv.invoice_number}*\n\nDear *${inv.customer_name}*,\n\nThank you for shopping with us! Here is your invoice summary:\n📅 Date: ${inv.date}\n💰 Amount: *₹${(inv.grand_total || 0).toFixed(2)}*\n📊 Status: ${inv.status?.toUpperCase()}\n\n📁 *Download PDF Bill:* ${pdfUrl}\n\nThank you! 🙏`;
       const ph = (inv.customer_phone || "").replace(/\D/g, "");
       window.open(`https://wa.me/${ph ? "91" + ph : ""}?text=${encodeURIComponent(msg)}`, "_blank");

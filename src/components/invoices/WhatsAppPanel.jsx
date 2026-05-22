@@ -7,7 +7,7 @@ import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { generateAndUploadInvoicePDF } from "@/lib/pdf-share-utils";
 
-const getShopName = (shop) => (!shop || !shop.shop_name || shop.shop_name === "Vogats") ? "GSTBill Pro" : shop.shop_name;
+const getShopName = (shop) => (!shop || !shop.shop_name || shop.shop_name === "Vogats") ? "EasyBMT" : shop.shop_name;
 
 const MSG_TEMPLATES = [
   {

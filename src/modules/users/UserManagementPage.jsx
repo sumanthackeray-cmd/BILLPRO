@@ -91,7 +91,7 @@ export default function UserManagementPage() {
 
     try {
       const newUserCode = userCode.trim().toUpperCase();
-      const internalEmail = `${newUserCode}@${companyId.replace("-", "")}.gstbill.app`;
+      const internalEmail = `${newUserCode}@${companyId.replace("-", "")}.easybmt.app`;
 
       const result = await manageStaffUser({
         action: "CREATE",

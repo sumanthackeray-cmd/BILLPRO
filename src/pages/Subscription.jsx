@@ -77,7 +77,7 @@ export default function Subscription() {
 
   const handleUpgrade = async (plan) => {
     if (plan.id === "enterprise") {
-      toast.info("Please contact sales@gstbillpro.com for Enterprise plan");
+      toast.info("Please contact sales@easybmt.com for Enterprise plan");
       return;
     }
     if (plan.id === "free") return;
@@ -98,7 +98,7 @@ export default function Subscription() {
       key: "rzp_test_placeholder", // Replace with actual Razorpay key
       amount: finalAmount,
       currency: "INR",
-      name: "GSTBill Pro",
+      name: "EasyBMT",
       description: `${plan.name} Plan — ${billing === "yearly" ? "Yearly" : "Monthly"}`,
       image: "/logo.png",
       prefill: { name: user?.full_name || "", email: user?.email || "" },
@@ -128,8 +128,8 @@ export default function Subscription() {
         // Send confirmation email
         await base44.integrations.Core.SendEmail({
           to: user.email,
-          subject: `✅ GSTBill Pro — ${plan.name} Plan Activated!`,
-          body: `Hi ${user.full_name || "there"},\n\nYour ${plan.name} plan has been activated successfully!\n\nPayment ID: ${response.razorpay_payment_id}\nAmount: ₹${(finalAmount / 100).toLocaleString("en-IN")}\nBilling: ${billing === "yearly" ? "Yearly" : "Monthly"}\nNext billing: ${nextBilling.toDateString()}\n\nThank you for choosing GSTBill Pro!\n\n— Team GSTBill Pro`
+          subject: `✅ EasyBMT — ${plan.name} Plan Activated!`,
+          body: `Hi ${user.full_name || "there"},\n\nYour ${plan.name} plan has been activated successfully!\n\nPayment ID: ${response.razorpay_payment_id}\nAmount: ₹${(finalAmount / 100).toLocaleString("en-IN")}\nBilling: ${billing === "yearly" ? "Yearly" : "Monthly"}\nNext billing: ${nextBilling.toDateString()}\n\nThank you for choosing EasyBMT!\n\n— Team EasyBMT`
         });
 
         queryClient.invalidateQueries({ queryKey: ["userSubscription"] });
@@ -198,7 +198,7 @@ export default function Subscription() {
       <div className="text-center">
         <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-4">
           <Crown className="w-4 h-4 text-primary" />
-          <span className="text-primary font-bold text-sm">GSTBill Pro Plans</span>
+          <span className="text-primary font-bold text-sm">EasyBMT Plans</span>
         </div>
         <h1 className="text-3xl font-black mb-2">Choose Your <span className="gold-text">Plan</span></h1>
         <p className="text-muted-foreground text-sm max-w-lg mx-auto">Transparent pricing, no hidden fees. Powered by Razorpay.</p>

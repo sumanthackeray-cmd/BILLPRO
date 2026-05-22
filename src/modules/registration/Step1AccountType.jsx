@@ -70,7 +70,7 @@ export default function Step1AccountType({ formData, updateData, onNext }) {
           KAISA BUSINESS HAI AAPKA?
         </h2>
         <p className="text-slate-500 dark:text-slate-400">
-          Select your business type to customize your GSTBill experience
+          Select your business type to customize your EasyBMT experience
         </p>
       </div>
 

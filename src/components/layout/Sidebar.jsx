@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
   Users, BarChart3, Settings, Sparkles, ScanBarcode, LogOut, Crown,
   Receipt, BookOpen, Landmark, Building2, Zap, GitBranch, RefreshCw, Warehouse, TrendingUp, Shield, Scissors,
-  Monitor, Tag, Award, Calendar
+  Monitor, Tag, Award, Calendar, Search
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -19,29 +19,41 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllBranches, getCachedBranches, createBranch } from "@/api/branchService";
 
 const NAV_ITEMS = [
+  // 🏠 Core
   { path: "/", icon: LayoutDashboard, label: "Dashboard", tKey: "nav.dashboard" },
   { path: "/pos", icon: Zap, label: "Quick POS", badge: "FAST", tKey: "nav.pos" },
-  { path: "/invoices", icon: FileText, label: "Invoices", tKey: "nav.invoices" },
-  { path: "/purchases", icon: ShoppingCart, label: "Purchases", tKey: "nav.purchases" },
-  { path: "/waybills", icon: Truck, label: "E-Waybills", tKey: "nav.waybills" },
-  { path: "/inventory", icon: Package, label: "Inventory", tKey: "nav.inventory" },
+  
+  // 🛒 Sales & Customers
   { path: "/customers", icon: Users, label: "Customers", tKey: "nav.customers" },
-  { path: "/expenses", icon: Receipt, label: "Expenses", tKey: "nav.expenses" },
-  { path: "/accounting", icon: BookOpen, label: "Accounting", tKey: "nav.accounting" },
-  { path: "/loans", icon: Landmark, label: "Loans", tKey: "nav.loans" },
-  { path: "/barcode", icon: ScanBarcode, label: "Barcode", tKey: "nav.barcode" },
-  { path: "/gst-filing", icon: Building2, label: "GST Filing", badge: "NEW", tKey: "nav.gstfiling" },
-  { path: "/reports", icon: BarChart3, label: "Reports", tKey: "nav.reports" },
-  { path: "/ai-insights", icon: Sparkles, label: "AI Insights", badge: "AI", tKey: "nav.aiinsights" },
-  { path: "/branches", icon: GitBranch, label: "Branches", tKey: "nav.branches" },
-  { path: "/hrms", icon: Users, label: "HRMS & Payroll", badge: "SAP", tKey: "nav.hrms" },
-  { path: "/inventory-sync", icon: RefreshCw, label: "Inventory Sync", badge: "LIVE", tKey: "nav.invsync" },
+  { path: "/invoices", icon: FileText, label: "Invoices", tKey: "nav.invoices" },
+  { path: "/waybills", icon: Truck, label: "E-Waybills", tKey: "nav.waybills" },
+  
+  // 🏭 Purchase & Inventory
+  { path: "/purchases", icon: ShoppingCart, label: "Purchases", tKey: "nav.purchases" },
+  { path: "/inventory", icon: Package, label: "Inventory", tKey: "nav.inventory" },
   { path: "/stock-transfer", icon: Truck, label: "Stock Transfer", tKey: "nav.stocktransfer" },
   { path: "/warehouse", icon: Warehouse, label: "Warehouse Hub", badge: "SAP", tKey: "nav.warehouse" },
-
-  { path: "/enterprise-intel", icon: TrendingUp, label: "Enterprise Intel", badge: "AI", tKey: "nav.enterprise_intel" },
+  { path: "/inventory-sync", icon: RefreshCw, label: "Inventory Sync", badge: "LIVE", tKey: "nav.invsync" },
+  { path: "/barcode", icon: ScanBarcode, label: "Barcode", tKey: "nav.barcode" },
+  
+  // 💰 Finance & Accounting
+  { path: "/accounting", icon: BookOpen, label: "Accounting", tKey: "nav.accounting" },
+  { path: "/expenses", icon: Receipt, label: "Expenses", tKey: "nav.expenses" },
+  { path: "/loans", icon: Landmark, label: "Loans", tKey: "nav.loans" },
   { path: "/finance", icon: Landmark, label: "Finance Hub", badge: "ERP", tKey: "nav.finance" },
+  { path: "/gst-filing", icon: Building2, label: "GST Filing", badge: "NEW", tKey: "nav.gstfiling" },
+  
+  // 👥 HR & Workforce
+  { path: "/hrms", icon: Users, label: "HRMS & Payroll", badge: "SAP", tKey: "nav.hrms" },
+  
+  // 📊 Analytics & Admin
+  { path: "/reports", icon: BarChart3, label: "Reports", tKey: "nav.reports" },
+  { path: "/branches", icon: GitBranch, label: "Branches", tKey: "nav.branches" },
+  { path: "/enterprise-intel", icon: TrendingUp, label: "Enterprise Intel", badge: "AI", tKey: "nav.enterprise_intel" },
+  { path: "/ai-insights", icon: Sparkles, label: "AI Insights", badge: "AI", tKey: "nav.aiinsights" },
   { path: "/audit-logs", icon: Shield, label: "Audit Logs", tKey: "nav.auditLogs" },
+  
+  // ⚙️ System
   { path: "/settings", icon: Settings, label: "Settings", tKey: "nav.settings" },
   { path: "/subscription", icon: Crown, label: "Upgrade", badge: "PRO", isPro: true, tKey: "nav.upgrade" },
 ];
@@ -54,6 +66,7 @@ export default function Sidebar({ mobile = false, onClose }) {
   // Load branches from cache instantly, refresh from Firestore in background
   const [branches, setBranches] = useState(() => getCachedBranches());
   const [activeBranchId, setActiveBranchId] = useState(localStorage.getItem('selectedBranch') || '');
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch shop settings
   const { shopSettings } = useShopSettings();
@@ -167,6 +180,10 @@ export default function Sidebar({ mobile = false, onClose }) {
 
   // Dynamically filter navigation items based on user's SAP permissions
   const filteredNavItems = activeNavItems.filter((item) => {
+    if (searchQuery && !t(item.tKey).toLowerCase().includes(searchQuery.toLowerCase()) && !item.label.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+
     if (!user) return true;
     
 
@@ -213,14 +230,13 @@ export default function Sidebar({ mobile = false, onClose }) {
       mobile ? "w-full h-full" : "hidden lg:flex w-[220px] h-full"
     )}>
       {/* Logo & Brand */}
-      <div className="px-5 pt-5 pb-3 border-b border-sidebar-border/30 shrink-0">
+      <div className="px-5 pt-5 pb-[1px] border-b border-sidebar-border/30 shrink-0">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-2xl font-black gold-text">GSTBill</span>
-          <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">PRO</span>
+          <span className="text-2xl font-black gold-text">EasyBMT</span>
         </div>
         <div className="flex flex-col gap-0.5 mb-2">
           <p className="text-[12px] text-foreground font-extrabold uppercase tracking-wider truncate">
-            🏢 {shopSettings.shop_name || user?.business_name || "GSTBill Retail"}
+            🏢 {shopSettings.shop_name || user?.business_name || "EasyBMT Retail"}
           </p>
           <div className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 truncate">
             <span className="truncate">{user?.name || "Kamlesh Kkumar"}</span>
@@ -249,10 +265,21 @@ export default function Sidebar({ mobile = false, onClose }) {
             </select>
           </div>
         )}
+
+        <div className="mt-3 relative flex items-center">
+          <Search className="absolute left-2 w-3 h-3 text-muted-foreground" />
+          <input 
+            type="text" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Smart Search..." 
+            className="w-full h-[30px] bg-secondary/50 border border-border/50 rounded text-[10px] pl-6 pr-2 focus:outline-none focus:ring-1 focus:ring-primary/40 text-foreground placeholder:text-muted-foreground/70"
+          />
+        </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-2 overflow-y-auto space-y-0.5">
+      <nav className="flex-1 px-2 pt-0 pb-2 overflow-y-auto space-y-0.5">
         {filteredNavItems.map((item) => {
           const isActive = location.pathname === item.path ||
             (item.path !== "/" && location.pathname.startsWith(item.path));

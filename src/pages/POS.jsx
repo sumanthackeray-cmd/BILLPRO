@@ -1592,7 +1592,7 @@ function POSContent() {
 
     const loadingToast = toast.loading("Generating PDF bill...");
     try {
-      const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "GSTBILL PRO SHOP" : shopSettings.shop_name;
+      const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "EASYBMT SHOP" : shopSettings.shop_name;
       const itemsText = latestInvoice.items.map(item => `- ${item.name} (${item.qty} x ${item.rate})`).join("\n");
       const message = ` *${shopName}*\n\nDear *${latestInvoice.customer_name}*,\n\nThank you for shopping with us! Here is your invoice summary:\n\n*Invoice No:* ${latestInvoice.invoice_number}\n*Date:* ${latestInvoice.date}\n------------------------\n*Items:*\n${itemsText}\n------------------------\n*Subtotal:* ${latestInvoice.subtotal.toFixed(2)}\n*Tax (GST):* ${latestInvoice.tax_amount.toFixed(2)}\n*Total Paid:* ${latestInvoice.grand_total.toFixed(2)}\n\nHave a great day! `;
 
@@ -1700,7 +1700,7 @@ function POSContent() {
           </Link>
           <div className="h-3 md:h-4 w-[1px] bg-slate-100 dark:bg-slate-800 hidden sm:block" />
           <div className="flex items-center gap-1.5">
-            <span className="text-xs md:text-sm font-black bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 bg-clip-text text-transparent tracking-wider">GSTBill</span>
+            <span className="text-xs md:text-sm font-black bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 bg-clip-text text-transparent tracking-wider">EasyBMT</span>
             <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[7px] md:text-[8px] font-black px-1 md:px-1.5 py-0 h-3 md:h-4 flex items-center rounded-full shrink-0">PRO POS</Badge>
           </div>
         </div>

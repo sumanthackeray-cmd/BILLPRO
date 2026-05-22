@@ -116,7 +116,7 @@ export default function Login() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E8721C] to-[#D4641A] flex items-center justify-center shadow-lg shadow-[#E8721C]/20">
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-black text-[#111118] dark:text-white tracking-tight transition-colors duration-300">GSTBill<span className="text-[#E8721C]">Pro</span></span>
+            <span className="text-2xl font-black text-[#111118] dark:text-white tracking-tight transition-colors duration-300">EasyBMT</span>
           </div>
 
           <div className="space-y-6 max-w-md">
@@ -156,7 +156,7 @@ export default function Login() {
         </div>
 
         <div className="relative z-10 flex items-center justify-between text-[#7A7A8C] dark:text-white/50 text-sm font-medium transition-colors duration-300">
-          <p>© {new Date().getFullYear()} GSTBill Inc.</p>
+          <p>© {new Date().getFullYear()} EasyBMT Inc.</p>
           <div className="flex gap-4">
             <a href="#" className="hover:text-[#111118] dark:hover:text-white transition-colors">Privacy</a>
             <a href="#" className="hover:text-[#111118] dark:hover:text-white transition-colors">Terms</a>
@@ -181,7 +181,7 @@ export default function Login() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E8721C] to-[#D4641A] flex items-center justify-center">
               <ShieldCheck className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-black text-[#111118] dark:text-white tracking-tight transition-colors duration-300">GSTBill<span className="text-[#E8721C]">Pro</span></span>
+            <span className="text-xl font-black text-[#111118] dark:text-white tracking-tight transition-colors duration-300">EasyBMT</span>
           </div>
 
           <div className="mb-8 mt-6">

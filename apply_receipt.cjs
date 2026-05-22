@@ -9,7 +9,7 @@ const generateThermalHTMLString = `export function generateThermalHTML(inv, shop
   const widthClass = is80mm ? "w80" : "w58";
   
   const dateStr = inv.date ? formatReceiptDate(inv.date) : "";
-  const shopName = (!shop.shop_name || shop.shop_name === "Vogats") ? "GSTBILL PRO SHOP" : shop.shop_name;
+  const shopName = (!shop.shop_name || shop.shop_name === "Vogats") ? "EASYBMT SHOP" : shop.shop_name;
   const shopInitials = getInitials(shopName);
 
   const subtotal = inv.subtotal || 0;

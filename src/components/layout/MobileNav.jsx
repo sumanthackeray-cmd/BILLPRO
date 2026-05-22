@@ -27,8 +27,7 @@ export default function MobileNav() {
       {/* Top bar for mobile */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xl font-black gold-text">GSTBill</span>
-          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">PRO</span>
+          <span className="text-xl font-black gold-text">EasyBMT</span>
         </div>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>

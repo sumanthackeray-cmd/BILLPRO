@@ -589,7 +589,7 @@ export default function WarehouseManagement() {
         <body onload="window.print()">
           <div class="header">
             <div>
-              <div class="logo">GSTBill PRO</div>
+              <div class="logo">EasyBMT</div>
               <div>SAP-Level Wholesale & Retail Group</div>
             </div>
             <div class="title">PURCHASE ORDER</div>

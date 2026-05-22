@@ -381,7 +381,7 @@ export default function Inventory() {
 
   const handlePrintIndent = (indent) => {
     const shopSettings = settings[0] || {};
-    const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "GSTBILL PRO SHOP" : shopSettings.shop_name;
+    const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "EASYBMT SHOP" : shopSettings.shop_name;
     const printWindow = window.open('', '_blank');
     const itemsHtml = (indent.items || []).map(item => `
       <tr>
@@ -469,7 +469,7 @@ export default function Inventory() {
 
   const handlePrintPO = (po) => {
     const shopSettings = settings[0] || {};
-    const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "GSTBILL PRO SHOP" : shopSettings.shop_name;
+    const shopName = (!shopSettings.shop_name || shopSettings.shop_name === "Vogats") ? "EASYBMT SHOP" : shopSettings.shop_name;
     const printWindow = window.open('', '_blank');
     const itemsHtml = (po.items || []).map(item => `
       <tr>

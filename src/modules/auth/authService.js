@@ -112,7 +112,7 @@ export async function staffLogin(companyId, userCode, password) {
   }
 
   // 2. Construct internal email
-  const internalEmail = `${formattedUserCode}@${formattedCompanyId.replace("-", "")}.gstbill.app`;
+  const internalEmail = `${formattedUserCode}@${formattedCompanyId.replace("-", "")}.easybmt.app`;
 
   // 3. Authenticate with Firebase
   await setPersistence(auth, browserLocalPersistence);
