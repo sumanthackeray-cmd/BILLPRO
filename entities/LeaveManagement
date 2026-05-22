@@ -1,0 +1,18 @@
+{
+  "name": "LeaveManagement",
+  "type": "object",
+  "properties": {
+    "employeeId": { "type": "string" },
+    "employeeName": { "type": "string" },
+    "leaveType": { "type": "string" },
+    "startDate": { "type": "string", "format": "date" },
+    "endDate": { "type": "string", "format": "date" },
+    "durationDays": { "type": "number", "default": 1 },
+    "isHalfDay": { "type": "boolean", "default": false },
+    "reason": { "type": "string" },
+    "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Cancelled"], "default": "Pending" },
+    "approvedBy": { "type": "string" },
+    "approvedAt": { "type": "string" }
+  },
+  "required": ["employeeId", "startDate", "endDate"]
+}

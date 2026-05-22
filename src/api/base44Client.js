@@ -41,7 +41,19 @@ const getCollectionName = (entityName) => {
     User: 'users',
     Permission: 'permissions',
     SensitiveFieldAccess: 'sensitiveFieldAccess',
-    AuditLog: 'auditLogs'
+    AuditLog: 'auditLogs',
+    Employee: 'employees',
+    SalaryStructure: 'salaryStructures',
+    MonthlyPayroll: 'monthlyPayroll',
+    AttendanceLog: 'attendanceLogs',
+    LeaveManagement: 'leaveManagement',
+    PerformanceReview: 'performanceReviews',
+    EmployeeDocument: 'employeeDocuments',
+    EmployeeLoan: 'employeeLoans',
+    Department: 'departments',
+    Designation: 'designations',
+    Shift: 'shifts',
+    Holiday: 'holidays'
   };
   return mapping[entityName] || entityName.toLowerCase();
 };

@@ -1,0 +1,16 @@
+{
+  "name": "EmployeeLoan",
+  "type": "object",
+  "properties": {
+    "employeeId": { "type": "string" },
+    "type": { "type": "string", "enum": ["salary_advance", "loan"], "default": "loan" },
+    "amount": { "type": "number", "default": 0 },
+    "purpose": { "type": "string" },
+    "emi_amount": { "type": "number", "default": 0 },
+    "emi_months": { "type": "number", "default": 12 },
+    "total_recovered": { "type": "number", "default": 0 },
+    "balance_outstanding": { "type": "number", "default": 0 },
+    "status": { "type": "string", "enum": ["pending", "approved", "active", "closed"], "default": "pending" }
+  },
+  "required": ["employeeId", "amount"]
+}

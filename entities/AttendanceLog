@@ -1,0 +1,19 @@
+{
+  "name": "AttendanceLog",
+  "type": "object",
+  "properties": {
+    "employeeId": { "type": "string" },
+    "employeeName": { "type": "string" },
+    "date": { "type": "string", "format": "date" },
+    "check_in": { "type": "string" },
+    "check_out": { "type": "string" },
+    "total_hours": { "type": "number", "default": 0 },
+    "overtime_hours": { "type": "number", "default": 0 },
+    "attendance_source": { "type": "string", "enum": ["biometric", "app", "manual", "rfid", "face"], "default": "biometric" },
+    "status": { "type": "string", "default": "present" },
+    "gps": { "type": "object" },
+    "anomaly": { "type": "boolean", "default": false },
+    "anomalyReason": { "type": "string" }
+  },
+  "required": ["employeeId", "date"]
+}

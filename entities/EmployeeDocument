@@ -1,0 +1,14 @@
+{
+  "name": "EmployeeDocument",
+  "type": "object",
+  "properties": {
+    "employeeId": { "type": "string" },
+    "doc_type": { "type": "string" },
+    "doc_name": { "type": "string" },
+    "file_url": { "type": "string" },
+    "file_size": { "type": "number" },
+    "expiry_date": { "type": "string" },
+    "is_verified": { "type": "boolean", "default": false }
+  },
+  "required": ["employeeId", "doc_type", "file_url"]
+}

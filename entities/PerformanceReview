@@ -1,0 +1,15 @@
+{
+  "name": "PerformanceReview",
+  "type": "object",
+  "properties": {
+    "employeeId": { "type": "string" },
+    "review_period": { "type": "string" },
+    "overall_score": { "type": "number", "default": 0 },
+    "overall_rating": { "type": "string" },
+    "increment_percent": { "type": "number", "default": 0 },
+    "bonus_recommended": { "type": "number", "default": 0 },
+    "promotion_recommended": { "type": "boolean", "default": false },
+    "status": { "type": "string", "default": "draft" }
+  },
+  "required": ["employeeId", "review_period"]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "SalaryStructure",
+  "type": "object",
+  "properties": {
+    "employeeId": { "type": "string" },
+    "ctc_annual": { "type": "number", "default": 0 },
+    "ctc_monthly": { "type": "number", "default": 0 },
+    "basic_salary": { "type": "number", "default": 0 },
+    "hra": { "type": "number", "default": 0 },
+    "special_allowance": { "type": "number", "default": 0 },
+    "conveyance": { "type": "number", "default": 0 },
+    "medical_allowance": { "type": "number", "default": 0 },
+    "lta": { "type": "number", "default": 0 },
+    "telephone_allowance": { "type": "number", "default": 0 },
+    "food_allowance": { "type": "number", "default": 0 },
+    "accommodation_value": { "type": "number", "default": 0 },
+    "uniform_allowance": { "type": "number", "default": 0 },
+    "night_shift_allow": { "type": "number", "default": 0 },
+    "overtime_rate_hr": { "type": "number", "default": 0 },
+    "variable_pay": { "type": "number", "default": 0 },
+    "pf_employee": { "type": "number", "default": 0 },
+    "pf_employer": { "type": "number", "default": 0 },
+    "esic_employee": { "type": "number", "default": 0 },
+    "esic_employer": { "type": "number", "default": 0 },
+    "professional_tax": { "type": "number", "default": 0 },
+    "tds_monthly": { "type": "number", "default": 0 },
+    "net_take_home": { "type": "number", "default": 0 },
+    "is_current": { "type": "boolean", "default": true }
+  },
+  "required": ["employeeId"]
+}

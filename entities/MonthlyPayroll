@@ -1,0 +1,26 @@
+{
+  "name": "MonthlyPayroll",
+  "type": "object",
+  "properties": {
+    "employeeId": { "type": "string" },
+    "employeeName": { "type": "string" },
+    "payrollMonth": { "type": "string" },
+    "workingDays": { "type": "number", "default": 0 },
+    "paidDays": { "type": "number", "default": 0 },
+    "lopDays": { "type": "number", "default": 0 },
+    "presentDays": { "type": "number", "default": 0 },
+    "absentDays": { "type": "number", "default": 0 },
+    "leavesTaken": { "type": "number", "default": 0 },
+    "overtimeHours": { "type": "number", "default": 0 },
+    "grossEarnings": { "type": "number", "default": 0 },
+    "totalDeductions": { "type": "number", "default": 0 },
+    "netSalary": { "type": "number", "default": 0 },
+    "paymentStatus": { "type": "string", "enum": ["draft", "approved", "paid", "on_hold"], "default": "draft" },
+    "paymentDate": { "type": "string" },
+    "paymentRef": { "type": "string" },
+    "journalEntryId": { "type": "string" },
+    "expenseEntryId": { "type": "string" },
+    "isPosted": { "type": "boolean", "default": false }
+  },
+  "required": ["employeeId", "payrollMonth"]
+}
