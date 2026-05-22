@@ -910,14 +910,14 @@ export default function WarehouseManagement() {
                   {activeZoneData.occupancy}% Occupied
                 </span>
               </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-inner relative">
+              <div className="w-full bg-slate-200 dark:bg-slate-900 h-3.5 rounded-full overflow-hidden shadow-inner relative border border-border/10 p-[1px]">
                 <div 
                   className={`h-full rounded-full transition-all duration-500 ${
                     activeZoneData.occupancy >= 90
-                      ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'
+                      ? 'bg-gradient-to-r from-red-500 to-rose-600 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse'
                       : activeZoneData.occupancy >= 75
-                      ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
-                      : 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_15px_rgba(245,158,11,0.6)]'
+                      : 'bg-gradient-to-r from-emerald-400 to-teal-600 shadow-[0_0_15px_rgba(16,185,129,0.6)]'
                   }`} 
                   style={{ width: `${activeZoneData.occupancy}%` }} 
                 />
@@ -1231,22 +1231,22 @@ export default function WarehouseManagement() {
                                   const inv = cellProduct ? inventory.find(i => i.productId === cellProduct.id) : null;
                                   const qty = inv ? inv.quantity : 0;
 
-                                  let cellBg = "bg-secondary/20 hover:bg-secondary/35 border-dashed border-border/50 text-muted-foreground/60";
+                                  let cellBg = "bg-slate-500/5 hover:bg-slate-500/10 border-dashed border-border/55 text-muted-foreground/60 shadow-inner";
                                   let cellBorder = "border";
                                   let cellBadge = "Empty Slot";
                                   let cellLabel = "+ Slot Map";
 
                                   if (cellProduct) {
                                     cellLabel = cellProduct.name;
-                                    cellBorder = "border shadow-sm";
+                                    cellBorder = "border shadow-md";
                                     if (qty <= 0) {
-                                      cellBg = "bg-red-500/10 hover:bg-red-500/15 border-red-500/30 text-red-500";
+                                      cellBg = "bg-gradient-to-br from-red-500/10 to-red-500/5 hover:from-red-500/20 hover:to-red-500/10 border-red-500/30 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.05)] hover:shadow-[0_0_20px_rgba(239,68,68,0.15)]";
                                       cellBadge = `Critical Stock (${qty})`;
                                     } else if (qty <= cellProduct.reorderPoint) {
-                                      cellBg = "bg-amber-500/10 hover:bg-amber-500/15 border-amber-500/30 text-amber-500";
+                                      cellBg = "bg-gradient-to-br from-amber-500/10 to-amber-500/5 hover:from-amber-500/20 hover:to-amber-500/10 border-amber-500/30 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.05)] hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]";
                                       cellBadge = `Low Stock (${qty})`;
                                     } else {
-                                      cellBg = "bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/30 text-emerald-500";
+                                      cellBg = "bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 hover:from-emerald-500/20 hover:to-emerald-500/10 border-emerald-500/30 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.05)] hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]";
                                       cellBadge = `Normal Stock (${qty})`;
                                     }
                                   }
@@ -1261,14 +1261,14 @@ export default function WarehouseManagement() {
                                         product: cellProduct,
                                         qty: qty
                                       })}
-                                      className={`h-20 rounded-xl ${cellBg} ${cellBorder} p-2 text-left flex flex-col justify-between transition-all duration-200 w-full min-w-0`}
+                                      className={`h-24 rounded-xl ${cellBg} ${cellBorder} p-3 text-left flex flex-col justify-between transition-all duration-300 w-full min-w-0 [transform-style:preserve-3d] hover:-translate-y-1 hover:shadow-lg`}
                                     >
                                       <div className="flex justify-between items-center w-full">
-                                        <span className="text-[9px] font-black uppercase tracking-wider bg-black/25 px-1 py-0.5 rounded text-white font-mono">
+                                        <span className="text-[9px] font-black uppercase tracking-wider bg-black/35 dark:bg-black/60 px-1.5 py-0.5 rounded text-white font-mono">
                                           {rack.replace('Rack ', '')}{shelf.replace('Shelf ', '')}
                                         </span>
                                         {cellProduct && (
-                                          <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                                          <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
                                         )}
                                       </div>
                                       <div className="min-w-0 w-full">

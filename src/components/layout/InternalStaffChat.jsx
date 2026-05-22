@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/AuthContext";
+import { useBackButton } from "@/hooks/useBackButton";
 import { base44 } from "@/api/base44Client";
 import { db } from "@/api/firebase";
 import { 
@@ -45,6 +46,11 @@ export default function InternalStaffChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeUser, setActiveUser] = useState(null); // Selected staff user to chat with
   const [messages, setMessages] = useState([]);
+
+  // Hierarchy: 1. Close specific thread to go back to inbox. 2. Close drawer.
+  useBackButton(() => setActiveUser(null), isOpen && activeUser !== null);
+  useBackButton(() => setIsOpen(false), isOpen && activeUser === null);
+
   const [users, setUsers] = useState([]);
   const [inputText, setInputText] = useState("");
   

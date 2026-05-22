@@ -12,12 +12,14 @@ import { base44 } from "@/api/base44Client";
 export default function FactoryMES({ 
   employees = [], 
   refetchDetails, 
-  activeBusinessType 
+  activeBusinessType,
+  attendanceLogs = []
 }) {
   const [activeTab, setActiveTab] = useState("biometrics");
 
   // Create guaranteed safe arrays to prevent any undefined/null pointer crashes
   const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
+  const safeAttendanceLogs = useMemo(() => Array.isArray(attendanceLogs) ? attendanceLogs : [], [attendanceLogs]);
 
   // Filter for factory workers (manufacturers have worker_category === 'floor_worker' or 'mfg')
   const factoryWorkers = useMemo(() => {
@@ -30,14 +32,35 @@ export default function FactoryMES({
 
   // --- BIOMETRICS TERMINAL SIMULATOR ---
   const [terminalEmpId, setTerminalEmpId] = useState("");
-  const [swipeType, setSwipeType] = useState("CHECK_IN");
   const [facialScore, setFacialScore] = useState(98);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulatedLog, setSimulatedLog] = useState(null);
 
+  // Smart filters and search for the biometrics roster
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, Verified, Verification Required
+  const [typeFilter, setTypeFilter] = useState("ALL"); // ALL, CHECK_IN, CHECK_OUT
+
   const targetTerminalEmp = useMemo(() => {
     return safeEmployees.find(e => e && e.id === terminalEmpId) || null;
   }, [safeEmployees, terminalEmpId]);
+
+  // Dynamic alternating punch-in/out swipe logic based on previous logs
+  const computedNextSwipeType = useMemo(() => {
+    if (!terminalEmpId) return "CHECK_IN";
+    const empLogs = safeAttendanceLogs.filter(log => log && log.employeeId === terminalEmpId);
+    if (empLogs.length === 0) return "CHECK_IN";
+    
+    // Sort logs by date and time to find the last swipe type
+    const sorted = [...empLogs].sort((a, b) => {
+      const dateTimeA = new Date(`${a.date || ""} ${a.time || ""}`);
+      const dateTimeB = new Date(`${b.date || ""} ${b.time || ""}`);
+      return dateTimeA - dateTimeB;
+    });
+    
+    const lastLog = sorted[sorted.length - 1];
+    return lastLog.type === "CHECK_IN" ? "CHECK_OUT" : "CHECK_IN";
+  }, [terminalEmpId, safeAttendanceLogs]);
 
   const handleSimulateSwipe = async () => {
     if (!terminalEmpId) {
@@ -52,11 +75,13 @@ export default function FactoryMES({
       const generatedScore = Math.floor(92 + Math.random() * 8);
       setFacialScore(generatedScore);
 
+      const resolvedSwipeType = computedNextSwipeType;
+
       const newSwipe = {
         employeeId: terminalEmpId,
         employee_code: targetTerminalEmp?.employee_code || "EMP-102",
         name: targetTerminalEmp?.name || targetTerminalEmp?.full_name || "Staff",
-        type: swipeType,
+        type: resolvedSwipeType,
         date: new Date().toISOString().split("T")[0],
         time: new Date().toLocaleTimeString(),
         faceMatchScore: generatedScore,
@@ -68,7 +93,7 @@ export default function FactoryMES({
       await base44.entities.AttendanceLog.create(newSwipe);
       
       setSimulatedLog(newSwipe);
-      toast.success(`${newSwipe.name} swipe checked in biometric logs! Status: ${newSwipe.status}`);
+      toast.success(`${newSwipe.name} scanned successfully! Status: ${newSwipe.status}`);
       refetchDetails();
     } catch (err) {
       toast.error("Biometric simulation failed: " + err.message);
@@ -76,6 +101,22 @@ export default function FactoryMES({
       setIsSimulating(false);
     }
   };
+
+  // Filtered attendance logs for the history panel
+  const filteredLogs = useMemo(() => {
+    return safeAttendanceLogs.filter(log => {
+      if (!log) return false;
+      const matchesSearch = 
+        (log.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (log.employee_code || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (log.branchId || "").toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "ALL" || log.status === statusFilter;
+      const matchesType = typeFilter === "ALL" || log.type === typeFilter;
+      
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [safeAttendanceLogs, searchTerm, statusFilter, typeFilter]);
 
   // --- DAILY PRODUCTION PIECE-RATE LOG ---
   const [prodEmpId, setProdEmpId] = useState("");
@@ -203,105 +244,256 @@ export default function FactoryMES({
 
       {/* VIEW: BIOMETRICS SCANNER TERMINAL */}
       {activeTab === "biometrics" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* Simulation controller */}
-          <div className="bg-card/40 border border-border/50 rounded-2xl p-6 backdrop-blur-md space-y-4">
-            <div className="border-b border-border/20 pb-3">
-              <h3 className="font-black text-sm text-foreground">Facial Recognition Check-In swipe Simulator</h3>
-              <p className="text-muted-foreground text-[10px] mt-0.5">Emulates an automated factory biometric hardware machine capturing facial match scores.</p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="font-bold">Choose Employee</Label>
-                <select 
-                  value={terminalEmpId} 
-                  onChange={e => {
-                    setTerminalEmpId(e.target.value);
-                    setSimulatedLog(null);
-                  }}
-                  className="w-full bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
-                >
-                  <option value="">-- Select Manufacturing Staff --</option>
-                  {factoryWorkers.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.name || emp.full_name} ({emp.employee_code || emp.employeeId})</option>
-                  ))}
-                </select>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* Simulation controller */}
+            <div className="bg-card/40 border border-border/50 rounded-2xl p-6 backdrop-blur-md space-y-4">
+              <div className="border-b border-border/20 pb-3">
+                <h3 className="font-black text-sm text-foreground">Facial Recognition Check-In swipe Simulator</h3>
+                <p className="text-muted-foreground text-[10px] mt-0.5">Emulates an automated factory biometric hardware machine capturing facial match scores.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label className="font-bold">Swipe Action</Label>
+                  <Label className="font-bold">Choose Employee</Label>
                   <select 
-                    value={swipeType} 
-                    onChange={e => setSwipeType(e.target.value)}
+                    value={terminalEmpId} 
+                    onChange={e => {
+                      setTerminalEmpId(e.target.value);
+                      setSimulatedLog(null);
+                    }}
                     className="w-full bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
                   >
-                    <option value="CHECK_IN">Shift Check In (Punch In)</option>
-                    <option value="CHECK_OUT">Shift Check Out (Punch Out)</option>
+                    <option value="">-- Select Manufacturing Staff --</option>
+                    {factoryWorkers.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name || emp.full_name} ({emp.employee_code || emp.employeeId})</option>
+                    ))}
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="font-bold">Biometric Matching ID</Label>
-                  <Input 
-                    value={targetTerminalEmp?.biometric_id || "AUTO_LOAD"} 
-                    className="bg-background/50 text-xs h-9 border-border/40 font-mono"
-                    disabled 
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="font-bold">Next Swipe Type (Auto computed)</Label>
+                    <div className={`w-full text-xs font-black py-2 px-3 rounded-lg border flex items-center justify-center h-9 ${
+                      computedNextSwipeType === "CHECK_IN" 
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                    }`}>
+                      {computedNextSwipeType === "CHECK_IN" ? "PUNCH IN (Check-In)" : "PUNCH OUT (Check-Out)"}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="font-bold">Biometric Matching ID</Label>
+                    <Input 
+                      value={targetTerminalEmp?.biometric_id || "BIO-FAC-5832"} 
+                      className="bg-background/50 text-xs h-9 border-border/40 font-mono font-bold"
+                      disabled 
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleSimulateSwipe}
+                  disabled={isSimulating || !terminalEmpId}
+                  className="w-full text-xs font-bold gold-gradient text-black h-9 mt-4 shadow-lg shadow-amber-500/10"
+                >
+                  <Play className="w-3.5 h-3.5 mr-1.5 fill-black" /> Run Biometric Match Scan
+                </Button>
+              </div>
+            </div>
+
+            {/* Visual Camera scanner frame */}
+            <div className="bg-card/40 border border-border/50 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden flex flex-col items-center justify-center min-h-[340px] text-center">
+              
+              {/* Visual camera scan box */}
+              <div className="w-40 h-40 border-2 border-dashed border-amber-500/40 rounded-3xl relative flex items-center justify-center bg-slate-500/5 group">
+                {isSimulating ? (
+                  <>
+                    {/* Neon laser animation scanning */}
+                    <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent animate-bounce shadow-md shadow-amber-400" />
+                    <Cpu className="w-12 h-12 text-amber-500 animate-pulse" />
+                  </>
+                ) : simulatedLog ? (
+                  <div className="text-center space-y-2">
+                    <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+                    <span className="font-bold text-[10px] text-emerald-500 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">{facialScore}% Facial Match</span>
+                  </div>
+                ) : (
+                  <Users className="w-12 h-12 text-slate-500" />
+                )}
+              </div>
+
+              {/* Simulated log details card */}
+              <div className="mt-5 space-y-1 font-mono text-[10px] text-muted-foreground">
+                {isSimulating ? (
+                  <span className="text-amber-500 font-bold animate-pulse">Running advanced convolutional biometric scanning...</span>
+                ) : simulatedLog ? (
+                  <div className="space-y-2 bg-slate-900/80 border border-emerald-500/30 p-4 rounded-xl text-left w-72 leading-normal shadow-2xl relative">
+                    <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    <h4 className="font-extrabold text-[11px] text-emerald-400 border-b border-border/20 pb-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> BIOMETRIC PUNCH SUCCESS
+                    </h4>
+                    <div className="space-y-1 text-slate-300 text-[10px]">
+                      <div>Employee: <strong className="text-white font-extrabold">{simulatedLog.name}</strong></div>
+                      <div>Emp Code: <strong className="text-slate-100">{simulatedLog.employee_code}</strong></div>
+                      <div>Punch Action: <span className={`font-black px-1.5 py-0.5 rounded text-[9px] ${simulatedLog.type === "CHECK_IN" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>{simulatedLog.type === "CHECK_IN" ? "PUNCH IN" : "PUNCH OUT"}</span></div>
+                      <div>Timestamp: <strong className="text-slate-100">{simulatedLog.date} @ {simulatedLog.time}</strong></div>
+                      <div>Biometric ID: <strong className="text-slate-400 font-mono">{targetTerminalEmp?.biometric_id || "BIO-FAC-5832"}</strong></div>
+                      <div className="border-t border-border/20 pt-1.5 mt-1.5 space-y-1 bg-secondary/10 p-2 rounded">
+                        <div className="font-bold text-[9px] uppercase tracking-wider text-amber-500">Linked CTC &amp; Salary Structure</div>
+                        <div className="flex justify-between">
+                          <span>Basic Salary:</span>
+                          <strong className="text-slate-100">₹{targetTerminalEmp?.basicSalary?.toLocaleString("en-IN") || "0"} /mo</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Allowances:</span>
+                          <strong className="text-slate-100">₹{targetTerminalEmp?.allowances?.toLocaleString("en-IN") || "0"} /mo</strong>
+                        </div>
+                        <div className="flex justify-between border-t border-border/10 pt-1 text-[9.5px] font-extrabold">
+                          <span>Total Monthly Gross:</span>
+                          <strong className="text-emerald-400">₹{((targetTerminalEmp?.basicSalary || 0) + (targetTerminalEmp?.allowances || 0) + (targetTerminalEmp?.hra || 0)).toLocaleString("en-IN")} /mo</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <span>System standby. Choose a manufacturing tech to run test biometric swipe.</span>
+                )}
+              </div>
+
+            </div>
+          </div>
+
+          {/* REAL-TIME FACTORY SWIPE HISTORY & LEDGER (SMART FILTERS & SEARCH) */}
+          <div className="bg-card/40 border border-border/50 rounded-2xl p-6 backdrop-blur-md space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/20 pb-3">
+              <div>
+                <h3 className="font-black text-sm text-foreground">Real-Time Factory Terminal Swipe Ledger</h3>
+                <p className="text-muted-foreground text-[10px] mt-0.5">Live roster of biometric scanner logs on factory floor.</p>
+              </div>
+
+              {/* Smart Search Bar */}
+              <div className="w-full md:w-64">
+                <Input 
+                  placeholder="Smart Search Staff, Code or Zone..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="text-xs bg-background/50 h-8 border-border/40"
+                />
+              </div>
+            </div>
+
+            {/* Smart Filters pills */}
+            <div className="flex flex-wrap items-center gap-4 text-[10px]">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-muted-foreground uppercase">Status:</span>
+                <div className="flex bg-secondary/25 p-0.5 rounded-lg border border-border/20">
+                  {["ALL", "Verified", "Verification Required"].map(status => (
+                    <button
+                      key={status}
+                      onClick={() => setStatusFilter(status)}
+                      className={`px-2.5 py-1 rounded font-bold transition-all ${
+                        statusFilter === status 
+                          ? "bg-background text-foreground shadow-sm" 
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <Button 
-                onClick={handleSimulateSwipe}
-                disabled={isSimulating || !terminalEmpId}
-                className="w-full text-xs font-bold gold-gradient text-black h-9 mt-4 shadow-lg shadow-amber-500/10"
-              >
-                <Play className="w-3.5 h-3.5 mr-1.5 fill-black" /> Run Biometric Match Scan
-              </Button>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-muted-foreground uppercase">Type:</span>
+                <div className="flex bg-secondary/25 p-0.5 rounded-lg border border-border/20">
+                  {["ALL", "CHECK_IN", "CHECK_OUT"].map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setTypeFilter(type)}
+                      className={`px-2.5 py-1 rounded font-bold transition-all ${
+                        typeFilter === type 
+                          ? "bg-background text-foreground shadow-sm" 
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {type === "ALL" ? "ALL" : type === "CHECK_IN" ? "PUNCH IN" : "PUNCH OUT"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ml-auto text-[10px] text-muted-foreground">
+                Showing <strong className="text-foreground">{filteredLogs.length}</strong> of {safeAttendanceLogs.length} logs
+              </div>
+            </div>
+
+            {/* Responsive Table with horizontal scroll support */}
+            <div className="border border-border/30 rounded-xl overflow-hidden bg-background/20">
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full text-[10px] text-left border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="bg-secondary/20 text-muted-foreground border-b border-border/20 font-black uppercase">
+                      <th className="p-3">Employee</th>
+                      <th className="p-3">Swipe Type</th>
+                      <th className="p-3">Timestamp</th>
+                      <th className="p-3 text-center">Face Score</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Zone / Branch</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {filteredLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="p-8 text-center text-muted-foreground font-medium">
+                          No matching biometric logs found. Execute a face swipe simulation to create logs!
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredLogs.map((log, index) => (
+                        <tr key={log.id || index} className="hover:bg-secondary/10 transition font-medium">
+                          <td className="p-3">
+                            <div className="font-extrabold text-slate-200">{log.name}</div>
+                            <div className="text-[9px] text-muted-foreground font-mono">{log.employee_code}</div>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded font-black text-[9px] ${
+                              log.type === "CHECK_IN" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            }`}>
+                              {log.type === "CHECK_IN" ? "PUNCH IN" : "PUNCH OUT"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-300">
+                            <div>{log.date}</div>
+                            <div className="text-[9px] text-muted-foreground">{log.time}</div>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className={`font-mono font-bold ${
+                              Number(log.faceMatchScore) >= 95 ? "text-emerald-400" : "text-amber-400"
+                            }`}>
+                              {log.faceMatchScore || 98}%
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              log.status === "Verified" 
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                                : "bg-red-500/15 text-red-400 border border-red-500/20"
+                            }`}>
+                              {log.status}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-400">{log.branchId || "Factory Floor A"}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-
-          {/* Visual Camera scanner frame */}
-          <div className="bg-card/40 border border-border/50 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden flex flex-col items-center justify-center min-h-[340px] text-center">
-            
-            {/* Visual camera scan box */}
-            <div className="w-40 h-40 border-2 border-dashed border-amber-500/40 rounded-3xl relative flex items-center justify-center bg-slate-500/5 group">
-              {isSimulating ? (
-                <>
-                  {/* Neon laser animation scanning */}
-                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent animate-bounce shadow-md shadow-amber-400" />
-                  <Cpu className="w-12 h-12 text-amber-500 animate-pulse" />
-                </>
-              ) : simulatedLog ? (
-                <div className="text-center space-y-2">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-                  <span className="font-bold text-[10px] text-emerald-500 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">{facialScore}% Facial Match</span>
-                </div>
-              ) : (
-                <Users className="w-12 h-12 text-slate-500" />
-              )}
-            </div>
-
-            {/* Simulated log details card */}
-            <div className="mt-5 space-y-1 font-mono text-[10px] text-muted-foreground">
-              {isSimulating ? (
-                <span className="text-amber-500 font-bold animate-pulse">Running advanced convolutional biometric scanning...</span>
-              ) : simulatedLog ? (
-                <div className="space-y-1 bg-secondary/20 p-3 rounded-xl border border-border/30 text-left w-64 leading-normal">
-                  <div>Employee: <strong className="text-slate-200">{simulatedLog.name}</strong></div>
-                  <div>Punch Type: <strong className="text-primary">{simulatedLog.type}</strong></div>
-                  <div>Timestamp: <strong className="text-slate-200">{simulatedLog.date} @ {simulatedLog.time}</strong></div>
-                  <div>Verification: <strong className="text-emerald-500">{simulatedLog.status}</strong></div>
-                </div>
-              ) : (
-                <span>System standby. Choose a manufacturing tech to run test biometric swipe.</span>
-              )}
-            </div>
-
-          </div>
-
         </div>
       )}
 

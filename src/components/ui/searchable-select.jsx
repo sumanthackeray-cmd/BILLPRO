@@ -75,7 +75,8 @@ export function SearchableSelect({
                     key={String(opt.value)}
                     value={opt.label}
                     onSelect={(currentValue) => {
-                      const selected = formattedOptions.find(o => o.label.toLowerCase() === currentValue.toLowerCase());
+                      const safeCurrentValue = String(currentValue || '').toLowerCase();
+                      const selected = formattedOptions.find(o => String(o.label || '').toLowerCase() === safeCurrentValue);
                       if (selected) {
                         onValueChange(selected.value);
                       }
@@ -121,7 +122,7 @@ export function SearchableSelect({
       >
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList className="max-h-60 overflow-y-auto">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {formattedOptions.map((opt) => (
@@ -129,7 +130,8 @@ export function SearchableSelect({
                   key={String(opt.value)}
                   value={opt.label}
                   onSelect={(currentValue) => {
-                    const selected = formattedOptions.find(o => o.label.toLowerCase() === currentValue.toLowerCase());
+                    const safeCurrentValue = String(currentValue || '').toLowerCase();
+                    const selected = formattedOptions.find(o => String(o.label || '').toLowerCase() === safeCurrentValue);
                     if (selected) {
                       onValueChange(selected.value);
                     }

@@ -46,6 +46,11 @@ initializeAuditLogging(db);
 
 // Global error listener to capture early loading errors
 window.addEventListener('error', (event) => {
+  if (event.message && event.message.includes('ResizeObserver')) {
+    event.stopImmediatePropagation();
+    return;
+  }
+
   const root = document.getElementById('root');
   if (root) {
     root.innerHTML = `

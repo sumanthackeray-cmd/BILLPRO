@@ -45,6 +45,9 @@ export function ProductForm({ open, onOpenChange, product, onSave, businessType 
     selling_unit: product?.selling_unit || "PCS",
     pack_size: product?.pack_size || 1,
     loose_stock: product?.loose_stock || 0,
+    plu_code: product?.plu_code || "",
+    requires_scale: product?.requires_scale || false,
+    loose_rate_per_kg: product?.loose_rate_per_kg || 0,
   });
 
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -318,6 +321,9 @@ export function ProductForm({ open, onOpenChange, product, onSave, businessType 
         selling_unit: "PCS",
         pack_size: 1,
         loose_stock: 0,
+        plu_code: "",
+        requires_scale: false,
+        loose_rate_per_kg: 0,
       });
     } else if (product) {
       setForm({
@@ -351,6 +357,9 @@ export function ProductForm({ open, onOpenChange, product, onSave, businessType 
         selling_unit: product.selling_unit || "PCS",
         pack_size: product.pack_size || 1,
         loose_stock: product.loose_stock || 0,
+        plu_code: product.plu_code || "",
+        requires_scale: product.requires_scale || false,
+        loose_rate_per_kg: product.loose_rate_per_kg || 0,
       });
     }
   }, [open, product]);
@@ -832,6 +841,60 @@ export function ProductForm({ open, onOpenChange, product, onSave, businessType 
               </div>
             )}
           </div>
+
+          {/* Supermarket Settings Section */}
+          {[
+            "supermarket",
+            "mall",
+            "hypermarket",
+            "grocery_store",
+            "convenience_store",
+            "departmental_store",
+            "mini_mart"
+          ].includes(String(activeBusinessType || "").toLowerCase().trim()) && (
+            <div className="bg-secondary/15 p-4 rounded-xl border border-primary/20 space-y-4">
+              <p className="text-[12px] font-black text-primary flex items-center gap-1.5">🛒 Supermarket Settings (Reliance/DMart Mode)</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">PLU Code (4-digit)</Label>
+                  <Input 
+                    placeholder="e.g. 4011" 
+                    value={form.plu_code} 
+                    maxLength={4}
+                    onChange={e => set("plu_code", e.target.value.replace(/\D/g, ''))} 
+                    className="h-10 text-slate-900 dark:text-slate-100 font-mono" 
+                  />
+                </div>
+                <div>
+                  <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Weighable Toggle</Label>
+                  <div className="flex items-center h-10 mt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input 
+                        type="checkbox" 
+                        checked={form.requires_scale} 
+                        onChange={e => set("requires_scale", e.target.checked)} 
+                        className="w-4 h-4 accent-primary" 
+                      />
+                      <span className="text-[12px] font-bold text-slate-750 dark:text-slate-250">Requires Weighing Scale</span>
+                    </label>
+                  </div>
+                </div>
+                {form.requires_scale && (
+                  <div>
+                    <Label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Loose Rate per Kg (₹)</Label>
+                    <Input 
+                      type="number" 
+                      inputMode="decimal"
+                      placeholder="₹ per kg" 
+                      value={form.loose_rate_per_kg || ""} 
+                      onChange={e => set("loose_rate_per_kg", Number(e.target.value))} 
+                      className="h-10 text-slate-900 dark:text-slate-100" 
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Section 5: Batch Details (Vertical Specifics) */}
           {businessType !== "restaurant" && (

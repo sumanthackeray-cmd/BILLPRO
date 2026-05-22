@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { 
   Link2, BookOpen, TrendingDown, CheckCircle2, AlertCircle, RefreshCw, Sliders, DollarSign, 
-  Building, ArrowRight, Layers, FileText, CheckCircle
+  Building, ArrowRight, Layers, FileText, CheckCircle, Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/toast";
 import { base44 } from "@/api/base44Client";
 
@@ -15,17 +16,8 @@ export default function AccountingLink({
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedMapping, setSelectedMapping] = useState(null);
 
-  // Hardcoded standard Chart of Accounts mapping details for reference
-  const ledgerAccountsMapping = [
-    { code: "5100", name: "Salaries and Wages", type: "Expense", usage: "Gross Salary Debited", status: "Active" },
-    { code: "2400", name: "Salary Payable", type: "Liability", usage: "Net Salary Payable Credited", status: "Active" },
-    { code: "2200", name: "TDS Payable A/c", type: "Liability", usage: "Income Tax Deducted Credited", status: "Active" },
-    { code: "1020", name: "HDFC Bank A/c", type: "Asset", usage: "Salary Disbursal Asset Account", status: "Active" },
-    { code: "1010", name: "Cash in Hand", type: "Asset", usage: "Wages Disbursal Asset Account", status: "Active" }
-  ];
-
   // Retrieve matching journal entries for payroll to show past postings
-  const [pastPostings, setPastPostings] = useState([
+  const [ledgerPostings, setLedgerPostings] = useState([
     {
       id: "PAY-JNL-2026-04",
       date: "2026-04-30",
@@ -53,6 +45,32 @@ export default function AccountingLink({
       status: "Synced"
     }
   ]);
+
+  // --- SMART FILTER & SEARCH STATES FOR JOURNAL ENTRIES ---
+  const [searchPost, setSearchPost] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+
+  const filteredPostings = useMemo(() => {
+    return ledgerPostings.filter(post => {
+      if (!post) return false;
+      const matchesSearch = 
+        (post.id || "").toLowerCase().includes(searchPost.toLowerCase()) ||
+        (post.description || "").toLowerCase().includes(searchPost.toLowerCase()) ||
+        String(post.amount).includes(searchPost);
+      
+      const matchesStatus = statusFilter === "ALL" || post.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [ledgerPostings, searchPost, statusFilter]);
+
+  // Hardcoded standard Chart of Accounts mapping details for reference
+  const ledgerAccountsMapping = [
+    { code: "5100", name: "Salaries and Wages", type: "Expense", usage: "Gross Salary Debited", status: "Active" },
+    { code: "2400", name: "Salary Payable", type: "Liability", usage: "Net Salary Payable Credited", status: "Active" },
+    { code: "2200", name: "TDS Payable A/c", type: "Liability", usage: "Income Tax Deducted Credited", status: "Active" },
+    { code: "1020", name: "HDFC Bank A/c", type: "Asset", usage: "Salary Disbursal Asset Account", status: "Active" },
+    { code: "1010", name: "Cash in Hand", type: "Asset", usage: "Wages Disbursal Asset Account", status: "Active" }
+  ];
 
   const handleTestSync = async () => {
     setIsSyncing(true);
@@ -158,11 +176,47 @@ export default function AccountingLink({
 
       {/* Sync Ledger Posting History Logs */}
       <div className="space-y-4">
-        <h4 className="font-black text-sm text-foreground flex items-center gap-2 border-b border-border/20 pb-2">
-          <BookOpen className="w-4.5 h-4.5 text-emerald-500" /> Payroll Ledger Journal Postings History
-        </h4>
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-border/20 pb-2 gap-3">
+          <h4 className="font-black text-sm text-foreground flex items-center gap-2">
+            <BookOpen className="w-4.5 h-4.5 text-emerald-500" /> Payroll Ledger Journal Postings History
+          </h4>
+          
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input 
+              placeholder="Search journal ref or description..."
+              value={searchPost}
+              onChange={e => setSearchPost(e.target.value)}
+              className="text-xs bg-background/50 h-8 pl-8 border-border/40"
+            />
+          </div>
+        </div>
 
-        <div className="overflow-x-auto border border-border/40 rounded-xl">
+        {/* Smart Filters pills */}
+        <div className="flex flex-wrap items-center gap-3 text-[10px]">
+          <span className="font-extrabold text-muted-foreground uppercase">Status:</span>
+          <div className="flex bg-secondary/25 p-0.5 rounded-lg border border-border/20">
+            {["ALL", "Synced", "Pending Sync"].map(status => (
+              <button
+                type="button"
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-2.5 py-0.5 rounded font-bold transition-all ${
+                  statusFilter === status 
+                    ? "bg-background text-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          <div className="ml-auto text-[9px] text-muted-foreground">
+            Showing <strong className="text-foreground">{filteredPostings.length}</strong> of {ledgerPostings.length} entries
+          </div>
+        </div>
+
+        <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/10">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-secondary/35 border-b border-border/30 text-muted-foreground font-black text-[9px] uppercase tracking-wider">
@@ -175,7 +229,7 @@ export default function AccountingLink({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/20">
-              {pastPostings.map((post, i) => (
+              {filteredPostings.map((post, i) => (
                 <tr key={i} className="hover:bg-secondary/15">
                   <td className="p-3 font-mono font-bold text-primary">{post.id}</td>
                   <td className="p-3 font-semibold">{post.date}</td>
@@ -189,10 +243,10 @@ export default function AccountingLink({
                   </td>
                 </tr>
               ))}
-              {pastPostings.length === 0 && (
+              {filteredPostings.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="p-4 text-center text-muted-foreground font-medium">
-                    No payroll approvals synced to general ledger yet.
+                  <td colSpan="6" className="p-8 text-center text-muted-foreground font-medium">
+                    No matching ledger journal entries found in past logs.
                   </td>
                 </tr>
               )}

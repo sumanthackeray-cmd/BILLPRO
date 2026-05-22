@@ -7,7 +7,8 @@ import {
   updateDoc, 
   deleteDoc, 
   query, 
-  where
+  where,
+  setDoc
 } from 'firebase/firestore';
 import {
   signInWithEmailAndPassword,
@@ -16,8 +17,8 @@ import {
   sendPasswordResetEmail,
   signInWithPopup
 } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logAuditAction } from './auditLogging';
+import { queryClientInstance } from '../lib/query-client';
 
 const getUserId = () => {
   const user = auth.currentUser;
@@ -65,107 +66,128 @@ const createFirebaseEntityRepository = (entityName) => {
       const colName = getCollectionName(entityName);
       const cacheKey = `base44_cache_${uid}_${colName}`;
       
-      let items = [];
+      let cachedItems = null;
       
       // Try local cache first to allow immediate render if offline or fast-render
       try {
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
-          items = JSON.parse(cached);
+          cachedItems = JSON.parse(cached);
         }
       } catch (e) {
         console.warn("Error reading cache:", e);
       }
-      
-      try {
-        const companyId = localStorage.getItem("company_id");
-        if (!companyId) {
-          throw new Error(`Data Isolation Policy Violation: Attempted to query ${entityName} without a valid company assignment.`);
-        }
-        
-        const q = query(collection(db, "companies", companyId, colName));
-        const querySnapshot = await getDocs(q);
-        const freshItems = [];
-        querySnapshot.forEach((doc) => {
-          freshItems.push({ id: doc.id, ...doc.data() });
-        });
-        
-        items = freshItems;
-        // Update local cache
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify(items));
-        } catch (e) {
-          console.warn("Error writing cache:", e);
-        }
-      } catch (error) {
-        console.error(`Firestore fetch failed for ${entityName}, using local cache fallback:`, error);
-      }
-      
-      // SECURE BACKEND-LEVEL FIELD MASKING LAYER (Runs directly at data repository query interface)
-      try {
-        const currentUserUid = auth.currentUser?.uid;
-        if (currentUserUid) {
-          let userRole = 'cashier'; // default safe fallback
-          
-          const cachedProfileStr = localStorage.getItem(`rbac_profile_${currentUserUid}`);
-          if (cachedProfileStr) {
-            const cachedProfile = JSON.parse(cachedProfileStr);
-            userRole = cachedProfile.role_name;
-          }
-          
-          if (entityName === 'Product') {
-            // Cashier (Level 7) & Warehouse Manager (Level 6) shouldn't see purchase_price or profit_margin
-            if (userRole === 'cashier' || userRole === 'warehouse_manager') {
-              items = items.map(item => {
-                const copy = { ...item };
-                delete copy.purchase_price;
-                delete copy.profit_margin;
-                return copy;
-              });
-            }
-          } else if (entityName === 'User') {
-            // Only Owner, CEO, CA, Accountant can see others' salary details
-            if (userRole !== 'owner' && userRole !== 'ceo' && userRole !== 'ca' && userRole !== 'accountant') {
-              items = items.map(item => {
-                const copy = { ...item };
-                // Keep own salary but strip others
-                if (item.id !== currentUserUid) {
-                  delete copy.salary;
-                  delete copy.salary_details;
-                }
-                return copy;
-              });
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Masking error:", err);
-      }
 
-      // Client-side sorting to avoid requiring Firestore composite indexes
-      if (orderByStr) {
-        const isDesc = orderByStr.startsWith('-');
-        const field = isDesc ? orderByStr.substring(1) : orderByStr;
-        items.sort((a, b) => {
-          let valA = a[field];
-          let valB = b[field];
-          if (valA === undefined) return 1;
-          if (valB === undefined) return -1;
-          
-          if (valA?.toDate) valA = valA.toDate();
-          if (valB?.toDate) valB = valB.toDate();
-          
-          if (typeof valA === 'string') {
-            return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+      // Background fetch function
+      const fetchFreshData = async () => {
+        try {
+          const companyId = localStorage.getItem("company_id");
+          if (!companyId) {
+            return null;
           }
-          return isDesc ? valB - valA : valA - valB;
-        });
+          
+          const q = query(collection(db, "companies", companyId, colName));
+          const querySnapshot = await getDocs(q);
+          let freshItems = [];
+          querySnapshot.forEach((doc) => {
+            freshItems.push({ id: doc.id, ...doc.data() });
+          });
+          
+          // Secure field masking layer
+          try {
+            const currentUserUid = auth.currentUser?.uid;
+            if (currentUserUid) {
+              let userRole = 'cashier';
+              const cachedProfileStr = localStorage.getItem(`rbac_profile_${currentUserUid}`);
+              if (cachedProfileStr) {
+                const cachedProfile = JSON.parse(cachedProfileStr);
+                userRole = cachedProfile.role_name;
+              }
+              
+              if (entityName === 'Product') {
+                if (userRole === 'cashier' || userRole === 'warehouse_manager') {
+                  freshItems = freshItems.map(item => {
+                    const copy = { ...item };
+                    delete copy.purchase_price;
+                    delete copy.profit_margin;
+                    return copy;
+                  });
+                }
+              } else if (entityName === 'User') {
+                if (userRole !== 'owner' && userRole !== 'ceo' && userRole !== 'ca' && userRole !== 'accountant') {
+                  freshItems = freshItems.map(item => {
+                    const copy = { ...item };
+                    if (item.id !== currentUserUid) {
+                      delete copy.salary;
+                      delete copy.salary_details;
+                    }
+                    return copy;
+                  });
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Masking error:", err);
+          }
+
+          // Client-side sorting
+          if (orderByStr) {
+            const isDesc = orderByStr.startsWith('-');
+            const field = isDesc ? orderByStr.substring(1) : orderByStr;
+            freshItems.sort((a, b) => {
+              let valA = a[field];
+              let valB = b[field];
+              if (valA === undefined) return 1;
+              if (valB === undefined) return -1;
+              
+              if (valA?.toDate) valA = valA.toDate();
+              if (valB?.toDate) valB = valB.toDate();
+              
+              if (typeof valA === 'string') {
+                return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+              }
+              return isDesc ? valB - valA : valA - valB;
+            });
+          }
+          
+          if (limitNum) {
+            freshItems = freshItems.slice(0, limitNum);
+          }
+
+          // Update local cache
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(freshItems));
+          } catch (e) {
+            console.warn("Error writing cache:", e);
+          }
+
+          // Programmatically update the React Query cache
+          try {
+            const queries = queryClientInstance.getQueryCache().getAll();
+            queries.forEach(q => {
+              if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
+                queryClientInstance.setQueryData(q.queryKey, freshItems);
+              }
+            });
+          } catch (e) {
+            console.warn("Error updating React Query on sync:", e);
+          }
+
+          return freshItems;
+        } catch (error) {
+          console.error(`Firestore fetch failed for ${entityName}:`, error);
+          return null;
+        }
+      };
+
+      if (cachedItems) {
+        // Trigger background fetch asynchronously
+        fetchFreshData();
+        return cachedItems;
       }
       
-      if (limitNum) {
-        items = items.slice(0, limitNum);
-      }
-      return items;
+      const result = await fetchFreshData();
+      return result || [];
     },
     create: async (data) => {
       const uid = getUserId();
@@ -185,7 +207,7 @@ const createFirebaseEntityRepository = (entityName) => {
       const docData = {
         ...data,
         userId: uid,
-        created_date: data.created_date || new Date().toISOString(),
+        created_date: data?.created_date || new Date().toISOString(),
         updated_date: new Date().toISOString()
       };
       
@@ -198,9 +220,25 @@ const createFirebaseEntityRepository = (entityName) => {
         ...docData,
         companyId: companyId
       };
+
+      // Clean up undefined values to prevent Firestore from throwing
+      const cleanedDocData = {};
+      Object.keys(docDataWithCompany).forEach(key => {
+        if (docDataWithCompany[key] !== undefined) {
+          cleanedDocData[key] = docDataWithCompany[key];
+        }
+      });
       
-      const docRef = await addDoc(collection(db, "companies", companyId, colName), docDataWithCompany);
-      const newItem = { id: docRef.id, ...docDataWithCompany };
+      let docRefId;
+      if (cleanedDocData.id) {
+        docRefId = cleanedDocData.id;
+        const customDocRef = doc(db, "companies", companyId, colName, docRefId);
+        await setDoc(customDocRef, cleanedDocData);
+      } else {
+        const docRef = await addDoc(collection(db, "companies", companyId, colName), cleanedDocData);
+        docRefId = docRef.id;
+      }
+      const newItem = { id: docRefId, ...cleanedDocData };
       
       // Update local cache immediately
       try {
@@ -208,8 +246,16 @@ const createFirebaseEntityRepository = (entityName) => {
         const cachedItems = cached ? JSON.parse(cached) : [];
         cachedItems.push(newItem);
         localStorage.setItem(cacheKey, JSON.stringify(cachedItems));
+
+        // Programmatically update React Query immediately to show in UI
+        const queries = queryClientInstance.getQueryCache().getAll();
+        queries.forEach(q => {
+          if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
+            queryClientInstance.setQueryData(q.queryKey, cachedItems);
+          }
+        });
       } catch (e) {
-        console.warn("Error updating cache:", e);
+        console.warn("Error updating cache on create:", e);
       }
       
       // Immutable Audit Log entry for writes
@@ -253,6 +299,14 @@ const createFirebaseEntityRepository = (entityName) => {
         ...data,
         updated_date: new Date().toISOString()
       };
+
+      // Clean up undefined values to prevent Firestore from throwing
+      const cleanedDocData = {};
+      Object.keys(docData).forEach(key => {
+        if (docData[key] !== undefined) {
+          cleanedDocData[key] = docData[key];
+        }
+      });
       
       // Load previous value for audit logging
       let oldItem = {};
@@ -264,8 +318,8 @@ const createFirebaseEntityRepository = (entityName) => {
         }
       } catch (e) {}
 
-      await updateDoc(docRef, docData);
-      const updatedItem = { ...oldItem, ...docData, id };
+      await updateDoc(docRef, cleanedDocData);
+      const updatedItem = { ...oldItem, ...cleanedDocData, id };
       
       // Update local cache immediately
       try {
@@ -274,9 +328,17 @@ const createFirebaseEntityRepository = (entityName) => {
           let cachedItems = JSON.parse(cached);
           cachedItems = cachedItems.map(item => item.id === id ? updatedItem : item);
           localStorage.setItem(cacheKey, JSON.stringify(cachedItems));
+
+          // Programmatically update React Query immediately to show in UI
+          const queries = queryClientInstance.getQueryCache().getAll();
+          queries.forEach(q => {
+            if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
+              queryClientInstance.setQueryData(q.queryKey, cachedItems);
+            }
+          });
         }
       } catch (e) {
-        console.warn("Error updating cache:", e);
+        console.warn("Error updating cache on update:", e);
       }
       
       // Immutable Audit Log entry for updates
@@ -335,9 +397,17 @@ const createFirebaseEntityRepository = (entityName) => {
           let cachedItems = JSON.parse(cached);
           cachedItems = cachedItems.filter(item => item.id !== id);
           localStorage.setItem(cacheKey, JSON.stringify(cachedItems));
+
+          // Programmatically update React Query immediately to show in UI
+          const queries = queryClientInstance.getQueryCache().getAll();
+          queries.forEach(q => {
+            if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
+              queryClientInstance.setQueryData(q.queryKey, cachedItems);
+            }
+          });
         }
       } catch (e) {
-        console.warn("Error updating cache:", e);
+        console.warn("Error updating cache on delete:", e);
       }
       
       // Immutable Audit Log entry for deletions

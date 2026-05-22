@@ -16,6 +16,7 @@ export const BUSINESS_TYPES = [
   { value: "stationery", label: "Stationery Store (स्टेशनरी स्टोर)" },
   { value: "retail", label: "General Retail (सामान्य रिटेल)" },
   { value: "wholesaler", label: "Wholesaler (थोक विक्रेता)" },
+  { value: "supermarket", label: "Mall / Supermarket (मॉल / सुपरमार्केट)" },
   { value: "manufacturer", label: "Manufacturer (उत्पादक)" },
   { value: "importer_exporter", label: "Importer / Exporter (आयातक / निर्यातक)" },
   { value: "other", label: "Other Business (अन्य व्यवसाय)" }
@@ -209,6 +210,27 @@ export const SHOP_TAXONOMY = {
       { name: "Printer Paper", hindi: "प्रिंटर पेपर", defaultGst: 12, defaultHsn: "4802", defaultUnit: "BOX" },
       { name: "Art Materials", hindi: "कला सामग्री", defaultGst: 12, defaultHsn: "3213", defaultUnit: "PCS" }
     ]
+  },
+  supermarket: {
+    label: "Mall / Supermarket",
+    categories: [
+      { name: "Groceries & Staples", hindi: "किराना और अनाज", defaultGst: 5, defaultHsn: "1006", defaultUnit: "KG" },
+      { name: "Fruits & Vegetables", hindi: "फल और सब्जियाँ", defaultGst: 0, defaultHsn: "0709", defaultUnit: "KG" },
+      { name: "Dairy & Frozen", hindi: "डेयरी और फ्रोजन", defaultGst: 5, defaultHsn: "0401", defaultUnit: "PCS" },
+      { name: "Snacks & Beverages", hindi: "स्नैक्स और पेय", defaultGst: 18, defaultHsn: "2106", defaultUnit: "PCS" },
+      { name: "Personal Care", hindi: "व्यक्तिगत देखभाल", defaultGst: 18, defaultHsn: "3304", defaultUnit: "PCS" },
+      { name: "Home & Kitchen", hindi: "घर और रसोई", defaultGst: 18, defaultHsn: "7323", defaultUnit: "PCS" },
+      { name: "Clothing & Fashion", hindi: "कपड़े और फैशन", defaultGst: 5, defaultHsn: "6203", defaultUnit: "PCS" },
+      { name: "Electronics & Gadgets", hindi: "इलेक्ट्रॉनिक्स और गैजेट्स", defaultGst: 18, defaultHsn: "8517", defaultUnit: "PCS" },
+      { name: "Toys & Games", hindi: "खिलौने और गेम्स", defaultGst: 18, defaultHsn: "9503", defaultUnit: "PCS" },
+      { name: "Stationery & Books", hindi: "स्टेशनरी और किताबें", defaultGst: 12, defaultHsn: "4820", defaultUnit: "PCS" },
+      { name: "Health & Wellness", hindi: "स्वास्थ्य और वेलनेस", defaultGst: 12, defaultHsn: "2106", defaultUnit: "PCS" },
+      { name: "Bakery & Confectionery", hindi: "बेकरी और मिठाई", defaultGst: 18, defaultHsn: "1905", defaultUnit: "PCS" },
+      { name: "Baby Products", hindi: "शिशु उत्पाद", defaultGst: 18, defaultHsn: "9619", defaultUnit: "PCS" },
+      { name: "Cleaning & Household", hindi: "सफाई और घरेलू", defaultGst: 18, defaultHsn: "3402", defaultUnit: "PCS" },
+      { name: "Pet Supplies", hindi: "पालतू जानवर का सामान", defaultGst: 18, defaultHsn: "2309", defaultUnit: "PCS" },
+      { name: "Ready to Eat", hindi: "रेडी टू ईट", defaultGst: 12, defaultHsn: "2106", defaultUnit: "PCS" }
+    ]
   }
 };
 
@@ -384,6 +406,24 @@ export function suggestCategoryByName(productName = "", shopType = "retail") {
       { keywords: ["file", "folder", "report file", "cobra file"], category: "Files" },
       { keywords: ["a4 paper", "printer paper", "rim paper", "photocopy paper"], category: "Printer Paper" },
       { keywords: ["canvas", "paint brush", "acrylic color", "sketchbook", "crayon", "art"], category: "Art Materials" }
+    ],
+    supermarket: [
+      { keywords: ["rice", "atta", "wheat", "dal", "oil", "sugar", "salt", "flour", "ghee", "masala", "spice"], category: "Groceries & Staples" },
+      { keywords: ["fruit", "vegetable", "onion", "potato", "tomato", "apple", "banana", "mango", "sabzi"], category: "Fruits & Vegetables" },
+      { keywords: ["milk", "curd", "paneer", "cheese", "butter", "frozen", "ice cream", "yogurt"], category: "Dairy & Frozen" },
+      { keywords: ["chips", "biscuit", "snack", "coke", "pepsi", "juice", "water", "soda", "drink", "namkeen"], category: "Snacks & Beverages" },
+      { keywords: ["shampoo", "soap", "cream", "lotion", "deo", "perfume", "toothpaste", "razor"], category: "Personal Care" },
+      { keywords: ["utensil", "cookware", "pan", "pot", "knife", "kitchen", "plate", "glass", "bottle"], category: "Home & Kitchen" },
+      { keywords: ["shirt", "tshirt", "jeans", "dress", "saree", "kurti", "trouser", "jacket"], category: "Clothing & Fashion" },
+      { keywords: ["phone", "charger", "earphone", "speaker", "cable", "power bank", "led", "gadget"], category: "Electronics & Gadgets" },
+      { keywords: ["toy", "game", "puzzle", "doll", "car toy", "lego", "board game"], category: "Toys & Games" },
+      { keywords: ["pen", "pencil", "notebook", "book", "file", "eraser", "school"], category: "Stationery & Books" },
+      { keywords: ["vitamin", "supplement", "protein", "health", "wellness", "herbal"], category: "Health & Wellness" },
+      { keywords: ["cake", "pastry", "bread", "cookie", "muffin", "brownie", "sweet"], category: "Bakery & Confectionery" },
+      { keywords: ["diaper", "baby", "wipes", "cerelac", "feeding", "infant"], category: "Baby Products" },
+      { keywords: ["detergent", "cleaner", "mop", "broom", "harpic", "surf", "vim"], category: "Cleaning & Household" },
+      { keywords: ["pet", "dog food", "cat food", "pet treat", "pet toy"], category: "Pet Supplies" },
+      { keywords: ["ready to eat", "instant", "noodle", "pasta", "soup mix", "meal"], category: "Ready to Eat" }
     ]
   };
 

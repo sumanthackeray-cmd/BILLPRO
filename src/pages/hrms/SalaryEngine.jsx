@@ -1,14 +1,15 @@
 import { useState, useMemo } from "react";
 import { 
   Calculator, Settings, UserCheck, DollarSign, ArrowRight, CheckCircle2, ChevronRight, 
-  ChevronLeft, Users, Download, AlertTriangle, FileSpreadsheet, Eye, Plus, Sparkles, Layers
+  ChevronLeft, Users, Download, AlertTriangle, FileSpreadsheet, Eye, Plus, Sparkles, Layers,
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
 import { base44 } from "@/api/base44Client";
-import { calculatePF, calculateESIC, calculatePT, calculateTDS } from "./hrmsUtils";
+import { calculatePF, calculateESIC, calculatePT, calculateTDS, getRegulatoryConfig } from "./hrmsUtils";
 import { accountingService } from "@/modules/accounting/accountingService";
 import jsPDF from "jspdf";
 
@@ -20,6 +21,7 @@ export default function SalaryEngine({
   loansList = []
 }) {
   const [activeSubTab, setActiveSubTab] = useState("calculator");
+  const { currency = "₹" } = getRegulatoryConfig();
 
   // Create guaranteed safe arrays to prevent any undefined/null pointer crashes
   const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
@@ -72,6 +74,7 @@ export default function SalaryEngine({
   const [payrollStep, setPayrollStep] = useState(1);
   const [runMonth, setRunMonth] = useState("2026-05");
   const [runBatch, setRunBatch] = useState("all");
+  const [isSimulating, setIsSimulating] = useState(false);
   
   // Custom Overrides table loaded in Step 2
   const [attendanceOverrides, setAttendanceOverrides] = useState({});
@@ -80,6 +83,31 @@ export default function SalaryEngine({
   const activeTechnicians = useMemo(() => {
     return safeEmployees.filter(emp => emp && (emp.status === "active" || emp.is_active));
   }, [safeEmployees]);
+
+  // --- SMART FILTER & SEARCH STATES FOR PAYROLL WIZARD ---
+  const [searchStaff, setSearchStaff] = useState("");
+  const [deptFilter, setDeptFilter] = useState("ALL");
+
+  const uniqueDepartments = useMemo(() => {
+    const depts = new Set();
+    safeEmployees.forEach(emp => {
+      if (emp && emp.department) depts.add(emp.department);
+    });
+    return Array.from(depts);
+  }, [safeEmployees]);
+
+  const filteredTechnicians = useMemo(() => {
+    return activeTechnicians.filter(emp => {
+      if (!emp) return false;
+      const matchesSearch = 
+        (emp.name || "").toLowerCase().includes(searchStaff.toLowerCase()) ||
+        (emp.employee_code || "").toLowerCase().includes(searchStaff.toLowerCase());
+      
+      const matchesDept = deptFilter === "ALL" || emp.department === deptFilter;
+      
+      return matchesSearch && matchesDept;
+    });
+  }, [activeTechnicians, searchStaff, deptFilter]);
 
   // Handle setting up Step 2 attendance rosters
   const handleProceedToAttendance = () => {
@@ -93,7 +121,10 @@ export default function SalaryEngine({
       overrides[emp.id] = {
         presentDays: "26",
         lopDays: "0",
-        overtimeHours: "0"
+        overtimeHours: "0",
+        manualBasic: String(emp.basicSalary || emp.salary || 20000),
+        bonusAmount: "0",
+        incrementAmount: "0"
       };
     });
     setAttendanceOverrides(overrides);
@@ -125,11 +156,25 @@ export default function SalaryEngine({
         food_allowance: 2000
       };
 
-      const basic = Number(struct.basic_salary || 20000);
-      const grossBase = basic + Number(struct.hra || 0) + Number(struct.special_allowance || 0) + Number(struct.conveyance || 0) + Number(struct.medical_allowance || 0) + Number(struct.food_allowance || 0);
-
       // Fetch override parameters
-      const params = attendanceOverrides[emp.id] || { presentDays: "26", lopDays: "0", overtimeHours: "0" };
+      const params = attendanceOverrides[emp.id] || { 
+        presentDays: "26", 
+        lopDays: "0", 
+        overtimeHours: "0",
+        manualBasic: String(emp.basicSalary || emp.salary || 20000),
+        bonusAmount: "0",
+        incrementAmount: "0"
+      };
+
+      const basic = params.manualBasic && Number(params.manualBasic) > 0
+        ? Number(params.manualBasic)
+        : Number(struct.basic_salary || 20000);
+
+      const bonus = Number(params.bonusAmount) || 0;
+      const increment = Number(params.incrementAmount) || 0;
+
+      const grossBase = basic + Number(struct.hra || 0) + Number(struct.special_allowance || 0) + Number(struct.conveyance || 0) + Number(struct.medical_allowance || 0) + Number(struct.food_allowance || 0) + increment;
+
       const present = Number(params.presentDays) || 0;
       const lop = Number(params.lopDays) || 0;
       const otHrs = Number(params.overtimeHours) || 0;
@@ -138,7 +183,7 @@ export default function SalaryEngine({
       const lopFine = Math.round((grossBase / 26) * lop);
       const overtimePay = Math.round((basic / 26 / 8) * 1.5 * otHrs); // overtime rate 1.5x of hourly basic
 
-      const grossCalculated = grossBase - lopFine + overtimePay;
+      const grossCalculated = grossBase - lopFine + overtimePay + bonus;
 
       // Statutory deductions
       const pf = calculatePF(basic);
@@ -158,6 +203,8 @@ export default function SalaryEngine({
         empCode: emp.employee_code || "EMP-X",
         name: emp.name || emp.full_name || "Employee",
         basic,
+        bonus,
+        increment,
         grossBase,
         lop,
         lopFine,
@@ -191,6 +238,19 @@ export default function SalaryEngine({
       return acc;
     }, { gross: 0, pfEmp: 0, pfEmpr: 0, esicEmp: 0, esicEmpr: 0, pt: 0, tds: 0, net: 0, loans: 0 });
   }, [payrollPreviewList]);
+
+  const filteredPreviewList = useMemo(() => {
+    return payrollPreviewList.filter(item => {
+      const emp = safeEmployees.find(e => e.id === item.empId) || {};
+      const matchesSearch = 
+        (item.name || "").toLowerCase().includes(searchStaff.toLowerCase()) ||
+        (item.empCode || "").toLowerCase().includes(searchStaff.toLowerCase());
+      
+      const matchesDept = deptFilter === "ALL" || emp.department === deptFilter;
+      
+      return matchesSearch && matchesDept;
+    });
+  }, [payrollPreviewList, safeEmployees, searchStaff, deptFilter]);
 
 
   // Step 4: Approve, post to Firestore, and sync double-entry accounting A/c
@@ -318,25 +378,37 @@ export default function SalaryEngine({
       doc.text("1. Earnings / Allowances", 20, 68);
       doc.setFont("helvetica", "normal");
       doc.text(`Gross Basic Wages:`, 20, 76);
-      doc.text(`₹${empPayroll.basic.toLocaleString("en-IN")}`, 80, 76);
+      doc.text(`${currency}${empPayroll.basic.toLocaleString("en-IN")}`, 80, 76);
       doc.text(`Overtime Additions:`, 20, 82);
-      doc.text(`₹${empPayroll.overtimePay.toLocaleString("en-IN")}`, 80, 82);
+      doc.text(`${currency}${empPayroll.overtimePay.toLocaleString("en-IN")}`, 80, 82);
+      
+      let nextLineY = 88;
+      if (empPayroll.bonus > 0) {
+        doc.text(`Bonus Additions:`, 20, nextLineY);
+        doc.text(`${currency}${empPayroll.bonus.toLocaleString("en-IN")}`, 80, nextLineY);
+        nextLineY += 6;
+      }
+      if (empPayroll.increment > 0) {
+        doc.text(`Increment Hike:`, 20, nextLineY);
+        doc.text(`${currency}${empPayroll.increment.toLocaleString("en-IN")}`, 80, nextLineY);
+        nextLineY += 6;
+      }
       
       doc.setFont("helvetica", "bold");
       doc.text("2. Statutory Deductions", 110, 68);
       doc.setFont("helvetica", "normal");
       doc.text(`PF Employee Share:`, 110, 76);
-      doc.text(`-₹${empPayroll.pf.employee.toLocaleString("en-IN")}`, 170, 76);
+      doc.text(`-${currency}${empPayroll.pf.employee.toLocaleString("en-IN")}`, 170, 76);
       doc.text(`ESIC Share:`, 110, 82);
-      doc.text(`-₹${empPayroll.esic.employee.toLocaleString("en-IN")}`, 170, 82);
+      doc.text(`-${currency}${empPayroll.esic.employee.toLocaleString("en-IN")}`, 170, 82);
       doc.text(`Professional Tax:`, 110, 88);
-      doc.text(`-₹${empPayroll.pt.toLocaleString("en-IN")}`, 170, 88);
+      doc.text(`-${currency}${empPayroll.pt.toLocaleString("en-IN")}`, 170, 88);
       doc.text(`Income Tax TDS:`, 110, 94);
-      doc.text(`-₹${empPayroll.tds.toLocaleString("en-IN")}`, 170, 94);
+      doc.text(`-${currency}${empPayroll.tds.toLocaleString("en-IN")}`, 170, 94);
       
       if (empPayroll.loanEMI > 0) {
         doc.text(`Advance Loan EMI:`, 110, 100);
-        doc.text(`-₹${empPayroll.loanEMI.toLocaleString("en-IN")}`, 170, 100);
+        doc.text(`-${currency}${empPayroll.loanEMI.toLocaleString("en-IN")}`, 170, 100);
       }
 
       // Net Summary
@@ -344,7 +416,7 @@ export default function SalaryEngine({
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.setTextColor(220, 100, 20);
-      doc.text(`Net Take-Home Disbursed: ₹${empPayroll.netPayable.toLocaleString("en-IN")}`, 20, 125);
+      doc.text(`Net Take-Home Disbursed: ${currency}${empPayroll.netPayable.toLocaleString("en-IN")}`, 20, 125);
 
       // Signatures
       doc.setFontSize(8);
@@ -431,17 +503,16 @@ export default function SalaryEngine({
                     className="accent-emerald-500 w-4 h-4 cursor-pointer"
                   />
                 </div>
-
-                <div className="space-y-1.5">
+                 <div className="space-y-1.5">
                   <Label className="font-bold">PT State Scale Slabs</Label>
                   <select 
                     value={calcPTState} 
                     onChange={e => setCalcPTState(e.target.value)}
                     className="w-full bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
                   >
-                    <option value="Maharashtra">Maharashtra (₹200 slab)</option>
-                    <option value="Karnataka">Karnataka (₹200 slab)</option>
-                    <option value="Delhi">Delhi (₹200 slab)</option>
+                    <option value="Maharashtra">Maharashtra ({currency}200 slab)</option>
+                    <option value="Karnataka">Karnataka ({currency}200 slab)</option>
+                    <option value="Delhi">Delhi ({currency}200 slab)</option>
                   </select>
                 </div>
               </div>
@@ -456,27 +527,27 @@ export default function SalaryEngine({
               
               <div className="space-y-3">
                 <span className="font-black text-slate-400 block text-[9px] uppercase tracking-wider">Wages Breakdowns</span>
-                <div className="flex justify-between border-b border-border/20 py-1"><span>Basic Wages (50%)</span><strong className="text-foreground">₹{(ctcBreakdown.basic * 12).toLocaleString("en-IN")}</strong></div>
-                <div className="flex justify-between border-b border-border/20 py-1"><span>HRA Allowance (20%)</span><strong className="text-foreground">₹{(ctcBreakdown.hra * 12).toLocaleString("en-IN")}</strong></div>
-                <div className="flex justify-between border-b border-border/20 py-1"><span>Special allowances</span><strong className="text-foreground">₹{(ctcBreakdown.allowances * 12).toLocaleString("en-IN")}</strong></div>
+                <div className="flex justify-between border-b border-border/20 py-1"><span>Basic Wages (50%)</span><strong className="text-foreground">{currency}{(ctcBreakdown.basic * 12).toLocaleString("en-IN")}</strong></div>
+                <div className="flex justify-between border-b border-border/20 py-1"><span>HRA Allowance (20%)</span><strong className="text-foreground">{currency}{(ctcBreakdown.hra * 12).toLocaleString("en-IN")}</strong></div>
+                <div className="flex justify-between border-b border-border/20 py-1"><span>Special allowances</span><strong className="text-foreground">{currency}{(ctcBreakdown.allowances * 12).toLocaleString("en-IN")}</strong></div>
               </div>
 
               <div className="space-y-3">
                 <span className="font-black text-red-400 block text-[9px] uppercase tracking-wider">Statutory Deductions</span>
-                <div className="flex justify-between border-b border-border/20 py-1"><span>PF contribution</span><strong className="text-red-400">-₹{(ctcBreakdown.pf.employee * 12).toLocaleString("en-IN")}</strong></div>
-                <div className="flex justify-between border-b border-border/20 py-1"><span>ESIC health premium</span><strong className="text-red-400">-₹{(ctcBreakdown.esic.employee * 12).toLocaleString("en-IN")}</strong></div>
-                <div className="flex justify-between border-b border-border/20 py-1"><span>PT &amp; TDS withholding</span><strong className="text-red-400">-₹{((ctcBreakdown.pt + ctcBreakdown.tds) * 12).toLocaleString("en-IN")}</strong></div>
+                <div className="flex justify-between border-b border-border/20 py-1"><span>PF contribution</span><strong className="text-red-400">-{currency}{(ctcBreakdown.pf.employee * 12).toLocaleString("en-IN")}</strong></div>
+                <div className="flex justify-between border-b border-border/20 py-1"><span>ESIC health premium</span><strong className="text-red-400">-{currency}{(ctcBreakdown.esic.employee * 12).toLocaleString("en-IN")}</strong></div>
+                <div className="flex justify-between border-b border-border/20 py-1"><span>PT &amp; TDS withholding</span><strong className="text-red-400">-{currency}{((ctcBreakdown.pt + ctcBreakdown.tds) * 12).toLocaleString("en-IN")}</strong></div>
               </div>
 
               <div className="space-y-3 bg-secondary/15 p-4 rounded-xl border border-border/30 flex flex-col justify-center text-center space-y-2 col-span-2 md:col-span-1">
                 <div>
                   <span className="text-[9px] font-bold text-slate-400 block uppercase">Net Annual Take-Home</span>
-                  <strong className="text-lg font-black text-emerald-500">₹{(ctcBreakdown.netTakeHome * 12).toLocaleString("en-IN")}</strong>
-                  <span className="text-[9px] text-muted-foreground mt-0.5 block">₹{ctcBreakdown.netTakeHome.toLocaleString("en-IN")}/mo take-home</span>
+                  <strong className="text-lg font-black text-emerald-500">{currency}{(ctcBreakdown.netTakeHome * 12).toLocaleString("en-IN")}</strong>
+                  <span className="text-[9px] text-muted-foreground mt-0.5 block">{currency}{ctcBreakdown.netTakeHome.toLocaleString("en-IN")}/mo take-home</span>
                 </div>
                 <div className="border-t border-border/20 pt-2">
                   <span className="text-[8px] text-muted-foreground block">Cost to Company (Employer CTC)</span>
-                  <strong className="text-slate-300 font-bold text-xs">₹{(ctcBreakdown.employerCost * 12).toLocaleString("en-IN")}/yr</strong>
+                  <strong className="text-slate-300 font-bold text-xs">{currency}{(ctcBreakdown.employerCost * 12).toLocaleString("en-IN")}/yr</strong>
                 </div>
               </div>
 
@@ -489,7 +560,6 @@ export default function SalaryEngine({
               </p>
             </div>
           </div>
-
         </div>
       )}
 
@@ -552,7 +622,51 @@ export default function SalaryEngine({
 
           {/* STEP 2: ATTENDANCE ADJUSTMENT ROSTER */}
           {payrollStep === 2 && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-4 animate-fade-in">
+              {/* Smart Search & Filter Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-card/20 p-4 border border-border/40 rounded-xl">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-extrabold text-muted-foreground uppercase text-[10px]">Filter Dept:</span>
+                  <div className="flex flex-wrap bg-secondary/25 p-0.5 rounded-lg border border-border/20">
+                    <button
+                      type="button"
+                      onClick={() => setDeptFilter("ALL")}
+                      className={`px-2 py-0.5 rounded font-bold transition-all text-[10px] ${
+                        deptFilter === "ALL" 
+                          ? "bg-background text-foreground shadow-sm" 
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      ALL
+                    </button>
+                    {uniqueDepartments.map(dept => (
+                      <button
+                        type="button"
+                        key={dept}
+                        onClick={() => setDeptFilter(dept)}
+                        className={`px-2 py-0.5 rounded font-bold transition-all text-[10px] ${
+                          deptFilter === dept 
+                            ? "bg-background text-foreground shadow-sm" 
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {dept}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search staff name or code..."
+                    value={searchStaff}
+                    onChange={e => setSearchStaff(e.target.value)}
+                    className="text-xs bg-background/50 h-8 pl-8 border-border/40"
+                  />
+                </div>
+              </div>
+
               <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/10">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -562,18 +676,28 @@ export default function SalaryEngine({
                       <th className="p-3">Present Days</th>
                       <th className="p-3">LOP (Unpaid Days)</th>
                       <th className="p-3">Overtime Hours</th>
+                      <th className="p-3">Basic Salary Override</th>
+                      <th className="p-3">Bonus Feed</th>
+                      <th className="p-3">Increment Feed</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20 leading-relaxed font-sans">
-                    {activeTechnicians.map(emp => {
-                      const overrides = attendanceOverrides[emp.id] || { presentDays: "26", lopDays: "0", overtimeHours: "0" };
+                    {filteredTechnicians.map(emp => {
+                      const overrides = attendanceOverrides[emp.id] || { 
+                        presentDays: "26", 
+                        lopDays: "0", 
+                        overtimeHours: "0",
+                        manualBasic: String(emp.basicSalary || emp.salary || 20000),
+                        bonusAmount: "0",
+                        incrementAmount: "0"
+                      };
                       return (
                         <tr key={emp.id} className="hover:bg-secondary/15 font-medium">
                           <td className="p-3">
                             <strong className="text-slate-200 block text-xs">{emp.name || emp.full_name}</strong>
                             <span className="text-[10px] text-muted-foreground font-mono mt-0.5 block">{emp.employee_code || "EMP-X"}</span>
                           </td>
-                          <td className="p-3 text-slate-300 font-bold">₹{Number(emp.basicSalary || emp.salary || 20000).toLocaleString("en-IN")}/mo</td>
+                          <td className="p-3 text-slate-300 font-bold">{currency}{Number(emp.basicSalary || emp.salary || 20000).toLocaleString("en-IN")}/mo</td>
                           <td className="p-3">
                             <Input 
                               type="number" 
@@ -598,9 +722,42 @@ export default function SalaryEngine({
                               className="w-16 h-8 bg-background/50 text-xs border-border/40 text-center text-emerald-500 font-bold"
                             />
                           </td>
+                          <td className="p-3">
+                            <Input 
+                              type="number" 
+                              value={overrides.manualBasic} 
+                              onChange={e => handleOverrideChange(emp.id, "manualBasic", e.target.value)}
+                              className="w-20 h-8 bg-background/50 text-xs border-border/40 text-center font-bold text-amber-500"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <Input 
+                              type="number" 
+                              value={overrides.bonusAmount} 
+                              onChange={e => handleOverrideChange(emp.id, "bonusAmount", e.target.value)}
+                              className="w-16 h-8 bg-background/50 text-xs border-border/40 text-center font-bold text-emerald-500"
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <Input 
+                              type="number" 
+                              value={overrides.incrementAmount} 
+                              onChange={e => handleOverrideChange(emp.id, "incrementAmount", e.target.value)}
+                              className="w-16 h-8 bg-background/50 text-xs border-border/40 text-center font-bold text-blue-400"
+                              placeholder="0"
+                            />
+                          </td>
                         </tr>
                       );
                     })}
+                    {filteredTechnicians.length === 0 && (
+                      <tr>
+                        <td colSpan="8" className="p-8 text-center text-muted-foreground font-medium">
+                          No matching active employees found in current filters.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -625,7 +782,51 @@ export default function SalaryEngine({
 
           {/* STEP 3: CALCULATIONS PREVIEW & LEDGER SYNCS */}
           {payrollStep === 3 && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-4 animate-fade-in">
+              {/* Smart Search & Filter Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-card/20 p-4 border border-border/40 rounded-xl">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-extrabold text-muted-foreground uppercase text-[10px]">Filter Dept:</span>
+                  <div className="flex flex-wrap bg-secondary/25 p-0.5 rounded-lg border border-border/20">
+                    <button
+                      type="button"
+                      onClick={() => setDeptFilter("ALL")}
+                      className={`px-2 py-0.5 rounded font-bold transition-all text-[10px] ${
+                        deptFilter === "ALL" 
+                          ? "bg-background text-foreground shadow-sm" 
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      ALL
+                    </button>
+                    {uniqueDepartments.map(dept => (
+                      <button
+                        type="button"
+                        key={dept}
+                        onClick={() => setDeptFilter(dept)}
+                        className={`px-2 py-0.5 rounded font-bold transition-all text-[10px] ${
+                          deptFilter === dept 
+                            ? "bg-background text-foreground shadow-sm" 
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {dept}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search staff name or code..."
+                    value={searchStaff}
+                    onChange={e => setSearchStaff(e.target.value)}
+                    className="text-xs bg-background/50 h-8 pl-8 border-border/40"
+                  />
+                </div>
+              </div>
+
               <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/10">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -639,7 +840,7 @@ export default function SalaryEngine({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20 leading-relaxed font-sans text-xs">
-                    {payrollPreviewList.map(item => {
+                    {filteredPreviewList.map(item => {
                       const totalDed = item.pf.employee + item.esic.employee + item.pt + item.tds;
                       return (
                         <tr key={item.empId} className="hover:bg-secondary/15 font-medium">
@@ -647,14 +848,23 @@ export default function SalaryEngine({
                             <strong className="text-slate-200 block text-xs">{item.name}</strong>
                             <span className="text-[10px] font-mono text-muted-foreground block mt-0.5">{item.empCode}</span>
                           </td>
-                          <td className="p-3 font-semibold text-slate-300">₹{item.grossCalculated.toLocaleString("en-IN")}</td>
-                          <td className="p-3 text-red-400">
-                            -₹{totalDed.toLocaleString("en-IN")}
-                            <span className="text-[9px] text-muted-foreground block mt-0.5">PF: ₹{item.pf.employee} • ESIC: ₹{item.esic.employee} • PT: ₹{item.pt}</span>
+                          <td className="p-3 font-semibold text-slate-300">
+                            {currency}{item.grossCalculated.toLocaleString("en-IN")}
+                            {(item.bonus > 0 || item.increment > 0) && (
+                              <span className="text-[9px] text-emerald-400 block mt-0.5 font-bold">
+                                {item.bonus > 0 && `Bonus: +${currency}${item.bonus}`} 
+                                {item.bonus > 0 && item.increment > 0 ? " • " : ""}
+                                {item.increment > 0 && `Inc: +${currency}${item.increment}`}
+                              </span>
+                            )}
                           </td>
-                          <td className="p-3 text-red-400 font-semibold">{item.loanEMI > 0 ? `-₹${item.loanEMI}` : "Nil"}</td>
-                          <td className="p-3 font-black text-emerald-500 text-sm">₹{item.netPayable.toLocaleString("en-IN")}</td>
-                          <td className="p-3 text-right font-bold text-slate-400">₹{item.employerCost.toLocaleString("en-IN")}</td>
+                          <td className="p-3 text-red-400">
+                            -{currency}{totalDed.toLocaleString("en-IN")}
+                            <span className="text-[9px] text-muted-foreground block mt-0.5">PF: {currency}{item.pf.employee} • ESIC: {currency}{item.esic.employee} • PT: {currency}{item.pt}</span>
+                          </td>
+                          <td className="p-3 text-red-400 font-semibold">{item.loanEMI > 0 ? `-${currency}${item.loanEMI}` : "Nil"}</td>
+                          <td className="p-3 font-black text-emerald-500 text-sm">{currency}{item.netPayable.toLocaleString("en-IN")}</td>
+                          <td className="p-3 text-right font-bold text-slate-400">{currency}{item.employerCost.toLocaleString("en-IN")}</td>
                         </tr>
                       );
                     })}
@@ -667,17 +877,17 @@ export default function SalaryEngine({
                 <div className="space-y-2">
                   <h4 className="font-black text-sm text-foreground uppercase tracking-wider">Payroll Run Summary</h4>
                   <div className="grid grid-cols-2 gap-3 text-xs leading-normal">
-                    <div><span>Grand Gross Wages:</span><strong className="text-foreground block">₹{previewTotals.gross.toLocaleString("en-IN")}</strong></div>
-                    <div><span>Grand Net Payable:</span><strong className="text-emerald-500 block font-black">₹{previewTotals.net.toLocaleString("en-IN")}</strong></div>
-                    <div><span>Total Stat Prov (PF/ESIC/PT):</span><strong className="text-red-400 block">-₹{(previewTotals.pfEmp + previewTotals.esicEmp + previewTotals.pt).toLocaleString("en-IN")}</strong></div>
-                    <div><span>Quarterly TDS Withhold:</span><strong className="text-red-400 block">-₹{previewTotals.tds.toLocaleString("en-IN")}</strong></div>
+                    <div><span>Grand Gross Wages:</span><strong className="text-foreground block">{currency}{previewTotals.gross.toLocaleString("en-IN")}</strong></div>
+                    <div><span>Grand Net Payable:</span><strong className="text-emerald-500 block font-black">{currency}{previewTotals.net.toLocaleString("en-IN")}</strong></div>
+                    <div><span>Total Stat Prov (PF/ESIC/PT):</span><strong className="text-red-400 block">-{currency}{(previewTotals.pfEmp + previewTotals.esicEmp + previewTotals.pt).toLocaleString("en-IN")}</strong></div>
+                    <div><span>Quarterly TDS Withhold:</span><strong className="text-red-400 block">-{currency}{previewTotals.tds.toLocaleString("en-IN")}</strong></div>
                   </div>
                 </div>
 
                 <div className="space-y-3 font-medium border-l border-border/20 pl-6">
                   <span className="p-1 px-2.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[9px] font-black uppercase inline-block">Trial Ledger posting logic</span>
                   <p className="text-muted-foreground text-[10px] leading-normal">
-                    Approving this run will Debit <strong>5100: Salaries &amp; Wages Expense</strong> for ₹{previewTotals.gross.toLocaleString("en-IN")} and credit <strong>2400: Salary Payable Liability</strong> for ₹{previewTotals.net.toLocaleString("en-IN")}, maintaining trial ledger double-entry equations.
+                    Approving this run will Debit <strong>5100: Salaries &amp; Wages Expense</strong> for {currency}{previewTotals.gross.toLocaleString("en-IN")} and credit <strong>2400: Salary Payable Liability</strong> for {currency}{previewTotals.net.toLocaleString("en-IN")}, maintaining trial ledger double-entry equations.
                   </p>
                 </div>
               </div>
@@ -717,11 +927,11 @@ export default function SalaryEngine({
                   Download Employee PDF Payslips
                 </div>
                 <div className="divide-y divide-border/20 text-left text-xs leading-relaxed max-h-48 overflow-y-auto">
-                  {payrollPreviewList.map(item => (
+                  {filteredPreviewList.map(item => (
                     <div key={item.empId} className="p-3 hover:bg-secondary/15 flex justify-between items-center">
                       <div>
                         <strong className="text-slate-200 block text-xs">{item.name}</strong>
-                        <span className="text-[10px] text-muted-foreground font-mono mt-0.5 block">{item.empCode} • Net: ₹{item.netPayable.toLocaleString("en-IN")}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono mt-0.5 block">{item.empCode} • Net: {currency}{item.netPayable.toLocaleString("en-IN")}</span>
                       </div>
                       <Button 
                         onClick={() => handleDownloadPayslip(item)}
@@ -733,6 +943,11 @@ export default function SalaryEngine({
                       </Button>
                     </div>
                   ))}
+                  {filteredPreviewList.length === 0 && (
+                    <div className="p-6 text-center text-muted-foreground">
+                      No matching payslips found.
+                    </div>
+                  )}
                 </div>
               </div>
 

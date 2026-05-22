@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Sidebar from "./Sidebar";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useBackButton } from "@/hooks/useBackButton";
 
 const BOTTOM_NAV = [
   { path: "/", icon: LayoutDashboard, label: "Home", tKey: "nav.dashboard" },
@@ -18,6 +19,8 @@ export default function MobileNav() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
+
+  useBackButton(() => setOpen(false), open);
 
   return (
     <>

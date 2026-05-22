@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useBackButton } from "@/hooks/useBackButton";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,10 @@ import {
 import { getCategoriesByShopType } from "@/lib/shopCategories";
 import { subscribeToBranchInventory, updateInventory } from "@/api/inventorySyncService";
 import { INDIAN_STATES } from "@/lib/gst-utils";
+import { useFashionMode } from "@/hooks/useFashionMode";
+import FashionPOS from "./FashionPOS";
+import { useSupermarketMode } from "@/hooks/useSupermarketMode";
+import SupermarketPOS from "@/modules/supermarket-pos/SupermarketPOS";
 
 // Auto-generate SKU
 const generateSKU = (name = "") => {
@@ -70,6 +75,7 @@ function mapShopTypeToLayout(businessType) {
     case "stationery":
     case "retail":
     case "wholesaler":
+    case "supermarket":
     case "manufacturer":
     case "importer_exporter":
     default:
@@ -104,6 +110,18 @@ const formatReceiptDate = (dateStr) => {
 };
 
 export default function POS() {
+  const { isFashion } = useFashionMode();
+  const { isSupermarket } = useSupermarketMode();
+  if (isFashion) {
+    return <FashionPOS />;
+  }
+  if (isSupermarket) {
+    return <SupermarketPOS />;
+  }
+  return <POSContent />;
+}
+
+function POSContent() {
   const { user } = useAuth();
   const canDiscount = usePermission('pos', 'discount');
   const canShift = usePermission('pos', 'shift');
@@ -394,6 +412,15 @@ export default function POS() {
       setDetailRack(selectedDetailProduct.rack_location || "Aisle 4, Shelf C");
     }
   }, [selectedDetailProduct]);
+
+  // Back Button Navigation for POS Overlays
+  useBackButton(() => setMobileTab("products"), mobileTab === "cart");
+  useBackButton(() => setIsWeightDialogOpen(false), isWeightDialogOpen);
+  useBackButton(() => setIsVariantDialogOpen(false), isVariantDialogOpen);
+  useBackButton(() => setIsDetailProductDialogOpen(false), isDetailProductDialogOpen);
+  useBackButton(() => setIsShiftCloseDialogOpen(false), isShiftCloseDialogOpen);
+  useBackButton(() => setIsShiftOpenDialogOpen(false), isShiftOpenDialogOpen);
+  useBackButton(() => setIsCounterPickerOpen(false), isCounterPickerOpen);
 
   const handleApplyProductDetails = (product, selectedRate, selectedBatch, selectedExpiry) => {
     setCart(prev => {
@@ -1019,43 +1046,45 @@ export default function POS() {
       if (!isOnline) {
         // Simulated Offline Checkout
         const invoiceNum = `INV-POS-OFF-${Date.now().toString().slice(-6)}`;
-        createdInvoice = {
-          id: `off-${Date.now()}`,
-          invoice_number: invoiceNum,
-          date: new Date().toISOString().slice(0, 10),
-          customer_name: customer?.name || "Walk-in Customer",
-          customer_gstin: customer?.gstin || "",
-          customer_phone: customer?.phone || "",
-          subtotal: cartSubtotal,
-          tax_amount: cartTax,
-          grand_total: parseFloat(finalTotal.toFixed(2)),
-          is_interstate: false,
-          place_of_supply: "27-Maharashtra",
-          items: cart.map(item => {
-            let displayName = item.name;
-            if (item.selected_size || item.selected_color) {
-              const sizeStr = item.selected_size ? `Size: ${item.selected_size}` : "";
-              const colorStr = item.selected_color ? `Color: ${item.selected_color}` : "";
-              const variantDetails = [sizeStr, colorStr].filter(Boolean).join(", ");
-              displayName = `${item.name} (${variantDetails})`;
-            }
-            return {
-              product_id: item.id,
-              name: displayName,
-              qty: item.qty,
-              rate: item.rate,
-              gst_rate: item.gst_rate || 18,
-              hsn: item.hsn || "0000"
-            };
-          }),
-          type: "sale",
-          billing_type: billingType,
-          payment_method: paymentMethod,
-          payment_split: paymentMethod === 'split' ? { cash: splitCash, card: splitCard, upi: splitUPI } : null,
-          notes: layout === "restaurant" ? `Restaurant Table: ${selectedTable} (Offline)` : "Offline Generated",
-          isOfflinePending: true,
-          branchId: activeBranchId
-        };
+          const offlineInvoice = {
+            id: `off-${Date.now()}`,
+            invoice_number: invoiceNum,
+            date: new Date().toISOString().slice(0, 10),
+            customer_name: customer?.name || "Walk-in Customer",
+            customer_gstin: customer?.gstin || "",
+            customer_phone: customer?.phone || "",
+            subtotal: cartSubtotal || 0,
+            tax_amount: cartTax || 0,
+            grand_total: parseFloat(finalTotal.toFixed(2)) || 0,
+            is_interstate: false,
+            place_of_supply: "27-Maharashtra",
+            items: cart.map(item => {
+              let displayName = item.name || "Unknown Item";
+              if (item.selected_size || item.selected_color) {
+                const sizeStr = item.selected_size ? `Size: ${item.selected_size}` : "";
+                const colorStr = item.selected_color ? `Color: ${item.selected_color}` : "";
+                const variantDetails = [sizeStr, colorStr].filter(Boolean).join(", ");
+                displayName = `${item.name || "Unknown Item"} (${variantDetails})`;
+              }
+              return {
+                product_id: item.id || null,
+                name: displayName,
+                qty: item.qty || 1,
+                rate: item.rate || 0,
+                gst_rate: item.gst_rate || 18,
+                hsn: item.hsn || "0000"
+              };
+            }),
+            type: "sale",
+            billing_type: billingType || "B2C",
+            payment_method: paymentMethod || "cash",
+            payment_split: paymentMethod === 'split' ? { cash: splitCash || 0, card: splitCard || 0, upi: splitUPI || 0 } : null,
+            notes: layout === "restaurant" ? `Restaurant Table: ${selectedTable} (Offline)` : "Offline Generated",
+            isOfflinePending: true,
+            branchId: activeBranchId || null
+          };
+
+          createdInvoice = JSON.parse(JSON.stringify(offlineInvoice, (k, v) => v === undefined ? null : v));
 
         // Decrement stock in react-query cache locally
         const currentProducts = queryClient.getQueryData(["products"]) || [];
@@ -1082,34 +1111,35 @@ export default function POS() {
             customer_name: customer?.name || "Walk-in Customer",
             customer_gstin: customer?.gstin || "",
             customer_phone: customer?.phone || "",
-            subtotal: cartSubtotal,
-            tax_amount: cartTax,
-            grand_total: parseFloat(finalTotal.toFixed(2)),
+            subtotal: cartSubtotal || 0,
+            tax_amount: cartTax || 0,
+            grand_total: parseFloat(finalTotal.toFixed(2)) || 0,
             items: cart.map(item => {
-              let displayName = item.name;
+              let displayName = item.name || "Unknown Item";
               if (item.selected_size || item.selected_color) {
                 const sizeStr = item.selected_size ? `Size: ${item.selected_size}` : "";
                 const colorStr = item.selected_color ? `Color: ${item.selected_color}` : "";
                 const variantDetails = [sizeStr, colorStr].filter(Boolean).join(", ");
-                displayName = `${item.name} (${variantDetails})`;
+                displayName = `${item.name || "Unknown Item"} (${variantDetails})`;
               }
               return {
-                product_id: item.id,
+                product_id: item.id || null,
                 name: displayName,
-                qty: item.qty,
-                rate: item.rate,
+                qty: item.qty || 1,
+                rate: item.rate || 0,
                 gst_rate: item.gst_rate || 18,
                 hsn: item.hsn || "0000"
               };
             }),
-            billing_type: billingType,
-            payment_method: paymentMethod,
-            payment_split: paymentMethod === 'split' ? { cash: splitCash, card: splitCard, upi: splitUPI } : null,
+            billing_type: billingType || "B2C",
+            payment_method: paymentMethod || "cash",
+            payment_split: paymentMethod === 'split' ? { cash: splitCash || 0, card: splitCard || 0, upi: splitUPI || 0 } : null,
             notes: layout === "restaurant" ? `Restaurant Table: ${selectedTable} (Edited)` : "Edited Bill",
-            branchId: activeBranchId
+            branchId: activeBranchId || null
           };
 
-          createdInvoice = await base44.entities.Invoice.update(editingInvoiceId, updatedInvoice);
+          const sanitizedUpdatedInvoice = JSON.parse(JSON.stringify(updatedInvoice, (k, v) => v === undefined ? null : v));
+          createdInvoice = await base44.entities.Invoice.update(editingInvoiceId, sanitizedUpdatedInvoice);
 
           // Combined Stock Adjustment logic (branch specific and global catalog):
           const stockAdjustments = {};
@@ -1156,37 +1186,40 @@ export default function POS() {
             customer_name: customer?.name || "Walk-in Customer",
             customer_gstin: customer?.gstin || "",
             customer_phone: customer?.phone || "",
-            subtotal: cartSubtotal,
-            tax_amount: cartTax,
-            grand_total: parseFloat(finalTotal.toFixed(2)),
+            subtotal: cartSubtotal || 0,
+            tax_amount: cartTax || 0,
+            grand_total: parseFloat(finalTotal.toFixed(2)) || 0,
             is_interstate: false,
             place_of_supply: "27-Maharashtra",
             items: cart.map(item => {
-              let displayName = item.name;
+              let displayName = item.name || "Unknown Item";
               if (item.selected_size || item.selected_color) {
                 const sizeStr = item.selected_size ? `Size: ${item.selected_size}` : "";
                 const colorStr = item.selected_color ? `Color: ${item.selected_color}` : "";
                 const variantDetails = [sizeStr, colorStr].filter(Boolean).join(", ");
-                displayName = `${item.name} (${variantDetails})`;
+                displayName = `${item.name || "Unknown Item"} (${variantDetails})`;
               }
               return {
-                product_id: item.id,
+                product_id: item.id || null,
                 name: displayName,
-                qty: item.qty,
-                rate: item.rate,
+                qty: item.qty || 1,
+                rate: item.rate || 0,
                 gst_rate: item.gst_rate || 18,
                 hsn: item.hsn || "0000"
               };
             }),
             type: "sale",
-            billing_type: billingType,
-            payment_method: paymentMethod,
-            payment_split: paymentMethod === 'split' ? { cash: splitCash, card: splitCard, upi: splitUPI } : null,
+            billing_type: billingType || "B2C",
+            payment_method: paymentMethod || "cash",
+            payment_split: paymentMethod === 'split' ? { cash: splitCash || 0, card: splitCard || 0, upi: splitUPI || 0 } : null,
             notes: layout === "restaurant" ? `Restaurant Table: ${selectedTable}` : "",
-            branchId: activeBranchId
+            branchId: activeBranchId || null
           };
 
-          createdInvoice = await base44.entities.Invoice.create(newInvoice);
+          // Sanitize to remove any remaining undefined values that crash Firebase
+          const sanitizedInvoice = JSON.parse(JSON.stringify(newInvoice, (k, v) => v === undefined ? null : v));
+
+          createdInvoice = await base44.entities.Invoice.create(sanitizedInvoice);
 
           // Decrement stock in database (branch specific and global catalog)
           for (const item of cart) {

@@ -38,6 +38,8 @@ import Loans from "@/pages/Loans";
 import GSTFiling from "@/pages/GSTFiling";
 import POS from "@/pages/POS";
 import BranchManagement from "@/pages/BranchManagement";
+import Alterations from "@/pages/Alterations";
+import CustomerStyleProfiles from "@/pages/CustomerStyleProfiles";
 import InventorySync from "@/pages/InventorySync";
 import StockTransfer from "@/pages/StockTransfer";
 import WarehouseManagement from "@/pages/WarehouseManagement";
@@ -47,6 +49,12 @@ import EnterpriseIntelligence from "@/pages/EnterpriseIntelligence";
 import FinanceModule from "@/modules/accounting/FinanceModule";
 import AuditLogPage from "@/modules/audit/AuditLogPage";
 import OnboardingWizard from "@/modules/registration/OnboardingWizard";
+
+import CounterManagement from "@/modules/supermarket/CounterManagement";
+import PriceEngineDashboard from "@/modules/supermarket/PriceEngine.jsx";
+import LoyaltyProgram from "@/modules/supermarket/LoyaltyProgram";
+import ExpiryManager from "@/modules/supermarket/ExpiryManager";
+import DepartmentReports from "@/modules/supermarket/reports/DepartmentReports";
 
 const AuthenticatedApp = () => {
   const { user, isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -128,6 +136,15 @@ const AuthenticatedApp = () => {
           <Route path="/stock-transfer" element={<StockTransfer />} />
           <Route path="/warehouse" element={<WarehouseManagement />} />
           <Route path="/hrms" element={<HRMS />} />
+          <Route path="/alterations" element={<Alterations />} />
+          <Route path="/profiles" element={<CustomerStyleProfiles />} />
+
+          {/* Supermarket Module Routes */}
+          <Route path="/supermarket/counters" element={<CounterManagement />} />
+          <Route path="/supermarket/offers" element={<PriceEngineDashboard />} />
+          <Route path="/supermarket/loyalty" element={<LoyaltyProgram />} />
+          <Route path="/supermarket/expiry" element={<ExpiryManager />} />
+          <Route path="/supermarket/reports" element={<DepartmentReports />} />
 
           <Route path="/enterprise-intel" element={<EnterpriseIntelligence />} />
           <Route path="/finance" element={<FinanceModule />} />

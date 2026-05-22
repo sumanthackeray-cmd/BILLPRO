@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
-import { Shield, Users, Plus, UserCheck, UserX, Crown, Landmark, User, DollarSign, ArrowLeft, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Shield, Users, Plus, UserCheck, UserX, Crown, Landmark, User, DollarSign, ArrowLeft, Eye, EyeOff, Trash2, Edit } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import FieldGuard from "@/components/guards/FieldGuard";
 
@@ -42,11 +42,32 @@ export default function UsersSettings() {
     password: ""
   });
 
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+
   // Query users list
   const { data: users = [], isLoading: isLoadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ["users_rbac"],
     queryFn: () => base44.entities.User.list(),
     enabled: !!currentUser,
+  });
+
+  // Query employees list from HRMS
+  const { data: employees = [], isLoading: isLoadingEmployees } = useQuery({
+    queryKey: ["employees"],
+    queryFn: () => base44.entities.Employee.list(),
+    enabled: !!currentUser,
+  });
+
+  const filteredEmployees = (employees || []).filter(emp => {
+    const s = employeeSearch.toLowerCase();
+    const name = (emp.full_name || emp.name || `${emp.first_name || ""} ${emp.last_name || ""}`).toLowerCase();
+    const code = (emp.employee_code || emp.employeeId || emp.id || "").toLowerCase();
+    const phone = (emp.personal_phone || emp.work_phone || "").toLowerCase();
+    const email = (emp.personal_email || emp.work_email || "").toLowerCase();
+    return name.includes(s) || code.includes(s) || phone.includes(s) || email.includes(s);
   });
 
   const currentRoleObj = AVAILABLE_ROLES.find(r => r.role_name === currentUserRole) || { hierarchy_level: 7 };
@@ -62,10 +83,9 @@ export default function UsersSettings() {
     e.preventDefault();
     const trimmedCode = form.userCode.trim();
     if (!trimmedCode) return toast.error("Please enter user code (e.g., CASHIER-01)");
-    if (!form.name.trim()) return toast.error("Please enter user's full name");
+    if (!selectedEmployee) return toast.error("Please select an employee from the HR roster");
     if (!form.role_id) return toast.error("Please assign a role");
-    if (!form.password.trim()) return toast.error("Please enter initial password");
-    if (form.salary && isNaN(Number(form.salary))) return toast.error("Salary must be a number");
+    if (!form.password.trim()) return toast.error("Please enter password");
 
     setSaving(true);
     try {
@@ -77,43 +97,190 @@ export default function UsersSettings() {
       const newUserCode = form.userCode.trim().toUpperCase();
       const internalEmail = `${newUserCode}@${companyId.replace("-", "")}.gstbill.app`;
 
-      // Call Cloud Function to provision user auth and database profile
-      const result = await manageStaffUser({
-        action: "CREATE",
-        companyId,
-        userCode: newUserCode,
-        email: internalEmail,
-        contact_email: form.contact_email,
-        contact_mobile: form.contact_mobile,
-        staff_id: form.staff_id,
-        name: form.name.trim(),
-        password: form.password,
-        roleId: form.role_id,
-        salary: form.salary ? Number(form.salary) : 0,
-        branchId: form.branch_id,
-        is_active: true
-      });
+      const empName = selectedEmployee.full_name || selectedEmployee.name || `${selectedEmployee.first_name || ""} ${selectedEmployee.last_name || ""}`;
+      const empContactEmail = selectedEmployee.personal_email || selectedEmployee.work_email || selectedEmployee.email || "";
+      const empContactMobile = selectedEmployee.personal_phone || selectedEmployee.work_phone || selectedEmployee.phone || "";
+      const empSalary = Number(selectedEmployee.basicSalary || 0) + Number(selectedEmployee.hra || 0);
 
-      if (result.success) {
-        toast.success(`Staff user ${newUserCode} created successfully!`);
-        setForm({
-          userCode: "",
-          name: "",
-          contact_email: "",
-          contact_mobile: "",
-          staff_id: "",
-          role_id: "role-cashier",
-          salary: "",
-          branch_id: "MAIN",
-          password: ""
+      if (editingUser) {
+        // Edit Mode: Update existing User document directly in Firestore
+        await base44.entities.User.update(editingUser.id, {
+          name: empName.trim(),
+          email: internalEmail,
+          contact_email: empContactEmail.trim().toLowerCase(),
+          contact_mobile: empContactMobile.trim(),
+          salary: empSalary || 0,
+          user_code: newUserCode,
+          role_id: form.role_id,
+          branch_id: form.branch_id,
+          staff_id: form.staff_id,
+          profile_password: form.password
         });
-        queryClient.invalidateQueries({ queryKey: ["users_rbac"] });
-        refetchUsers();
+
+        const oldEmpId = editingUser.id;
+        const newEmpId = selectedEmployee.id;
+
+        if (newEmpId !== oldEmpId) {
+          // Reassigning employee!
+          // 1. Back up the old employee under a new ID so they are not deleted
+          const oldEmp = employees.find(e => e.id === oldEmpId);
+          if (oldEmp) {
+            const backupId = `EMP-${Date.now()}`;
+            await base44.entities.Employee.create({
+              ...oldEmp,
+              id: backupId,
+              employee_code: `UNASSIGNED-${oldEmp.employee_code || ""}`,
+              employeeId: `UNASSIGNED-${oldEmp.employeeId || ""}`,
+              updated_at: new Date().toISOString()
+            });
+
+            // Sync/migration of the old salary structure to backup ID
+            try {
+              const structures = await base44.entities.SalaryStructure.list();
+              const oldStruct = structures.find(s => s && s.employeeId === oldEmpId);
+              if (oldStruct) {
+                await base44.entities.SalaryStructure.create({
+                  ...oldStruct,
+                  id: undefined,
+                  employeeId: backupId
+                });
+                await base44.entities.SalaryStructure.delete(oldStruct.id);
+              }
+            } catch (err) {
+              console.warn("Old salary structure backup skipped:", err);
+            }
+          }
+
+          // 2. Clone the selected new employee to oldEmpId (the user's UID)
+          const updatedEmployeeData = {
+            ...selectedEmployee,
+            id: oldEmpId,
+            employee_code: form.staff_id,
+            employeeId: form.staff_id,
+            work_location: form.branch_id,
+            updated_at: new Date().toISOString()
+          };
+          await base44.entities.Employee.create(updatedEmployeeData);
+
+          // Move the new employee's salary structure under user ID (oldEmpId)
+          try {
+            const structures = await base44.entities.SalaryStructure.list();
+            const newStruct = structures.find(s => s && s.employeeId === newEmpId);
+            if (newStruct) {
+              await base44.entities.SalaryStructure.create({
+                ...newStruct,
+                id: undefined,
+                employeeId: oldEmpId
+              });
+              await base44.entities.SalaryStructure.delete(newStruct.id);
+            }
+          } catch (err) {
+            console.warn("New salary structure reassignment skipped:", err);
+          }
+
+          // 3. Delete the original document of the new employee
+          await base44.entities.Employee.delete(newEmpId);
+        } else {
+          // Same employee, just update their details
+          await base44.entities.Employee.update(oldEmpId, {
+            employee_code: form.staff_id,
+            employeeId: form.staff_id,
+            work_location: form.branch_id,
+            updated_at: new Date().toISOString()
+          });
+        }
+
+        toast.success("User account and employee mapping updated successfully!");
       } else {
-        toast.error(result.message || "Failed to create user.");
+        // Create Mode: Call Cloud Function to provision user auth and database profile
+        const result = await manageStaffUser({
+          action: "CREATE",
+          companyId,
+          userCode: newUserCode,
+          email: internalEmail,
+          contact_email: empContactEmail,
+          contact_mobile: empContactMobile,
+          staff_id: form.staff_id,
+          name: empName.trim(),
+          password: form.password,
+          roleId: form.role_id,
+          salary: empSalary || 0,
+          branchId: form.branch_id,
+          is_active: true
+        });
+
+        if (result.success) {
+          const newUid = result.user?.uid || result.user?.id;
+          const oldEmpId = selectedEmployee.id;
+
+          const updatedEmployeeData = {
+            ...selectedEmployee,
+            id: newUid,
+            employee_code: form.staff_id,
+            employeeId: form.staff_id,
+            work_location: form.branch_id,
+            updated_at: new Date().toISOString()
+          };
+
+          // Create new employee
+          await base44.entities.Employee.create(updatedEmployeeData);
+
+          // Fetch salary structure and copy if any
+          try {
+            const structures = await base44.entities.SalaryStructure.list();
+            const matchStruct = structures.find(s => s && s.employeeId === oldEmpId);
+            if (matchStruct) {
+              await base44.entities.SalaryStructure.create({
+                ...matchStruct,
+                id: undefined,
+                employeeId: newUid,
+                company_id: companyId
+              });
+              await base44.entities.SalaryStructure.delete(matchStruct.id);
+            }
+          } catch (err) {
+            console.warn("Salary structure sync skipped:", err);
+          }
+
+          // Delete old employee record if UID changed
+          if (newUid !== oldEmpId) {
+            await base44.entities.Employee.delete(oldEmpId);
+            // Delete old user account if any
+            try {
+              await manageStaffUser({
+                action: "DELETE",
+                companyId,
+                uid: oldEmpId
+              });
+            } catch (err) {
+              console.warn("Cleanup of old auth user skipped:", err);
+            }
+          }
+
+          toast.success(`Staff user ${newUserCode} created and synchronized with HR module successfully!`);
+        } else {
+          throw new Error(result.message || "Failed to create user.");
+        }
       }
+
+      setForm({
+        userCode: "",
+        name: "",
+        contact_email: "",
+        contact_mobile: "",
+        staff_id: "",
+        role_id: "role-cashier",
+        salary: "",
+        branch_id: "MAIN",
+        password: ""
+      });
+      setSelectedEmployee(null);
+      setEditingUser(null);
+      queryClient.invalidateQueries({ queryKey: ["users_rbac"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      refetchUsers();
     } catch (err) {
-      toast.error(err.message || "Failed to create staff member");
+      toast.error(err.message || "Failed to save staff member");
     } finally {
       setSaving(false);
     }
@@ -264,37 +431,86 @@ export default function UsersSettings() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-muted-foreground">👤 FULL NAME *</Label>
-                <Input 
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. Anand Sharma"
-                  className="bg-background/50"
-                  required
-                />
-              </div>
+              <div className="space-y-1.5 relative w-full text-xs text-left">
+                <Label className="text-[11px] font-bold text-muted-foreground uppercase">👤 SELECT EMPLOYEE FROM HR *</Label>
+                <div 
+                  onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)} 
+                  className="w-full bg-background border border-border/60 rounded-xl py-2.5 px-3 h-10 text-xs font-bold flex items-center justify-between cursor-pointer hover:border-indigo-500/50 transition bg-background/50"
+                >
+                  <span className="text-foreground">
+                    {selectedEmployee 
+                      ? `${selectedEmployee.full_name || selectedEmployee.name || `${selectedEmployee.first_name || ""} ${selectedEmployee.last_name || ""}`} [ID: ${selectedEmployee.employee_code || selectedEmployee.employeeId || "No ID"}]`
+                      : "Select Employee..."}
+                  </span>
+                  <span className="text-muted-foreground text-[8px]">▼</span>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[11px] font-bold text-muted-foreground">📧 EMAIL ADDRESS</Label>
-                  <Input 
-                    type="email"
-                    value={form.contact_email}
-                    onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))}
-                    placeholder="staff@company.com"
-                    className="bg-background/50"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[11px] font-bold text-muted-foreground">📱 MOBILE NUMBER</Label>
-                  <Input 
-                    value={form.contact_mobile}
-                    onChange={e => setForm(f => ({ ...f, contact_mobile: e.target.value }))}
-                    placeholder="9876543210"
-                    className="bg-background/50"
-                  />
-                </div>
+                {isEmployeeDropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsEmployeeDropdownOpen(false);
+                        setEmployeeSearch("");
+                      }} 
+                    />
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border/60 rounded-xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto flex flex-col gap-1 scrollbar-thin bg-card/95 backdrop-blur-md">
+                      <Input 
+                        type="text" 
+                        placeholder="Search Name, ID, Phone, Email..." 
+                        value={employeeSearch} 
+                        onChange={e => setEmployeeSearch(e.target.value)} 
+                        onClick={e => e.stopPropagation()} 
+                        className="text-[11px] bg-background/50 h-8 border-border/40 mb-1 shrink-0"
+                        autoFocus
+                      />
+                      <div className="overflow-y-auto flex flex-col gap-0.5 max-h-48">
+                        {isLoadingEmployees ? (
+                          <div className="p-2 text-center text-muted-foreground text-[10px]">Loading employees...</div>
+                        ) : filteredEmployees.length === 0 ? (
+                          <div className="p-2 text-center text-muted-foreground text-[10px]">No results found.</div>
+                        ) : (
+                          filteredEmployees.map((emp) => {
+                            const empName = emp.full_name || emp.name || `${emp.first_name || ""} ${emp.last_name || ""}`;
+                            const empCode = emp.employee_code || emp.employeeId || "No ID";
+                            const empPhone = emp.personal_phone || emp.work_phone || "No Phone";
+                            const empEmail = emp.personal_email || emp.work_email || "No Email";
+                            return (
+                              <div 
+                                key={emp.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedEmployee(emp);
+                                  setForm(f => ({
+                                    ...f,
+                                    name: empName,
+                                    staff_id: empCode,
+                                    branch_id: emp.work_location || "MAIN"
+                                  }));
+                                  setIsEmployeeDropdownOpen(false);
+                                  setEmployeeSearch("");
+                                }}
+                                className={`p-2 rounded-lg cursor-pointer hover:bg-slate-500/10 transition text-left flex flex-col gap-0.5 border border-transparent hover:border-border/30 ${
+                                  selectedEmployee?.id === emp.id ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "text-foreground"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between font-bold text-xs">
+                                  <span>{empName}</span>
+                                  <span className="text-[9px] px-1.5 py-0.2 bg-slate-500/10 rounded font-mono text-muted-foreground">{empCode}</span>
+                                </div>
+                                <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                                  <span>📞 {empPhone}</span>
+                                  <span>📧 {empEmail}</span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -319,23 +535,6 @@ export default function UsersSettings() {
                 </Select>
                 <p className="text-[10px] text-muted-foreground font-medium italic mt-1">
                   * Authority Rule: You can only assign roles with a hierarchy level strictly BELOW your level ({currentHierarchy}).
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-muted-foreground">💰 MONTHLY ENTERPRISE SALARY</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-muted-foreground"><DollarSign className="w-4 h-4" /></span>
-                  <Input 
-                    type="number"
-                    value={form.salary}
-                    onChange={e => setForm(f => ({ ...f, salary: e.target.value }))}
-                    placeholder="e.g. 45000"
-                    className="pl-9 bg-background/50"
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Sensitive Data: Only Owners, CEOs, CAs, and Accountants can view salary details. Masked at collection level.
                 </p>
               </div>
 
@@ -386,8 +585,32 @@ export default function UsersSettings() {
                 className="w-full font-bold gold-gradient text-black mt-2 shadow-lg shadow-amber-500/10"
                 disabled={saving || assignableRoles.length === 0}
               >
-                {saving ? "Provisioning..." : "Provision Staff Member"}
+                {saving ? (editingUser ? "Saving..." : "Provisioning...") : editingUser ? "Update Staff Member" : "Provision Staff Member"}
               </Button>
+              {editingUser && (
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  className="w-full font-bold border-border hover:bg-muted mt-1.5"
+                  onClick={() => {
+                    setForm({
+                      userCode: "",
+                      name: "",
+                      contact_email: "",
+                      contact_mobile: "",
+                      staff_id: "",
+                      role_id: "role-cashier",
+                      salary: "",
+                      branch_id: "MAIN",
+                      password: ""
+                    });
+                    setSelectedEmployee(null);
+                    setEditingUser(null);
+                  }}
+                >
+                  Cancel Edit
+                </Button>
+              )}
             </form>
           </div>
         </div>
@@ -411,6 +634,9 @@ export default function UsersSettings() {
                 const staffLevel = staffRoleObj.hierarchy_level;
                 const isProtected = staffLevel <= currentHierarchy;
                 
+                const currentEmp = employees.find(e => e.id === staff.id);
+                const displayDesignation = currentEmp?.designation || currentEmp?.designation_id || staffRoleObj.label;
+
                 return (
                   <div 
                     key={staff.id} 
@@ -445,7 +671,7 @@ export default function UsersSettings() {
                               ? "bg-indigo-500/15 text-indigo-500 border border-indigo-500/25"
                               : "bg-slate-500/15 text-slate-500 border border-slate-500/25"
                           }`}>
-                            {staffRoleObj.label}
+                            {displayDesignation}
                           </span>
                         </div>
                         <p className="text-[11px] text-muted-foreground font-medium font-mono">{staff.email}</p>
@@ -464,6 +690,29 @@ export default function UsersSettings() {
                         </span>
                       ) : (
                         <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 font-bold transition-all border-indigo-200 dark:border-indigo-500/20 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-indigo-500"
+                            onClick={() => {
+                              setEditingUser(staff);
+                              const currentEmp = employees.find(e => e.id === staff.id);
+                              setSelectedEmployee(currentEmp || null);
+                              setForm({
+                                userCode: staff.user_code || "",
+                                name: staff.name || "",
+                                contact_email: staff.contact_email || "",
+                                contact_mobile: staff.contact_mobile || "",
+                                staff_id: staff.staff_id || "",
+                                role_id: staff.role_id || "role-cashier",
+                                salary: staff.salary || "",
+                                branch_id: staff.branch_id || "MAIN",
+                                password: staff.profile_password || ""
+                              });
+                            }}
+                          >
+                            <Edit className="w-3.5 h-3.5" /> Edit
+                          </Button>
                           <Button
                             variant={staff.is_active ? "destructive" : "outline"}
                             size="sm"

@@ -464,12 +464,12 @@ export default function EnterpriseIntelligence() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         
         {/* KPI 1: DRAWER VARIANCE */}
-        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm hover:border-primary/20 hover:shadow-md transition-all duration-300">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-primary/5 via-transparent to-transparent group-hover:from-primary/10 transition-colors" />
+        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-amber-500/10 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:border-amber-500/30 hover:shadow-[0_0_25px_rgba(245,158,11,0.15)] transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-500/5 via-transparent to-transparent group-hover:from-amber-500/10 transition-colors" />
           <CardContent className="p-5 flex flex-col justify-between h-32 relative">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Drawer Variance</span>
-              <div className="p-2.5 bg-secondary/80 rounded-xl text-primary border border-border/40 group-hover:scale-110 transition-transform">
+              <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-500 border border-amber-500/20 group-hover:scale-110 transition-transform">
                 <DollarSign className="w-4.5 h-4.5" />
               </div>
             </div>
@@ -478,7 +478,7 @@ export default function EnterpriseIntelligence() {
                 ₹{totalVariance >= 0 ? '+' : ''}{totalVariance.toLocaleString()}
               </h3>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${totalVariance === 0 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${totalVariance === 0 ? 'bg-emerald-500 animate-pulse' : 'bg-red-500 animate-pulse'}`} />
                 <span className="text-[10px] text-muted-foreground font-semibold">Net shift reconciliation</span>
               </div>
             </div>
@@ -486,7 +486,7 @@ export default function EnterpriseIntelligence() {
         </Card>
 
         {/* KPI 2: ACTIVE COUNTERS */}
-        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm hover:border-emerald-500/20 hover:shadow-md transition-all duration-300">
+        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-emerald-500/10 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(16,185,129,0.15)] transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-500/5 via-transparent to-transparent group-hover:from-emerald-500/10 transition-colors" />
           <CardContent className="p-5 flex flex-col justify-between h-32 relative">
             <div className="flex items-center justify-between">
@@ -512,7 +512,7 @@ export default function EnterpriseIntelligence() {
         </Card>
 
         {/* KPI 3: LOYALTY ACCOUNTS */}
-        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm hover:border-amber-500/20 hover:shadow-md transition-all duration-300">
+        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-amber-500/10 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:border-amber-500/30 hover:shadow-[0_0_25px_rgba(245,158,11,0.15)] transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-500/5 via-transparent to-transparent group-hover:from-amber-500/10 transition-colors" />
           <CardContent className="p-5 flex flex-col justify-between h-32 relative">
             <div className="flex items-center justify-between">
@@ -533,7 +533,7 @@ export default function EnterpriseIntelligence() {
         </Card>
 
         {/* KPI 4: AUDIT EVENTS */}
-        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm hover:border-purple/20 hover:shadow-md transition-all duration-300">
+        <Card className="group relative overflow-hidden bg-card/45 backdrop-blur-md border border-purple-500/10 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:border-purple-500/30 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-purple/5 via-transparent to-transparent group-hover:from-purple/10 transition-colors" />
           <CardContent className="p-5 flex flex-col justify-between h-32 relative">
             <div className="flex items-center justify-between">
@@ -642,8 +642,8 @@ export default function EnterpriseIntelligence() {
                   <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 500 220">
                     <defs>
                       <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.45" />
-                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.0" />
+                        <stop offset="0%" stopColor="rgba(245, 158, 11, 0.5)" />
+                        <stop offset="100%" stopColor="rgba(245, 158, 11, 0)" />
                       </linearGradient>
                       <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="hsl(var(--primary))" />

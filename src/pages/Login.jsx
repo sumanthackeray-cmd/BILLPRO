@@ -3,7 +3,7 @@ import { useTheme } from "next-themes";
 import { Link } from "react-router-dom";
 import { LogIn, Mail, Lock, Building2, User, Loader2, ShieldAlert, ArrowRight, Eye, EyeOff, ShieldCheck, CheckCircle2, Moon, Sun } from "lucide-react";
 import GoogleIcon from "@/components/GoogleIcon";
-import { staffLogin, ownerLogin } from "@/modules/auth/authService";
+import { staffLogin, ownerLogin, prePopulateLoginCache } from "@/modules/auth/authService";
 import { setPersistence, browserLocalPersistence } from "firebase/auth";
 import { auth } from "@/firebase/config";
 import { base44 } from "@/api/base44Client";
@@ -52,7 +52,19 @@ export default function Login() {
       }
       window.location.href = "/";
     } catch (err) {
-      setError(err.message || "Invalid credentials. Please try again.");
+      let errorMessage = err.message || "Invalid credentials. Please try again.";
+      // Make Firebase errors more professional and user-friendly
+      if (errorMessage.includes("auth/invalid-credential") || errorMessage.includes("auth/user-not-found") || errorMessage.includes("auth/wrong-password")) {
+        errorMessage = "Incorrect User ID or Password. Please check your credentials and try again.";
+      } else if (errorMessage.includes("auth/too-many-requests")) {
+        errorMessage = "Too many failed login attempts. Please try again later.";
+      } else if (errorMessage.includes("auth/network-request-failed")) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (errorMessage.includes("auth/invalid-email")) {
+        errorMessage = "The email address is badly formatted. Please enter a valid email.";
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -79,6 +91,7 @@ export default function Login() {
         const companyDoc = querySnapshot.docs[0];
         localStorage.setItem("company_id", companyDoc.id);
         localStorage.setItem("user_code", "ADMIN-001");
+        await prePopulateLoginCache(user, companyDoc.id, "ADMIN-001");
         window.location.href = "/";
       } else {
         await base44.auth.logout();
@@ -175,6 +188,13 @@ export default function Login() {
             <h2 className="text-3xl font-black text-[#111118] dark:text-white tracking-tight mb-2 transition-colors duration-300">Welcome back</h2>
             <p className="text-[#7A7A8C] dark:text-[#8A8A9E] font-medium transition-colors duration-300">Please enter your details to sign in.</p>
           </div>
+
+          <p className="text-center text-[15px] text-[#3A3A4A] dark:text-[#D1D1E0] font-bold mb-4 transition-colors duration-300">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-[#E8721C] font-bold hover:text-[#D4641A] transition-colors">
+              Create workspace
+            </Link>
+          </p>
 
           {/* Role Toggle */}
           <div className="flex p-1 bg-[#F0F0F6] dark:bg-[#1A1A28] rounded-xl mb-8 border border-[#E8E8EE] dark:border-[#2A2A3A] transition-colors duration-300">
@@ -298,14 +318,6 @@ export default function Login() {
             </button>
           </form>
 
-
-
-          <p className="mt-8 text-center text-[#7A7A8C] dark:text-[#8A8A9E] font-medium transition-colors duration-300">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-[#E8721C] font-bold hover:text-[#D4641A] transition-colors">
-              Create workspace
-            </Link>
-          </p>
 
         </div>
       </div>

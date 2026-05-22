@@ -7,13 +7,51 @@ import { initTokenManager } from '@/firebase/tokenManager';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
+  const [user, setUser] = useState(() => {
+    try {
+      const cached = localStorage.getItem('base44_cached_user');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      return !!localStorage.getItem('base44_access_token');
+    } catch {
+      return false;
+    }
+  });
+  const [isLoadingAuth, setIsLoadingAuth] = useState(() => {
+    try {
+      return !localStorage.getItem('base44_cached_user');
+    } catch {
+      return true;
+    }
+  });
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(() => {
+    try {
+      return !localStorage.getItem('base44_cached_user');
+    } catch {
+      return true;
+    }
+  });
   const [authError, setAuthError] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [appPublicSettings, setAppPublicSettings] = useState(null);
+  const [authChecked, setAuthChecked] = useState(() => {
+    try {
+      return !!localStorage.getItem('base44_cached_user');
+    } catch {
+      return false;
+    }
+  });
+  const [appPublicSettings, setAppPublicSettings] = useState(() => {
+    try {
+      const cached = localStorage.getItem('base44_cached_user');
+      return cached ? { id: appParams.appId || 'mock-app-id', public_settings: {} } : null;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     // Initialize token session management (idle timeout, concurrency monitoring)
@@ -21,8 +59,11 @@ export const AuthProvider = ({ children }) => {
 
     // Listen for Firebase Auth state changes
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
-      setIsLoadingPublicSettings(true);
-      setIsLoadingAuth(true);
+      const hasCachedUser = !!localStorage.getItem('base44_cached_user');
+      if (!hasCachedUser) {
+        setIsLoadingPublicSettings(true);
+        setIsLoadingAuth(true);
+      }
       setAuthError(null);
       
       const publicSettings = { id: appParams.appId || 'mock-app-id', public_settings: {} };
@@ -52,13 +93,13 @@ export const AuthProvider = ({ children }) => {
             }
           }
 
-          // 1. Fetch users list from Firestore
-          let usersList = [];
-          try {
-            usersList = await base44.entities.User.list();
-          } catch (e) {
-            console.error("Error listing users:", e);
-          }
+          // Fetch all authentication resources in parallel (Users, Roles, Permissions, field access maps)
+          const [usersList, roles, permissions, sensitiveFieldAccess] = await Promise.all([
+            base44.entities.User.list().catch(e => { console.error("Error listing users:", e); return []; }),
+            base44.entities.Role.list().catch(e => { console.error("Error listing roles:", e); return []; }),
+            base44.entities.Permission.list().catch(e => { console.error("Error listing permissions:", e); return []; }),
+            base44.entities.SensitiveFieldAccess.list().catch(e => { console.error("Error listing sensitive field access:", e); return []; })
+          ]);
 
           let userRecord = usersList.find(u => u.id === firebaseUser.uid);
           
@@ -93,6 +134,7 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             setIsAuthenticated(false);
             localStorage.removeItem('base44_access_token');
+            localStorage.removeItem('base44_cached_user');
             localStorage.removeItem(`rbac_profile_${firebaseUser.uid}`);
             await auth.signOut();
             setIsLoadingPublicSettings(false);
@@ -100,11 +142,6 @@ export const AuthProvider = ({ children }) => {
             setAuthChecked(true);
             return;
           }
-
-          // 2. Fetch Roles, Permissions & Sensitive Field Access maps
-          const roles = await base44.entities.Role.list();
-          const permissions = await base44.entities.Permission.list();
-          const sensitiveFieldAccess = await base44.entities.SensitiveFieldAccess.list();
 
           const matchingRole = roles.find(r => r.id === userRecord.role_id) || roles.find(r => r.role_name === 'cashier') || { role_name: 'cashier', hierarchy_level: 7 };
           const matchingPermission = permissions.find(p => p.role_id === userRecord.role_id) || {
@@ -154,6 +191,7 @@ export const AuthProvider = ({ children }) => {
             user_code: userRecord.user_code || localStorage.getItem('user_code') || "",
           };
 
+          localStorage.setItem('base44_cached_user', JSON.stringify(currentUser));
           setUser(currentUser);
           setIsAuthenticated(true);
         } catch (err) {
@@ -176,6 +214,7 @@ export const AuthProvider = ({ children }) => {
             sensitive_fields: { purchase_price: false, profit_margin: false, salary: false },
             is_active: true
           };
+          localStorage.setItem('base44_cached_user', JSON.stringify(currentUser));
           setUser(currentUser);
           setIsAuthenticated(true);
         }
@@ -183,6 +222,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setIsAuthenticated(false);
         localStorage.removeItem('base44_access_token');
+        localStorage.removeItem('base44_cached_user');
       }
       
       setIsLoadingPublicSettings(false);

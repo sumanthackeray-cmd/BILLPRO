@@ -4,13 +4,17 @@ import { base44 } from "@/api/base44Client";
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
   Users, BarChart3, Settings, Sparkles, ScanBarcode, LogOut, Crown,
-  Receipt, BookOpen, Landmark, Building2, Zap, GitBranch, RefreshCw, Warehouse, TrendingUp, Shield
+  Receipt, BookOpen, Landmark, Building2, Zap, GitBranch, RefreshCw, Warehouse, TrendingUp, Shield, Scissors,
+  Monitor, Tag, Award, Calendar
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useFashionMode } from "@/hooks/useFashionMode";
+import { useSupermarketMode } from "@/hooks/useSupermarketMode";
+import { useShopSettings } from "@/hooks/useShopSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/lib/LanguageContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getAllBranches, getCachedBranches, createBranch } from "@/api/branchService";
 
@@ -52,12 +56,42 @@ export default function Sidebar({ mobile = false, onClose }) {
   const [activeBranchId, setActiveBranchId] = useState(localStorage.getItem('selectedBranch') || '');
 
   // Fetch shop settings
-  const { data: settings = [] } = useQuery({
-    queryKey: ["shopSettings"],
-    queryFn: () => base44.entities.ShopSettings.list(),
-    enabled: !!user,
-  });
-  const shopSettings = settings[0] || {};
+  const { shopSettings } = useShopSettings();
+
+  const { isFashion } = useFashionMode();
+  const { isSupermarket } = useSupermarketMode();
+
+  const activeNavItems = useMemo(() => {
+    if (isFashion) {
+      return [
+        { path: "/", icon: LayoutDashboard, label: "Dashboard", tKey: "nav.dashboard" },
+        { path: "/pos", icon: Zap, label: "Fashion POS", badge: "FAST", tKey: "nav.pos" },
+        { path: "/invoices", icon: FileText, label: "Invoices", tKey: "nav.invoices" },
+        { path: "/profiles", icon: Users, label: "Style Profiles", badge: "CRM", tKey: "nav.profiles" },
+        { path: "/alterations", icon: Scissors, label: "Alterations", badge: "LIVE", tKey: "nav.alterations" },
+        { path: "/inventory", icon: Package, label: "Inventory", tKey: "nav.inventory" },
+        { path: "/purchases", icon: ShoppingCart, label: "Purchases", tKey: "nav.purchases" },
+        { path: "/reports", icon: BarChart3, label: "Reports", tKey: "nav.reports" },
+        { path: "/settings", icon: Settings, label: "Settings", tKey: "nav.settings" },
+        { path: "/subscription", icon: Crown, label: "Upgrade", badge: "PRO", isPro: true, tKey: "nav.upgrade" },
+      ];
+    }
+    if (isSupermarket) {
+      return [
+        { path: "/", icon: LayoutDashboard, label: "Dashboard", tKey: "nav.dashboard" },
+        { path: "/pos", icon: Zap, label: "Supermarket POS", badge: "FAST", tKey: "nav.pos" },
+        { path: "/supermarket/counters", icon: Monitor, label: "Counter Mgmt", badge: "LIVE", tKey: "nav.supermarket_counters" },
+        { path: "/supermarket/offers", icon: Tag, label: "Offers Engine", badge: "PROMO", tKey: "nav.supermarket_offers" },
+        { path: "/supermarket/loyalty", icon: Award, label: "Loyalty Program", badge: "CRM", tKey: "nav.supermarket_loyalty" },
+        { path: "/supermarket/expiry", icon: Calendar, label: "Expiry Mgmt", badge: "FEFO", tKey: "nav.supermarket_expiry" },
+        { path: "/supermarket/reports", icon: BarChart3, label: "Dept Reports", badge: "P&L", tKey: "nav.supermarket_reports" },
+        { path: "/inventory", icon: Package, label: "Inventory", tKey: "nav.inventory" },
+        { path: "/settings", icon: Settings, label: "Settings", tKey: "nav.settings" },
+        { path: "/subscription", icon: Crown, label: "Upgrade", badge: "PRO", isPro: true, tKey: "nav.upgrade" },
+      ];
+    }
+    return NAV_ITEMS;
+  }, [isFashion, isSupermarket]);
 
   // Refresh branches from Firestore after login
   useEffect(() => {
@@ -132,7 +166,7 @@ export default function Sidebar({ mobile = false, onClose }) {
   };
 
   // Dynamically filter navigation items based on user's SAP permissions
-  const filteredNavItems = NAV_ITEMS.filter((item) => {
+  const filteredNavItems = activeNavItems.filter((item) => {
     if (!user) return true;
     
 
@@ -180,13 +214,21 @@ export default function Sidebar({ mobile = false, onClose }) {
     )}>
       {/* Logo & Brand */}
       <div className="px-5 pt-5 pb-3 border-b border-sidebar-border/30 shrink-0">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-2">
           <span className="text-2xl font-black gold-text">GSTBill</span>
           <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">PRO</span>
         </div>
-        <p className="text-[11px] text-muted-foreground font-bold truncate mb-2">
-          🏢 {shopSettings.shop_name || "Vogats Retail Outlet"}
-        </p>
+        <div className="flex flex-col gap-0.5 mb-2">
+          <p className="text-[12px] text-foreground font-extrabold uppercase tracking-wider truncate">
+            🏢 {shopSettings.shop_name || user?.business_name || "GSTBill Retail"}
+          </p>
+          <div className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 truncate">
+            <span className="truncate">{user?.name || "Kamlesh Kkumar"}</span>
+            <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground text-[8px] font-bold border border-border/50">
+              ID: {(user?.user_code === 'ADMIN-001' || localStorage.getItem('user_code') === 'ADMIN-001' ? `${(localStorage.getItem('company_id') || 'COMP').split('-')[0].substring(0, 6).toUpperCase()}-ADMIN-001` : user?.user_code || user?.id?.substring(0, 6) || "STF-01")}
+            </span>
+          </div>
+        </div>
 
         {/* Dynamic Branch Dropdown Switcher */}
         {branches.length > 0 && (

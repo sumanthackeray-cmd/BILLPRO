@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { 
   Users, Search, UserPlus, FileSpreadsheet, Eye, Plus, Calendar, DollarSign, Award, Settings, Briefcase, 
-  MapPin, ShieldAlert, Trash2, CheckCircle2, ChevronRight, UserCheck, AlertCircle, Edit, ShieldCheck, HeartPulse
+  MapPin, ShieldAlert, Trash2, CheckCircle2, ChevronRight, UserCheck, AlertCircle, Edit, ShieldCheck, HeartPulse,
+  Fingerprint, Sparkles, Cpu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,88 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { base44 } from "@/api/base44Client";
 import { toast } from "@/lib/toast";
+
+function SearchableSelect({ value, onChange, options = [], placeholder = "Select option...", label }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  
+  const filteredOptions = useMemo(() => {
+    return options.filter(opt => 
+      (opt.label || opt.name || "").toLowerCase().includes(search.toLowerCase())
+    );
+  }, [options, search]);
+
+  const selectedOption = useMemo(() => {
+    return options.find(opt => opt.value === value || opt.id === value || opt.name === value);
+  }, [options, value]);
+
+  const displayLabel = selectedOption ? (selectedOption.label || selectedOption.name) : placeholder;
+
+  return (
+    <div className="space-y-1.5 relative w-full text-xs text-left">
+      {label && <Label className="text-[10px] font-bold text-muted-foreground uppercase">{label}</Label>}
+      <div 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="w-full bg-background border border-border/80 rounded-lg py-2 px-3 h-9 text-xs font-bold flex items-center justify-between cursor-pointer hover:border-primary/50 transition"
+      >
+        <span className="text-foreground">{displayLabel}</span>
+        <span className="text-muted-foreground text-[8px]">▼</span>
+      </div>
+
+      {isOpen && (
+        <>
+          {/* Backdrop for dismiss */}
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+              setSearch("");
+            }} 
+          />
+          {/* Options Dropdown list overlay */}
+          <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border/60 rounded-xl shadow-xl z-50 p-2 max-h-48 overflow-y-auto flex flex-col gap-1 scrollbar-thin">
+            <Input 
+              type="text" 
+              placeholder="Search..." 
+              value={search} 
+              onChange={e => setSearch(e.target.value)} 
+              onClick={e => e.stopPropagation()} 
+              className="text-[11px] bg-background/50 h-8 border-border/40 mb-1 shrink-0"
+              autoFocus
+            />
+            <div className="overflow-y-auto flex flex-col gap-0.5 max-h-36">
+              {filteredOptions.length === 0 ? (
+                <div className="p-2 text-center text-muted-foreground text-[10px]">No results found.</div>
+              ) : (
+                filteredOptions.map((opt, i) => {
+                  const optVal = opt.value || opt.id || opt.name || "";
+                  const optLabel = opt.label || opt.name || "";
+                  return (
+                    <div 
+                      key={i}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onChange(optVal);
+                        setIsOpen(false);
+                        setSearch("");
+                      }}
+                      className={`p-2 rounded-lg cursor-pointer hover:bg-secondary/40 font-semibold text-[10.5px] transition ${
+                        value === optVal ? "bg-primary/10 text-primary" : "text-foreground"
+                      }`}
+                    >
+                      {optLabel}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function EmployeeMaster({ 
   employees = [], 
@@ -24,7 +107,8 @@ export default function EmployeeMaster({
   attendanceLogs = [],
   loansList = [],
   performanceList = [],
-  documentsList = []
+  documentsList = [],
+  salaryStructures = []
 }) {
   const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
   const safeDepartmentsList = useMemo(() => Array.isArray(departmentsList) ? departmentsList : [], [departmentsList]);
@@ -36,6 +120,24 @@ export default function EmployeeMaster({
   const safePerformanceList = useMemo(() => Array.isArray(performanceList) ? performanceList : [], [performanceList]);
   const safeDocumentsList = useMemo(() => Array.isArray(documentsList) ? documentsList : [], [documentsList]);
   const safeRoles = useMemo(() => Array.isArray(AVAILABLE_ROLES) ? AVAILABLE_ROLES : [], [AVAILABLE_ROLES]);
+  const safeSalaryStructures = useMemo(() => Array.isArray(salaryStructures) ? salaryStructures : [], [salaryStructures]);
+
+  // Profile Edit Mode States
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [isManualDept, setIsManualDept] = useState(false);
+  const [isManualDesg, setIsManualDesg] = useState(false);
+
+  // Onboarding Biometric Simulator Enrollment States
+  const [isFaceEnrolling, setIsFaceEnrolling] = useState(false);
+  const [faceEnrollHash, setFaceEnrollHash] = useState("");
+  const [isThumbEnrolling, setIsThumbEnrolling] = useState(false);
+  const [thumbEnrollId, setThumbEnrollId] = useState("");
+
+  // Inline Roster Row Edit States
+  const [activeEditRowType, setActiveEditRowType] = useState(null); // 'attendance', 'leave', 'document', 'performance', 'loan'
+  const [editingRowData, setEditingRowData] = useState(null);
+  const [isRowModalOpen, setIsRowModalOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -50,11 +152,11 @@ export default function EmployeeMaster({
   
   // Active tab inside Employee Profile
   const [profileActiveTab, setProfileActiveTab] = useState("overview");
-
+  
   // Onboard form state
   const [onboardForm, setOnboardForm] = useState({
     // Personal Information
-    first_name: "", middle_name: "", last_name: "",dob: "", gender: "male", marital_status: "single",
+    first_name: "", middle_name: "", last_name: "", dob: "", gender: "male", marital_status: "single",
     blood_group: "B+", nationality: "Indian", religion: "Hindu", caste_category: "general",
     physically_disabled: false, disability_details: "", photo_url: "", emergency_contacts: "",
     personal_email: "", work_email: "", personal_phone: "", work_phone: "", whatsapp_number: "",
@@ -88,6 +190,379 @@ export default function EmployeeMaster({
     provident_fund: true, esic_insurance: true, professional_tax_state: "Maharashtra", tds_tax_monthly: "0"
   });
 
+
+  // CSV Import/Export States
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [isCsvUploading, setIsCsvUploading] = useState(false);
+  const [csvUploadProgress, setCsvUploadProgress] = useState("");
+
+  // Core RFC 4180 Compliant CSV Parser
+  const parseCSV = (text) => {
+    const lines = [];
+    let row = [""];
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      const next = text[i + 1];
+
+      if (c === '"') {
+        if (inQuotes && next === '"') {
+          row[row.length - 1] += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (c === ',' && !inQuotes) {
+        row.push('');
+      } else if ((c === '\r' || c === '\n') && !inQuotes) {
+        if (c === '\r' && next === '\n') {
+          i++;
+        }
+        lines.push(row);
+        row = [''];
+      } else {
+        row[row.length - 1] += c;
+      }
+    }
+    if (row.length > 1 || row[0] !== '') {
+      lines.push(row);
+    }
+    return lines;
+  };
+
+  // Core RFC 4180 Compliant CSV Generator
+  const generateCSV = (rows) => {
+    return rows.map(row => 
+      row.map(val => {
+        const stringVal = val === null || val === undefined ? "" : String(val);
+        if (stringVal.includes(",") || stringVal.includes('"') || stringVal.includes("\n") || stringVal.includes("\r")) {
+          return `"${stringVal.replace(/"/g, '""')}"`;
+        }
+        return stringVal;
+      }).join(",")
+    ).join("\r\n");
+  };
+
+  // Handler: Download Sample CSV template for user guidance
+  const handleDownloadSampleCsv = () => {
+    const headers = [
+      "employee_code", "first_name", "last_name", "department", "designation", 
+      "basic_salary", "hra", "allowances", "bank_name", "account_number", 
+      "ifsc_code", "biometric_id", "rfid_card_no", "work_location", "shift_sector",
+      "present_days", "lop_days", "overtime_hours", "email", "phone"
+    ];
+    const sampleRow1 = [
+      "EMP-2026-001", "Ramesh", "Kumar", "Manufacturing", "Floor Operator",
+      "25000", "10000", "5000", "HDFC Bank", "5010022334455",
+      "HDFC0001234", "BIO-9081", "RFID-29381", "Main Plant", "General Shift",
+      "26", "0", "4", "ramesh@example.com", "9876543210"
+    ];
+    const sampleRow2 = [
+      "EMP-2026-002", "Suresh", "Patil", "Sales & Marketing", "QC Specialist",
+      "32000", "12000", "6000", "ICICI Bank", "000401567890",
+      "ICIC0000004", "BIO-9082", "RFID-29382", "Main Plant", "General Shift",
+      "25", "1", "0", "suresh@example.com", "9876543211"
+    ];
+    
+    const csvString = generateCSV([headers, sampleRow1, sampleRow2]);
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "employee_roster_sample.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Sample CSV template downloaded successfully!");
+  };
+
+  // Handler: Export current filtered employees roster
+  const handleExportRosterCsv = () => {
+    const headers = [
+      "employee_code", "first_name", "last_name", "department", "designation", 
+      "basic_salary", "hra", "allowances", "bank_name", "account_number", 
+      "ifsc_code", "biometric_id", "rfid_card_no", "work_location", "shift_sector",
+      "present_days", "lop_days", "overtime_hours", "email", "phone"
+    ];
+
+    const rows = [headers];
+
+    filteredEmployees.forEach(emp => {
+      const matchStruct = safeSalaryStructures.find(s => s && s.employeeId === emp.id) || {};
+      const firstName = emp.first_name || emp.name?.split(" ")[0] || "";
+      const lastName = emp.last_name || emp.name?.split(" ").slice(1).join(" ") || "";
+      
+      rows.push([
+        emp.employee_code || emp.employeeId || "",
+        firstName,
+        lastName,
+        emp.department || emp.department_id || "Manufacturing",
+        emp.designation || emp.designation_id || "Floor Operator",
+        String(matchStruct.basic_salary || emp.basicSalary || "20000"),
+        String(matchStruct.hra || emp.hra || "8000"),
+        String(matchStruct.special_allowance || emp.allowances || "5000"),
+        emp.bank_name || "",
+        emp.account_number || "",
+        emp.ifsc_code || "",
+        emp.biometric_id || "",
+        emp.rfid_card_no || "",
+        emp.work_location || "Main Plant",
+        emp.shift || emp.shift_id || "General Shift",
+        String(emp.present_days !== undefined ? emp.present_days : (emp.presentDays !== undefined ? emp.presentDays : "26")),
+        String(emp.lop_days !== undefined ? emp.lop_days : (emp.lopDays !== undefined ? emp.lopDays : "0")),
+        String(emp.overtime_hours !== undefined ? emp.overtime_hours : (emp.overtimeHours !== undefined ? emp.overtimeHours : "0")),
+        emp.personal_email || emp.work_email || "",
+        emp.personal_phone || emp.work_phone || ""
+      ]);
+    });
+
+    const csvString = generateCSV(rows);
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `employee_roster_export_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Successfully exported roster of ${filteredEmployees.length} employees to CSV!`);
+  };
+
+  // Handler: Reconcile and Sync incoming CSV rows with database
+  const handleImportRosterCsv = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsCsvUploading(true);
+    setCsvUploadProgress("Parsing spreadsheet rows...");
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const text = e.target.result;
+          const parsed = parseCSV(text);
+          if (parsed.length <= 1) {
+            toast.error("CSV file is empty or only contains headers.");
+            setIsCsvUploading(false);
+            return;
+          }
+
+          const headers = parsed[0].map(h => h.trim().toLowerCase());
+          const records = parsed.slice(1).filter(r => r.length > 0 && r.some(v => v.trim() !== ""));
+
+          // Column indices mapper
+          const colIndex = (colName) => headers.indexOf(colName);
+
+          const codeIdx = colIndex("employee_code");
+          const firstIdx = colIndex("first_name");
+          const lastIdx = colIndex("last_name");
+
+          if (codeIdx === -1 || firstIdx === -1 || lastIdx === -1) {
+            toast.error("Invalid CSV structure. Make sure headers include: employee_code, first_name, last_name.");
+            setIsCsvUploading(false);
+            return;
+          }
+
+          setCsvUploadProgress(`Syncing ${records.length} roster profiles with cloud catalog...`);
+
+          const companyId = localStorage.getItem("company_id") || "VOGATS";
+          let successCount = 0;
+          let newEmployeesCount = 0;
+
+          // Import auth management functions
+          const { manageStaffUser } = await import("@/firebase/functions");
+
+          // Keep in-memory arrays to quickly track newly added entities within loop
+          const localDepts = [...safeDepartmentsList];
+          const localDesigs = [...safeDesignationsList];
+
+          for (let i = 0; i < records.length; i++) {
+            const row = records[i];
+            const code = row[codeIdx]?.trim();
+            const first = row[firstIdx]?.trim();
+            const last = row[lastIdx]?.trim();
+
+            if (!code || !first) continue;
+
+            setCsvUploadProgress(`Processing ${i + 1}/${records.length}: [${code}] ${first}...`);
+
+            const dept = colIndex("department") !== -1 ? row[colIndex("department")]?.trim() : "Manufacturing";
+            const desg = colIndex("designation") !== -1 ? row[colIndex("designation")]?.trim() : "Floor Operator";
+            const basic = colIndex("basic_salary") !== -1 ? Number(row[colIndex("basic_salary")]) || 20000 : 20000;
+            const hra = colIndex("hra") !== -1 ? Number(row[colIndex("hra")]) || 8000 : 8000;
+            const allowances = colIndex("allowances") !== -1 ? Number(row[colIndex("allowances")]) || 5000 : 5000;
+            const bank = colIndex("bank_name") !== -1 ? row[colIndex("bank_name")]?.trim() : "";
+            const account = colIndex("account_number") !== -1 ? row[colIndex("account_number")]?.trim() : "";
+            const ifsc = colIndex("ifsc_code") !== -1 ? row[colIndex("ifsc_code")]?.trim() : "";
+            const bio = colIndex("biometric_id") !== -1 ? row[colIndex("biometric_id")]?.trim() : "";
+            const rfid = colIndex("rfid_card_no") !== -1 ? row[colIndex("rfid_card_no")]?.trim() : "";
+            const loc = colIndex("work_location") !== -1 ? row[colIndex("work_location")]?.trim() : "Main Plant";
+            const shift = colIndex("shift_sector") !== -1 ? row[colIndex("shift_sector")]?.trim() : "General Shift";
+            const pres = colIndex("present_days") !== -1 ? String(row[colIndex("present_days")]?.trim() || "26") : "26";
+            const lop = colIndex("lop_days") !== -1 ? String(row[colIndex("lop_days")]?.trim() || "0") : "0";
+            const ot = colIndex("overtime_hours") !== -1 ? String(row[colIndex("overtime_hours")]?.trim() || "0") : "0";
+            const email = colIndex("email") !== -1 && row[colIndex("email")]?.trim() 
+              ? row[colIndex("email")]?.trim() 
+              : `${code.replace(/[-\s]/g, "").toLowerCase()}@${companyId.toLowerCase()}.gstbill.app`;
+            const phone = colIndex("phone") !== -1 && row[colIndex("phone")]?.trim() 
+              ? row[colIndex("phone")]?.trim() 
+              : "9876543210";
+
+            // Ensure Department exists dynamically
+            if (dept) {
+              const deptExists = localDepts.some(d => d.name?.toLowerCase() === dept.toLowerCase());
+              if (!deptExists) {
+                const newCode = dept.substring(0, 3).toUpperCase() + Math.floor(10 + Math.random() * 90);
+                try {
+                  await base44.entities.Department.create({ name: dept, code: newCode });
+                  localDepts.push({ name: dept, code: newCode });
+                } catch (err) {
+                  console.error("Auto-seeding department failed:", err);
+                }
+              }
+            }
+
+            // Ensure Designation exists dynamically
+            if (desg) {
+              const desgExists = localDesigs.some(d => d.name?.toLowerCase() === desg.toLowerCase());
+              if (!desgExists) {
+                const newCode = desg.substring(0, 3).toUpperCase() + Math.floor(10 + Math.random() * 90);
+                try {
+                  await base44.entities.Designation.create({ name: desg, code: newCode });
+                  localDesigs.push({ name: desg, code: newCode });
+                } catch (err) {
+                  console.error("Auto-seeding designation failed:", err);
+                }
+              }
+            }
+
+            // Check if profile exists
+            const existingEmp = safeEmployees.find(emp => 
+              emp.employee_code?.trim().toLowerCase() === code.toLowerCase() ||
+              emp.employeeId?.trim().toLowerCase() === code.toLowerCase() ||
+              emp.id?.trim().toLowerCase() === code.toLowerCase()
+            );
+
+            const employeeData = {
+              company_id: companyId,
+              employee_code: code,
+              first_name: first,
+              last_name: last || "",
+              full_name: `${first} ${last || ""}`,
+              preferred_name: first,
+              department: dept,
+              department_id: dept,
+              designation: desg,
+              designation_id: desg,
+              basicSalary: basic,
+              hra: hra,
+              allowances: allowances,
+              bank_name: bank,
+              account_number: account,
+              ifsc_code: ifsc,
+              account_holder_name: `${first} ${last || ""}`,
+              biometric_id: bio,
+              rfid_card_no: rfid,
+              work_location: loc,
+              shift: shift,
+              shift_id: shift,
+              present_days: pres,
+              lop_days: lop,
+              overtime_hours: ot,
+              personal_email: email,
+              work_email: email,
+              personal_phone: phone,
+              work_phone: phone,
+              status: "active",
+              leavesBalance: 15,
+              leavesUsed: 0
+            };
+
+            const salaryData = {
+              effective_from: new Date().toISOString().split("T")[0],
+              ctc_annual: (basic + hra + allowances) * 12,
+              basic_salary: basic,
+              hra: hra,
+              special_allowance: allowances,
+              conveyance: 1600,
+              medical_allowance: 1250,
+              food_allowance: 2000,
+              pf_employee: Math.round(basic * 0.12),
+              pf_employer: Math.round(basic * 0.12),
+              esic_employee: Math.round(basic * 0.0075),
+              esic_employer: Math.round(basic * 0.0325),
+              professional_tax: 200,
+              professional_tax_state: "Maharashtra",
+              tds_monthly: 0,
+              net_take_home: basic + hra + allowances - Math.round(basic * 0.12) - 200,
+              is_current: true
+            };
+
+            if (existingEmp) {
+              // Reconcile Profile properties
+              await base44.entities.Employee.update(existingEmp.id, employeeData);
+              
+              try {
+                await base44.entities.User.update(existingEmp.id, {
+                  name: `${first} ${last || ""}`,
+                  salary: basic + hra,
+                  branchId: loc
+                });
+              } catch (err) {
+                console.warn(`Credentials node refresh skipped for user ${code}`, err);
+              }
+
+              // Sync salary scale structure
+              const existingStructure = safeSalaryStructures.find(s => s && s.employeeId === existingEmp.id);
+              if (existingStructure) {
+                await base44.entities.SalaryStructure.update(existingStructure.id, salaryData);
+              } else {
+                await base44.entities.SalaryStructure.create({
+                  employeeId: existingEmp.id,
+                  company_id: companyId,
+                  ...salaryData
+                });
+              }
+              successCount++;
+            } else {
+              // Seamless onboarding of a new profile
+              const newEmp = await base44.entities.Employee.create(employeeData);
+
+              await base44.entities.SalaryStructure.create({
+                employeeId: newEmp.id,
+                company_id: companyId,
+                ...salaryData
+              });
+
+              successCount++;
+              newEmployeesCount++;
+            }
+          }
+
+          toast.success(`Roster successfully reconciled: ${successCount} profiles synced, including ${newEmployeesCount} new onboardings!`);
+          setIsCsvModalOpen(false);
+          
+          // Trigger data reload triggers
+          refetchUsers();
+          refetchDetails();
+        } catch (err) {
+          console.error(err);
+          toast.error("Reconciliation error: " + err.message);
+        } finally {
+          setIsCsvUploading(false);
+        }
+      };
+
+      reader.readAsText(file);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to read roster CSV file.");
+      setIsCsvUploading(false);
+    }
+  };
+
   // Unique Employee Code generation helper (EMP-YYYY-NNN)
   const autoGenerateCode = useMemo(() => {
     const year = new Date().getFullYear();
@@ -97,12 +572,184 @@ export default function EmployeeMaster({
 
   // Set default generated code on mount / form open
   const handleOpenOnboarding = () => {
-    setOnboardForm(prev => ({
-      ...prev,
-      employee_code: autoGenerateCode
-    }));
+
+    setIsEditing(false);
+    setEditingId(null);
+    setIsManualDept(false);
+    setIsManualDesg(false);
+    setFaceEnrollHash("");
+    setThumbEnrollId("");
+    setOnboardForm({
+      first_name: "", middle_name: "", last_name: "", dob: "", gender: "male", marital_status: "single",
+      blood_group: "B+", nationality: "Indian", religion: "Hindu", caste_category: "general",
+      physically_disabled: false, disability_details: "", photo_url: "", emergency_contacts: "",
+      personal_email: "", work_email: "", personal_phone: "", work_phone: "", whatsapp_number: "",
+      present_address: "", permanent_address: "", same_as_present: true,
+      
+      aadhaar_number: "", pan_number: "", passport_number: "", passport_expiry: "",
+      voter_id: "", driving_license: "", dl_expiry: "", uan_number: "", esic_number: "",
+      
+      employee_code: autoGenerateCode, department_id: "", designation_id: "", employment_type: "full_time",
+      grade: "L3", date_of_joining: new Date().toISOString().split("T")[0], probation_end_date: "",
+      confirmation_date: "", date_of_leaving: "", notice_period_days: "30", reporting_manager: "",
+      work_location: "Main Plant", shift_id: "", cost_center: "", work_from_home: false,
+      
+      education: "", certifications: "", skills: "", previous_experience: "",
+      
+      bank_name: "", account_number: "", ifsc_code: "", account_type: "savings",
+      account_holder_name: "", payment_mode: "bank_transfer", upi_id: "",
+      
+      worker_category: "floor_worker", floor_zone: "A", biometric_id: "", rfid_card_no: "",
+      is_piece_rate: false, piece_rate_per_unit: "10.00", machine_certified: "",
+      
+      basic_salary: "20000", hra: "8000", special_allowance: "4750", conveyance: "1600",
+      medical_allowance: "1250", telephone_allowance: "500", food_allowance: "2000",
+      variable_pay: "0", company_accommodation: false, accommodation_rent: "0", canteen_deduction: "50",
+      provident_fund: true, esic_insurance: true, professional_tax_state: "Maharashtra", tds_tax_monthly: "0"
+    });
     setOnboardActiveTab("personal");
     setIsOnboardingOpen(true);
+  };
+
+  // Pre-load onboard form state for editing
+  const handleStartEdit = (emp) => {
+    setIsEditing(true);
+    setEditingId(emp.id);
+    
+    // Find matching salary structure
+    const matchingSalary = safeSalaryStructures.find(s => s && s.employeeId === emp.id) || {};
+    
+    setOnboardForm({
+      first_name: emp.first_name || emp.name?.split(" ")[0] || "",
+      middle_name: emp.middle_name || "",
+      last_name: emp.last_name || emp.name?.split(" ").slice(1).join(" ") || "",
+      dob: emp.dob || "",
+      gender: emp.gender || "male",
+      marital_status: emp.marital_status || "single",
+      blood_group: emp.blood_group || "B+",
+      nationality: emp.nationality || "Indian",
+      religion: emp.religion || "Hindu",
+      caste_category: emp.caste_category || "general",
+      physically_disabled: emp.physically_disabled || false,
+      disability_details: emp.disability_details || "",
+      photo_url: emp.photo_url || "",
+      emergency_contacts: emp.emergency_contacts ? JSON.stringify(emp.emergency_contacts) : "",
+      personal_email: emp.personal_email || "",
+      work_email: emp.work_email || "",
+      personal_phone: emp.personal_phone || "",
+      work_phone: emp.work_phone || "",
+      whatsapp_number: emp.whatsapp_number || "",
+      present_address: emp.present_address?.line1 || "",
+      permanent_address: emp.permanent_address?.line1 || "",
+      same_as_present: emp.same_as_present || true,
+      
+      aadhaar_number: emp.aadhaar_number || "",
+      pan_number: emp.pan_number || "",
+      passport_number: emp.passport_number || "",
+      passport_expiry: emp.passport_expiry || "",
+      voter_id: emp.voter_id || "",
+      driving_license: emp.driving_license || "",
+      dl_expiry: emp.dl_expiry || "",
+      uan_number: emp.uan_number || "",
+      esic_number: emp.esic_number || "",
+      
+      employee_code: emp.employee_code || emp.employeeId || "",
+      department_id: emp.department || emp.department_id || "",
+      designation_id: emp.designation || emp.designation_id || "",
+      employment_type: emp.employment_type || "full_time",
+      grade: emp.grade || "L3",
+      date_of_joining: emp.date_of_joining || emp.joiningDate || new Date().toISOString().split("T")[0],
+      probation_end_date: emp.probation_end_date || "",
+      confirmation_date: emp.confirmation_date || "",
+      date_of_leaving: emp.date_of_leaving || "",
+      notice_period_days: emp.notice_period_days || "30",
+      reporting_manager: emp.reporting_manager || "",
+      work_location: emp.work_location || "Main Plant",
+      shift_id: emp.shift || emp.shift_id || "",
+      cost_center: emp.cost_center || "",
+      work_from_home: emp.work_from_home || false,
+      
+      education: emp.education || "",
+      certifications: emp.certifications || "",
+      skills: emp.skills || "",
+      previous_experience: emp.previous_experience || "",
+      
+      bank_name: emp.bank_name || "",
+      account_number: emp.account_number || "",
+      ifsc_code: emp.ifsc_code || "",
+      account_type: emp.account_type || "savings",
+      account_holder_name: emp.account_holder_name || "",
+      payment_mode: emp.payment_mode || "bank_transfer",
+      upi_id: emp.upi_id || "",
+      
+      worker_category: emp.worker_category || "floor_worker",
+      floor_zone: emp.floor_zone || "A",
+      biometric_id: emp.biometric_id || "",
+      rfid_card_no: emp.rfid_card_no || "",
+      is_piece_rate: emp.is_piece_rate || false,
+      piece_rate_per_unit: emp.piece_rate_per_unit || "10.00",
+      machine_certified: emp.machine_certified ? emp.machine_certified.join(", ") : "",
+      
+      basic_salary: String(matchingSalary.basic_salary || emp.basicSalary || "20000"),
+      hra: String(matchingSalary.hra || emp.hra || "8000"),
+      special_allowance: String(matchingSalary.special_allowance || emp.allowances || "4750"),
+      conveyance: String(matchingSalary.conveyance || "1600"),
+      medical_allowance: String(matchingSalary.medical_allowance || "1250"),
+      telephone_allowance: String(matchingSalary.telephone_allowance || "500"),
+      food_allowance: String(matchingSalary.food_allowance || "2000"),
+      variable_pay: String(matchingSalary.variable_pay || "0"),
+      company_accommodation: matchingSalary.company_accommodation || false,
+      accommodation_rent: String(matchingSalary.accommodation_rent || "0"),
+      canteen_deduction: String(matchingSalary.canteen_deduction || "50"),
+      provident_fund: matchingSalary.pf_employee > 0,
+      esic_insurance: matchingSalary.esic_employee > 0,
+      professional_tax_state: matchingSalary.professional_tax_state || "Maharashtra",
+      tds_tax_monthly: String(matchingSalary.tds_monthly || "0")
+    });
+    
+    setFaceEnrollHash("");
+    setThumbEnrollId("");
+    // Determine manual modes based on existing values not in preset lists
+    const deptMatch = safeDepartmentsList.some(d => d.name === (emp.department || emp.department_id));
+    const desgMatch = safeDesignationsList.some(d => d.name === (emp.designation || emp.designation_id));
+    setIsManualDept(!deptMatch && !!(emp.department || emp.department_id));
+    setIsManualDesg(!desgMatch && !!(emp.designation || emp.designation_id));
+
+    setOnboardActiveTab("personal");
+    setIsOnboardingOpen(true);
+  };
+
+  // Biometrics simulation enrollment actions
+  const handleStartFaceEnroll = () => {
+    setIsFaceEnrolling(true);
+    setFaceEnrollHash("");
+    setTimeout(() => {
+      const mockHash = "SHA256:FAC-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+      const newBioId = "BIO-FAC-" + Math.floor(1000 + Math.random() * 9000);
+      setFaceEnrollHash(mockHash);
+      setOnboardForm(prev => ({
+        ...prev,
+        biometric_id: newBioId
+      }));
+      setIsFaceEnrolling(false);
+      toast.success("Face geometry enrolled successfully! ID: " + newBioId);
+    }, 1000);
+  };
+
+  const handleStartThumbEnroll = () => {
+    setIsThumbEnrolling(true);
+    setThumbEnrollId("");
+    setTimeout(() => {
+      const mockKey = "SHA256:THM-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+      const newRfid = "RFID-THM-" + Math.floor(1000 + Math.random() * 9000);
+      setThumbEnrollId(mockKey);
+      setOnboardForm(prev => ({
+        ...prev,
+        rfid_card_no: newRfid
+      }));
+      setIsThumbEnrolling(false);
+      toast.success("Thumbprint map completed successfully! ID: " + newRfid);
+    }, 1000);
   };
 
   // Submit onboarding details
@@ -113,128 +760,317 @@ export default function EmployeeMaster({
     }
 
     try {
-      const { manageStaffUser } = await import("@/firebase/functions");
       const companyId = localStorage.getItem("company_id") || "VOGATS";
       const uCode = onboardForm.employee_code.replace(/[-\s]/g, "");
       const internalEmail = `${uCode.toLowerCase()}@${companyId.toLowerCase()}.gstbill.app`;
 
-      // Provision Auth user + Core user record
-      const result = await manageStaffUser({
-        action: "CREATE",
-        companyId,
-        userCode: uCode.toUpperCase(),
-        email: internalEmail,
-        contact_email: onboardForm.personal_email || internalEmail,
-        contact_mobile: onboardForm.personal_phone || "9876543210",
-        name: `${onboardForm.first_name} ${onboardForm.last_name}`,
-        password: `EMP@${uCode}`,
-        roleId: "role-cashier",
-        salary: Number(onboardForm.basic_salary) + Number(onboardForm.hra),
-        branchId: onboardForm.work_location,
-        is_active: true
-      });
+      // Dynamic Department creation if manual typed and unique
+      let deptVal = onboardForm.department_id;
+      if (deptVal) {
+        const deptExists = safeDepartmentsList.some(d => d.name?.toLowerCase() === deptVal.toLowerCase());
+        if (!deptExists) {
+          const newCode = deptVal.substring(0, 3).toUpperCase() + Math.floor(10 + Math.random() * 90);
+          try {
+            await base44.entities.Department.create({ name: deptVal, code: newCode });
+          } catch (err) {
+            console.error("Failed to seed department:", err);
+          }
+        }
+      }
 
-      if (result.success) {
-        const genUid = result.user?.uid || result.user?.id;
+      // Dynamic Designation creation if manual typed and unique
+      let desgVal = onboardForm.designation_id;
+      if (desgVal) {
+        const desgExists = safeDesignationsList.some(d => d.name?.toLowerCase() === desgVal.toLowerCase());
+        if (!desgExists) {
+          const newCode = desgVal.substring(0, 3).toUpperCase() + Math.floor(10 + Math.random() * 90);
+          try {
+            await base44.entities.Designation.create({ name: desgVal, code: newCode });
+          } catch (err) {
+            console.error("Failed to seed designation:", err);
+          }
+        }
+      }
+
+      const employeeData = {
+        company_id: companyId,
+        employee_code: onboardForm.employee_code,
+        first_name: onboardForm.first_name,
+        middle_name: onboardForm.middle_name,
+        last_name: onboardForm.last_name,
+        full_name: `${onboardForm.first_name} ${onboardForm.last_name}`,
+        preferred_name: onboardForm.first_name,
+        dob: onboardForm.dob,
+        gender: onboardForm.gender,
+        marital_status: onboardForm.marital_status,
+        blood_group: onboardForm.blood_group,
+        nationality: onboardForm.nationality,
+        religion: onboardForm.religion,
+        caste_category: onboardForm.caste_category,
+        physically_disabled: onboardForm.physically_disabled,
+        disability_details: onboardForm.disability_details,
+        photo_url: onboardForm.photo_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
+        emergency_contacts: onboardForm.emergency_contacts ? JSON.parse(onboardForm.emergency_contacts) : [],
+        personal_email: onboardForm.personal_email,
+        work_email: onboardForm.work_email || internalEmail,
+        personal_phone: onboardForm.personal_phone,
+        work_phone: onboardForm.work_phone,
+        whatsapp_number: onboardForm.whatsapp_number,
+        present_address: onboardForm.present_address ? { line1: onboardForm.present_address } : {},
+        permanent_address: onboardForm.permanent_address ? { line1: onboardForm.permanent_address } : {},
         
-        // Write dynamic values to Employee master collection
-        await base44.entities.Employee.create({
-          id: genUid,
-          company_id: companyId,
-          employee_code: onboardForm.employee_code,
-          first_name: onboardForm.first_name,
-          middle_name: onboardForm.middle_name,
-          last_name: onboardForm.last_name,
-          full_name: `${onboardForm.first_name} ${onboardForm.last_name}`,
-          preferred_name: onboardForm.first_name,
-          dob: onboardForm.dob,
-          gender: onboardForm.gender,
-          marital_status: onboardForm.marital_status,
-          blood_group: onboardForm.blood_group,
-          nationality: onboardForm.nationality,
-          religion: onboardForm.religion,
-          caste_category: onboardForm.caste_category,
-          physically_disabled: onboardForm.physically_disabled,
-          disability_details: onboardForm.disability_details,
-          photo_url: onboardForm.photo_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
-          emergency_contacts: onboardForm.emergency_contacts ? JSON.parse(onboardForm.emergency_contacts) : [],
-          personal_email: onboardForm.personal_email,
-          work_email: internalEmail,
-          personal_phone: onboardForm.personal_phone,
-          work_phone: onboardForm.work_phone,
-          whatsapp_number: onboardForm.whatsapp_number,
-          present_address: onboardForm.present_address ? { line1: onboardForm.present_address } : {},
-          permanent_address: onboardForm.permanent_address ? { line1: onboardForm.permanent_address } : {},
-          
-          aadhaar_number: onboardForm.aadhaar_number,
-          pan_number: onboardForm.pan_number,
-          passport_number: onboardForm.passport_number,
-          passport_expiry: onboardForm.passport_expiry,
-          uan_number: onboardForm.uan_number,
-          esic_number: onboardForm.esic_number,
-          
-          department_id: onboardForm.department_id,
-          designation_id: onboardForm.designation_id,
-          employment_type: onboardForm.employment_type,
-          grade: onboardForm.grade,
-          date_of_joining: onboardForm.date_of_joining,
-          probation_end_date: onboardForm.probation_end_date,
-          reporting_manager: onboardForm.reporting_manager,
-          work_location: onboardForm.work_location,
-          shift_id: onboardForm.shift_id,
-          cost_center: onboardForm.cost_center,
-          
-          bank_name: onboardForm.bank_name,
-          account_number: onboardForm.account_number,
-          ifsc_code: onboardForm.ifsc_code,
-          account_type: onboardForm.account_type,
-          account_holder_name: `${onboardForm.first_name} ${onboardForm.last_name}`,
-          payment_mode: onboardForm.payment_mode,
-          upi_id: onboardForm.upi_id,
-          
-          worker_category: onboardForm.worker_category,
-          floor_zone: onboardForm.floor_zone,
-          biometric_id: onboardForm.biometric_id,
-          rfid_card_no: onboardForm.rfid_card_no,
-          is_piece_rate: onboardForm.is_piece_rate,
-          piece_rate_per_unit: Number(onboardForm.piece_rate_per_unit),
-          machine_certified: onboardForm.machine_certified ? onboardForm.machine_certified.split(",") : [],
-          
-          leavesBalance: 15,
-          leavesUsed: 0,
-          status: "active"
-        });
+        aadhaar_number: onboardForm.aadhaar_number,
+        pan_number: onboardForm.pan_number,
+        passport_number: onboardForm.passport_number,
+        passport_expiry: onboardForm.passport_expiry,
+        uan_number: onboardForm.uan_number,
+        esic_number: onboardForm.esic_number,
+        
+        department: onboardForm.department_id,
+        department_id: onboardForm.department_id,
+        designation: onboardForm.designation_id,
+        designation_id: onboardForm.designation_id,
+        employment_type: onboardForm.employment_type,
+        grade: onboardForm.grade,
+        date_of_joining: onboardForm.date_of_joining,
+        probation_end_date: onboardForm.probation_end_date,
+        reporting_manager: onboardForm.reporting_manager,
+        work_location: onboardForm.work_location,
+        shift: onboardForm.shift_id,
+        shift_id: onboardForm.shift_id,
+        cost_center: onboardForm.cost_center,
+        
+        bank_name: onboardForm.bank_name,
+        account_number: onboardForm.account_number,
+        ifsc_code: onboardForm.ifsc_code,
+        account_type: onboardForm.account_type,
+        account_holder_name: `${onboardForm.first_name} ${onboardForm.last_name}`,
+        payment_mode: onboardForm.payment_mode,
+        upi_id: onboardForm.upi_id,
+        
+        worker_category: onboardForm.worker_category,
+        floor_zone: onboardForm.floor_zone,
+        biometric_id: onboardForm.biometric_id,
+        rfid_card_no: onboardForm.rfid_card_no,
+        is_piece_rate: onboardForm.is_piece_rate,
+        piece_rate_per_unit: Number(onboardForm.piece_rate_per_unit),
+        machine_certified: onboardForm.machine_certified ? onboardForm.machine_certified.split(",").map(s => s.trim()) : [],
+        
+        leavesBalance: 15,
+        leavesUsed: 0,
+        status: "active",
+        basicSalary: Number(onboardForm.basic_salary),
+        hra: Number(onboardForm.hra),
+        allowances: Number(onboardForm.special_allowance),
+        joiningDate: onboardForm.date_of_joining
+      };
 
-        // Write base structure to SalaryStructures
-        await base44.entities.SalaryStructure.create({
-          employeeId: genUid,
-          company_id: companyId,
-          effective_from: onboardForm.date_of_joining,
-          ctc_annual: (Number(onboardForm.basic_salary) + Number(onboardForm.hra) + Number(onboardForm.special_allowance) + Number(onboardForm.conveyance) + Number(onboardForm.medical_allowance) + Number(onboardForm.food_allowance)) * 12,
-          basic_salary: Number(onboardForm.basic_salary),
-          hra: Number(onboardForm.hra),
-          special_allowance: Number(onboardForm.special_allowance),
-          conveyance: Number(onboardForm.conveyance),
-          medical_allowance: Number(onboardForm.medical_allowance),
-          food_allowance: Number(onboardForm.food_allowance),
-          night_shift_allow: Number(onboardForm.night_shift_allow || 0),
-          pf_employee: onboardForm.provident_fund ? Math.round(Number(onboardForm.basic_salary) * 0.12) : 0,
-          pf_employer: onboardForm.provident_fund ? Math.round(Number(onboardForm.basic_salary) * 0.12) : 0,
-          esic_employee: onboardForm.esic_insurance ? Math.round(Number(onboardForm.basic_salary) * 0.0075) : 0,
-          esic_employer: onboardForm.esic_insurance ? Math.round(Number(onboardForm.basic_salary) * 0.0325) : 0,
-          professional_tax: 200,
-          tds_monthly: Number(onboardForm.tds_tax_monthly),
-          net_take_home: Number(onboardForm.basic_salary) + Number(onboardForm.hra) + Number(onboardForm.special_allowance) - Math.round(Number(onboardForm.basic_salary) * 0.12) - 200,
-          is_current: true
-        });
+      const salaryData = {
+        effective_from: onboardForm.date_of_joining,
+        ctc_annual: (Number(onboardForm.basic_salary) + Number(onboardForm.hra) + Number(onboardForm.special_allowance) + Number(onboardForm.conveyance) + Number(onboardForm.medical_allowance) + Number(onboardForm.food_allowance)) * 12,
+        basic_salary: Number(onboardForm.basic_salary),
+        hra: Number(onboardForm.hra),
+        special_allowance: Number(onboardForm.special_allowance),
+        conveyance: Number(onboardForm.conveyance),
+        medical_allowance: Number(onboardForm.medical_allowance),
+        food_allowance: Number(onboardForm.food_allowance),
+        night_shift_allow: Number(onboardForm.night_shift_allow || 0),
+        pf_employee: onboardForm.provident_fund ? Math.round(Number(onboardForm.basic_salary) * 0.12) : 0,
+        pf_employer: onboardForm.provident_fund ? Math.round(Number(onboardForm.basic_salary) * 0.12) : 0,
+        esic_employee: onboardForm.esic_insurance ? Math.round(Number(onboardForm.basic_salary) * 0.0075) : 0,
+        esic_employer: onboardForm.esic_insurance ? Math.round(Number(onboardForm.basic_salary) * 0.0325) : 0,
+        professional_tax: 200,
+        professional_tax_state: onboardForm.professional_tax_state,
+        tds_monthly: Number(onboardForm.tds_tax_monthly),
+        net_take_home: Number(onboardForm.basic_salary) + Number(onboardForm.hra) + Number(onboardForm.special_allowance) - Math.round(Number(onboardForm.basic_salary) * 0.12) - 200,
+        is_current: true
+      };
 
-        toast.success(`Employee ${onboardForm.first_name} onboarded successfully! Account auto-created with password: EMP@${uCode}`);
+      if (isEditing) {
+        // Update Employee
+        await base44.entities.Employee.update(editingId, employeeData);
+        
+        // Update User credentials if they exist
+        try {
+          await base44.entities.User.update(editingId, {
+            name: `${onboardForm.first_name} ${onboardForm.last_name}`,
+            salary: Number(onboardForm.basic_salary) + Number(onboardForm.hra),
+            branchId: onboardForm.work_location
+          });
+        } catch (err) {
+          console.log("No linked user account found to update, skipping User sync.");
+        }
+
+        // Update SalaryStructure
+        const existingStructure = safeSalaryStructures.find(s => s && s.employeeId === editingId);
+        if (existingStructure) {
+          await base44.entities.SalaryStructure.update(existingStructure.id, salaryData);
+        } else {
+          await base44.entities.SalaryStructure.create({
+            employeeId: editingId,
+            company_id: companyId,
+            ...salaryData
+          });
+        }
+
+        toast.success(`Profile for ${onboardForm.first_name} updated successfully!`);
         setIsOnboardingOpen(false);
+        setIsEditing(false);
+        setEditingId(null);
         refetchUsers();
+        refetchDetails();
+        
+        // Refresh selected employee view
+        setSelectedEmployee({
+          ...selectedEmployee,
+          ...employeeData,
+          name: `${onboardForm.first_name} ${onboardForm.last_name}`
+        });
+
+      } else {
+        // Create Employee directly (Admin will decide later under Settings -> Users who gets a site login)
+        const newEmp = await base44.entities.Employee.create(employeeData);
+
+        await base44.entities.SalaryStructure.create({
+          employeeId: newEmp.id,
+          company_id: companyId,
+          ...salaryData
+        });
+
+        toast.success(`Employee ${onboardForm.first_name} onboarded successfully!`);
+        setIsOnboardingOpen(false);
         refetchDetails();
       }
     } catch (error) {
       toast.error("Onboarding failed: " + error.message);
+    }
+  };
+
+  // Row edit dialog states
+  const handleStartEditRow = (type, rowData) => {
+    setActiveEditRowType(type);
+    setEditingRowData({ ...rowData });
+    setIsRowModalOpen(true);
+  };
+
+  const handleSaveRowEdit = async (e) => {
+    e.preventDefault();
+    if (!editingRowData || !editingRowData.id) {
+      return toast.error("Row identifier missing");
+    }
+
+    try {
+      if (activeEditRowType === "attendance") {
+        await base44.entities.AttendanceLog.update(editingRowData.id, {
+          date: editingRowData.date,
+          time: editingRowData.time,
+          type: editingRowData.type,
+          status: editingRowData.status,
+          faceMatchScore: Number(editingRowData.faceMatchScore || 98)
+        });
+      } else if (activeEditRowType === "leave") {
+        await base44.entities.LeaveManagement.update(editingRowData.id, {
+          leaveType: editingRowData.leaveType,
+          startDate: editingRowData.startDate,
+          endDate: editingRowData.endDate,
+          durationDays: Number(editingRowData.durationDays || 1),
+          status: editingRowData.status
+        });
+      } else if (activeEditRowType === "document") {
+        await base44.entities.EmployeeDocument.update(editingRowData.id, {
+          doc_type: editingRowData.doc_type,
+          doc_name: editingRowData.doc_name,
+          file_url: editingRowData.file_url
+        });
+      } else if (activeEditRowType === "performance") {
+        await base44.entities.PerformanceReview.update(editingRowData.id, {
+          review_period: editingRowData.review_period,
+          overall_rating: editingRowData.overall_rating,
+          overall_score: Number(editingRowData.overall_score || 4),
+          increment_percent: Number(editingRowData.increment_percent || 0)
+        });
+      } else if (activeEditRowType === "loan") {
+        await base44.entities.EmployeeLoan.update(editingRowData.id, {
+          type: editingRowData.type,
+          amount: Number(editingRowData.amount || 0),
+          emi_amount: Number(editingRowData.emi_amount || 0),
+          balance_outstanding: Number(editingRowData.balance_outstanding || 0),
+          status: editingRowData.status
+        });
+      }
+
+      toast.success(`${activeEditRowType.toUpperCase()} item updated successfully!`);
+      setIsRowModalOpen(false);
+      refetchDetails();
+      
+      if (selectedEmployee) {
+        setSelectedEmployee({ ...selectedEmployee });
+      }
+    } catch (error) {
+      toast.error("Failed to update item: " + error.message);
+    }
+  };
+
+  const handleDeleteEmployee = async (emp) => {
+    if (!emp || !emp.id) return toast.error("Employee details missing");
+    const name = emp.name || emp.full_name || "this employee";
+    const confirm1 = window.confirm(`CRITICAL WARNING:\nAre you absolutely sure you want to delete the profile of ${name}?\n\nThis will completely wipe all of their employee files, salary records, biometrics mapping, and portal access keys permanently.`);
+    if (!confirm1) return;
+    
+    const confirm2 = window.confirm(`FINAL DOUBLE-CONFIRMATION:\nType OK to finalize deleting ${name}. This action is completely irreversible!`);
+    if (!confirm2) return;
+
+    try {
+      await base44.entities.Employee.delete(emp.id);
+      try {
+        await base44.entities.User.delete(emp.id);
+      } catch (err) {
+        console.warn("User auth record failed to delete:", err);
+      }
+
+      const matchingSalary = safeSalaryStructures.find(s => s && s.employeeId === emp.id);
+      if (matchingSalary && matchingSalary.id) {
+        try {
+          await base44.entities.SalaryStructure.delete(matchingSalary.id);
+        } catch (err) {
+          console.warn("Failed to delete salary structure:", err);
+        }
+      }
+
+      toast.success(`Complete data record and credentials for ${name} deleted successfully!`);
+      setSelectedEmployee(null);
+      refetchUsers();
+      refetchDetails();
+    } catch (error) {
+      toast.error("Failed to delete profile: " + error.message);
+    }
+  };
+
+  const handleDeleteRow = async (type, id) => {
+    const confirm = window.confirm(`Are you sure you want to permanently delete this ${type} record? This action is completely irreversible!`);
+    if (!confirm) return;
+
+    try {
+      if (type === "attendance") {
+        await base44.entities.AttendanceLog.delete(id);
+      } else if (type === "leave") {
+        await base44.entities.LeaveManagement.delete(id);
+      } else if (type === "document") {
+        await base44.entities.EmployeeDocument.delete(id);
+      } else if (type === "performance") {
+        await base44.entities.PerformanceReview.delete(id);
+      } else if (type === "loan") {
+        await base44.entities.EmployeeLoan.delete(id);
+      }
+      
+      toast.success(`${type.toUpperCase()} record deleted successfully.`);
+      refetchDetails();
+      
+      if (selectedEmployee) {
+        setSelectedEmployee({ ...selectedEmployee });
+      }
+    } catch (error) {
+      toast.error("Failed to delete record: " + error.message);
     }
   };
 
@@ -247,10 +1083,8 @@ export default function EmployeeMaster({
       const searchLower = searchTerm.toLowerCase();
       
       const nameMatch = name.toLowerCase().includes(searchLower) || code.toLowerCase().includes(searchLower);
-      
       const roleMatch = roleFilter === "all" || emp.role_id === roleFilter || (emp.role && emp.role.toLowerCase() === roleFilter.toLowerCase());
-      
-      const deptMatch = deptFilter === "all" || emp.department === deptFilter;
+      const deptMatch = deptFilter === "all" || emp.department === deptFilter || emp.department_id === deptFilter;
 
       return nameMatch && roleMatch && deptMatch;
     });
@@ -294,16 +1128,16 @@ export default function EmployeeMaster({
               <Input 
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Search Employee, Code or ID..."
+                placeholder="Smart Search Employee, Code or ID..."
                 className="pl-9 bg-background/50 text-xs border-border/40 focus:border-primary/50"
               />
             </div>
             
-            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap justify-end">
               <select 
                 value={deptFilter} 
                 onChange={e => setDeptFilter(e.target.value)}
-                className="bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
+                className="bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold h-9"
               >
                 <option value="all">All Departments</option>
                 {safeDepartmentsList.map((d, i) => (
@@ -314,7 +1148,7 @@ export default function EmployeeMaster({
               <select 
                 value={roleFilter} 
                 onChange={e => setRoleFilter(e.target.value)}
-                className="bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold"
+                className="bg-background/50 text-xs py-2 px-3 rounded-lg border border-border/40 font-bold h-9"
               >
                 <option value="all">All Roles</option>
                 {safeRoles.map(r => (
@@ -324,7 +1158,7 @@ export default function EmployeeMaster({
               
               <Button 
                 onClick={handleOpenOnboarding} 
-                className="text-xs gap-2 font-bold gold-gradient text-black h-9 shadow-lg shadow-amber-500/10 shrink-0 ml-auto sm:ml-0"
+                className="text-xs gap-2 font-bold gold-gradient text-black h-9 shadow-lg shadow-amber-500/10 shrink-0"
               >
                 <UserPlus className="w-4 h-4" /> Onboard Employee
               </Button>
@@ -444,15 +1278,33 @@ export default function EmployeeMaster({
           </div>
 
           {/* Employee Hero Card */}
-          <div className="flex flex-col md:flex-row items-center gap-6 p-4 rounded-xl border border-border/30 bg-slate-500/5 mb-6 text-center md:text-left">
+          <div className="flex flex-col md:flex-row items-center gap-6 p-4 rounded-xl border border-border/30 bg-slate-500/5 mb-6 text-center md:text-left relative">
             <img 
               src={profileDetails.photo_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80"} 
               alt={profileDetails.name} 
               className="w-24 h-24 rounded-2xl border-2 border-primary/20 object-cover shadow-lg"
             />
-            <div className="space-y-1">
-              <h3 className="text-xl font-black text-foreground">{profileDetails.name || profileDetails.full_name}</h3>
-              <p className="text-xs font-bold text-primary">{profileDetails.designation || "Sr. Production Engineer"}</p>
+            <div className="space-y-1 flex-grow">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-xl font-black text-foreground">{profileDetails.name || profileDetails.full_name}</h3>
+                  <p className="text-xs font-bold text-primary">{profileDetails.designation || "Sr. Production Engineer"}</p>
+                </div>
+                <div className="flex gap-2 shrink-0 self-center md:self-auto">
+                  <Button 
+                    onClick={() => handleStartEdit(profileDetails)}
+                    className="text-xs font-bold bg-amber-500 hover:bg-amber-600 text-black h-8 px-4 flex items-center gap-1"
+                  >
+                    <Edit className="w-3.5 h-3.5" /> Edit Profile
+                  </Button>
+                  <Button 
+                    onClick={() => handleDeleteEmployee(profileDetails)}
+                    className="text-xs font-bold bg-destructive hover:bg-destructive/95 text-white h-8 px-4 flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Profile
+                  </Button>
+                </div>
+              </div>
               <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground justify-center md:justify-start font-medium pt-1">
                 <span className="font-mono">{profileDetails.employeeId || profileDetails.employee_code || "EMP-2026-018"}</span>
                 <span>•</span>
@@ -471,7 +1323,7 @@ export default function EmployeeMaster({
                 <TabsTrigger value="personal" className="text-xs font-bold px-3">Personal</TabsTrigger>
                 <TabsTrigger value="employment" className="text-xs font-bold px-3">Employment</TabsTrigger>
                 <TabsTrigger value="salary" className="text-xs font-bold px-3">Salary Structure</TabsTrigger>
-                <TabsTrigger value="attendance" className="text-xs font-bold px-3">Attendance</TabsTrigger>
+                <TabsTrigger value="attendance" className="text-xs font-bold px-3">Attendance Logs</TabsTrigger>
                 <TabsTrigger value="leaves" className="text-xs font-bold px-3">Leaves</TabsTrigger>
                 <TabsTrigger value="documents" className="text-xs font-bold px-3">Documents</TabsTrigger>
                 <TabsTrigger value="performance" className="text-xs font-bold px-3">Performance</TabsTrigger>
@@ -550,33 +1402,30 @@ export default function EmployeeMaster({
                   </div>
                 </div>
                 
-                {/* Dynamic/Conditional MES certifications */}
-                {activeBusinessType === "manufacturer" && (
-                  <div>
-                    <h4 className="font-black text-sm text-amber-500 border-b border-border/20 pb-2 mb-3">MES &amp; Factory Specifications</h4>
-                    <div className="grid grid-cols-2 gap-3 leading-relaxed text-muted-foreground">
-                      <div><span>Biometric Hardware ID:</span><strong className="text-foreground block">{profileDetails.biometric_id || "BIO-0042"}</strong></div>
-                      <div><span>RFID Card Identifier:</span><strong className="text-foreground block">{profileDetails.rfid_card_no || "RFID-124982"}</strong></div>
-                      <div><span>Floor Zone Allocation:</span><strong className="text-foreground block">Zone {profileDetails.floor_zone || "A"}</strong></div>
-                      <div><span>Piece-Rate Option:</span><strong className="text-foreground block">{profileDetails.is_piece_rate ? `Piece-Rate Enabled (₹${profileDetails.piece_rate_per_unit || "10"}/unit)` : "Hourly Standard Wage"}</strong></div>
-                      <div className="col-span-2">
-                        <span>Certified Machine Clearances:</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          {(profileDetails.machine_certified || ["Injection Moulding", "CNC Lathe"]).map((c, i) => (
-                            <span key={i} className="bg-amber-500/10 text-amber-500 border border-amber-500/20 py-0.5 px-2 rounded-full text-[9px] font-bold">{c}</span>
-                          ))}
-                        </div>
+                {/* Factory MES specific clearances */}
+                <div>
+                  <h4 className="font-black text-sm text-amber-500 border-b border-border/20 pb-2 mb-3">MES &amp; Factory Specifications</h4>
+                  <div className="grid grid-cols-2 gap-3 leading-relaxed text-muted-foreground">
+                    <div><span>Biometric Hardware ID:</span><strong className="text-foreground block">{profileDetails.biometric_id || "BIO-0042"}</strong></div>
+                    <div><span>RFID Card Identifier:</span><strong className="text-foreground block">{profileDetails.rfid_card_no || "RFID-124982"}</strong></div>
+                    <div><span>Floor Zone Allocation:</span><strong className="text-foreground block">Zone {profileDetails.floor_zone || "A"}</strong></div>
+                    <div><span>Piece-Rate Option:</span><strong className="text-foreground block">{profileDetails.is_piece_rate ? `Piece-Rate Enabled (₹${profileDetails.piece_rate_per_unit || "10"}/unit)` : "Hourly Standard Wage"}</strong></div>
+                    <div className="col-span-2">
+                      <span>Certified Machine Clearances:</span>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {(profileDetails.machine_certified || ["Injection Moulding", "CNC Lathe"]).map((c, i) => (
+                          <span key={i} className="bg-amber-500/10 text-amber-500 border border-amber-500/20 py-0.5 px-2 rounded-full text-[9px] font-bold">{c}</span>
+                        ))}
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </TabsContent>
 
             {/* TAB: SALARY */}
             <TabsContent value="salary" className="space-y-6 animate-in fade-in duration-300 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
                 {/* Earnings List */}
                 <div className="bg-secondary/15 p-4 rounded-xl border border-border/30 space-y-3">
                   <h4 className="font-black text-sm text-emerald-500 border-b border-emerald-500/20 pb-2">1. Monthly Earnings / Allowances</h4>
@@ -595,7 +1444,7 @@ export default function EmployeeMaster({
                   <div className="space-y-2 font-medium">
                     <div className="flex justify-between"><span>PF Employee Contribution (12%)</span><strong className="text-red-400">-{Number(Math.round(Number(profileDetails.basicSalary || 20000) * 0.12)).toLocaleString("en-IN")}</strong></div>
                     <div className="flex justify-between"><span>ESIC Health Insurance (0.75%)</span><strong className="text-red-400">-{Number(Math.round((Number(profileDetails.basicSalary || 20000) + Number(profileDetails.hra || 8000) + Number(profileDetails.allowances || 4750)) * 0.0075)).toLocaleString("en-IN")}</strong></div>
-                    <div className="flex justify-between"><span>Professional Tax (Maharashtra)</span><strong className="text-red-400">-₹200</strong></div>
+                    <div className="flex justify-between"><span>Professional Tax (PT)</span><strong className="text-red-400">-₹200</strong></div>
                     <div className="flex justify-between"><span>Monthly TDS Withholding Tax</span><strong className="text-red-400">-{Number(profileDetails.tds || 860).toLocaleString("en-IN")}</strong></div>
                   </div>
                 </div>
@@ -604,29 +1453,48 @@ export default function EmployeeMaster({
 
             {/* TAB: ATTENDANCE */}
             <TabsContent value="attendance" className="space-y-6 animate-in fade-in duration-300 text-xs">
-              <div className="overflow-x-auto border border-border/40 rounded-xl">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/30">
+                <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead>
                     <tr className="bg-secondary/35 border-b border-border/30 text-muted-foreground font-black text-[9px] uppercase tracking-wider">
                       <th className="p-3">Swipe Date</th>
                       <th className="p-3">Gate Type</th>
                       <th className="p-3">Branch Location</th>
                       <th className="p-3">Face Verification</th>
-                      <th className="p-3 text-right">Audit Status</th>
+                      <th className="p-3 text-center">Audit Status</th>
+                      <th className="p-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20">
                     {(profileDetails.attendance || []).map((log, i) => (
-                      <tr key={i} className="hover:bg-secondary/15">
+                      <tr key={log.id || i} className="hover:bg-secondary/15">
                         <td className="p-3 font-semibold">{log.date} <span className="text-[10px] text-muted-foreground block">{log.time}</span></td>
                         <td className="p-3 font-bold"><span className={`px-2 py-0.5 rounded text-[9px] ${log.type === "CHECK_IN" ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"}`}>{log.type}</span></td>
                         <td className="p-3">{log.branchId}</td>
                         <td className="p-3 font-mono">{log.faceMatchScore}% Match</td>
-                        <td className="p-3 text-right"><span className={`font-bold text-[9px] px-2 py-0.5 rounded ${log.status === "Verified" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive animate-pulse"}`}>{log.status}</span></td>
+                        <td className="p-3 text-center"><span className={`font-bold text-[9px] px-2 py-0.5 rounded ${log.status === "Verified" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive animate-pulse"}`}>{log.status}</span></td>
+                        <td className="p-3 text-right flex gap-1.5 justify-end">
+                          <Button 
+                            onClick={() => handleStartEditRow("attendance", log)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-border/60 hover:bg-secondary/40"
+                          >
+                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                          </Button>
+                          <Button 
+                            onClick={() => handleDeleteRow("attendance", log.id)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-red-500/50 hover:bg-red-500/10 text-red-400"
+                          >
+                            <Trash2 className="w-3 h-3" /> Delete
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                     {(profileDetails.attendance || []).length === 0 && (
-                      <tr><td colSpan="5" className="p-4 text-center text-muted-foreground">No attendance swipes registered in database yet.</td></tr>
+                      <tr><td colSpan="6" className="p-4 text-center text-muted-foreground">No attendance swipes registered in database yet.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -635,29 +1503,48 @@ export default function EmployeeMaster({
 
             {/* TAB: LEAVES */}
             <TabsContent value="leaves" className="space-y-6 animate-in fade-in duration-300 text-xs">
-              <div className="overflow-x-auto border border-border/40 rounded-xl">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/30">
+                <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead>
                     <tr className="bg-secondary/35 border-b border-border/30 text-muted-foreground font-black text-[9px] uppercase tracking-wider">
                       <th className="p-3">Leave Type</th>
                       <th className="p-3">From Date</th>
                       <th className="p-3">To Date</th>
                       <th className="p-3">Days Span</th>
-                      <th className="p-3 text-right">Approval Status</th>
+                      <th className="p-3 text-center">Approval Status</th>
+                      <th className="p-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20">
                     {(profileDetails.leaves || []).map((req, i) => (
-                      <tr key={i} className="hover:bg-secondary/15">
+                      <tr key={req.id || i} className="hover:bg-secondary/15">
                         <td className="p-3 font-bold">{req.leaveType}</td>
                         <td className="p-3">{req.startDate}</td>
                         <td className="p-3">{req.endDate}</td>
                         <td className="p-3 font-bold text-primary">{req.durationDays} Days</td>
-                        <td className="p-3 text-right"><span className={`font-bold text-[9px] px-2 py-0.5 rounded ${req.status === "Approved" ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"}`}>{req.status}</span></td>
+                        <td className="p-3 text-center"><span className={`font-bold text-[9px] px-2 py-0.5 rounded ${req.status === "Approved" ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"}`}>{req.status}</span></td>
+                        <td className="p-3 text-right flex gap-1.5 justify-end">
+                          <Button 
+                            onClick={() => handleStartEditRow("leave", req)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-border/60 hover:bg-secondary/40"
+                          >
+                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                          </Button>
+                          <Button 
+                            onClick={() => handleDeleteRow("leave", req.id)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-red-500/50 hover:bg-red-500/10 text-red-400"
+                          >
+                            <Trash2 className="w-3 h-3" /> Delete
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                     {(profileDetails.leaves || []).length === 0 && (
-                      <tr><td colSpan="5" className="p-4 text-center text-muted-foreground">No leave request logs processed.</td></tr>
+                      <tr><td colSpan="6" className="p-4 text-center text-muted-foreground">No leave request logs processed.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -666,27 +1553,46 @@ export default function EmployeeMaster({
 
             {/* TAB: DOCUMENTS */}
             <TabsContent value="documents" className="space-y-6 animate-in fade-in duration-300 text-xs">
-              <div className="overflow-x-auto border border-border/40 rounded-xl">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/30">
+                <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead>
                     <tr className="bg-secondary/35 border-b border-border/30 text-muted-foreground font-black text-[9px] uppercase tracking-wider">
                       <th className="p-3">Document Category</th>
                       <th className="p-3">Document Name</th>
                       <th className="p-3">Verification Link</th>
-                      <th className="p-3 text-right">Audit Verified</th>
+                      <th className="p-3 text-center">Audit Verified</th>
+                      <th className="p-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20">
                     {(profileDetails.documents || []).map((doc, i) => (
-                      <tr key={i} className="hover:bg-secondary/15">
+                      <tr key={doc.id || i} className="hover:bg-secondary/15">
                         <td className="p-3 font-bold capitalize">{doc.doc_type}</td>
                         <td className="p-3">{doc.doc_name}</td>
                         <td className="p-3"><a href={doc.file_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">Download / Verify File</a></td>
-                        <td className="p-3 text-right"><span className="text-emerald-500 font-extrabold">✓ COMPLIANT</span></td>
+                        <td className="p-3 text-center"><span className="text-emerald-500 font-extrabold">✓ COMPLIANT</span></td>
+                        <td className="p-3 text-right flex gap-1.5 justify-end">
+                          <Button 
+                            onClick={() => handleStartEditRow("document", doc)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-border/60 hover:bg-secondary/40"
+                          >
+                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                          </Button>
+                          <Button 
+                            onClick={() => handleDeleteRow("document", doc.id)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-red-500/50 hover:bg-red-500/10 text-red-400"
+                          >
+                            <Trash2 className="w-3 h-3" /> Delete
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                     {(profileDetails.documents || []).length === 0 && (
-                      <tr><td colSpan="4" className="p-4 text-center text-muted-foreground">No identity documents scanned to vault yet.</td></tr>
+                      <tr><td colSpan="5" className="p-4 text-center text-muted-foreground">No identity documents scanned to vault yet.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -695,27 +1601,46 @@ export default function EmployeeMaster({
 
             {/* TAB: PERFORMANCE */}
             <TabsContent value="performance" className="space-y-6 animate-in fade-in duration-300 text-xs">
-              <div className="overflow-x-auto border border-border/40 rounded-xl">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/30">
+                <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead>
                     <tr className="bg-secondary/35 border-b border-border/30 text-muted-foreground font-black text-[9px] uppercase tracking-wider">
                       <th className="p-3">Review Period</th>
                       <th className="p-3">Overall Rating</th>
                       <th className="p-3">Increment Recommended</th>
-                      <th className="p-3 text-right">Status</th>
+                      <th className="p-3 text-center">Status</th>
+                      <th className="p-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20">
                     {(profileDetails.performance || []).map((p, i) => (
-                      <tr key={i} className="hover:bg-secondary/15">
+                      <tr key={p.id || i} className="hover:bg-secondary/15">
                         <td className="p-3 font-bold">{p.review_period}</td>
                         <td className="p-3 capitalize">{p.overall_rating} ({p.overall_score}/5.0)</td>
                         <td className="p-3 font-semibold text-emerald-500">+{p.increment_percent}% Hike</td>
-                        <td className="p-3 text-right"><span className="bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded text-[9px] font-bold">Finalized</span></td>
+                        <td className="p-3 text-center"><span className="bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded text-[9px] font-bold">Finalized</span></td>
+                        <td className="p-3 text-right flex gap-1.5 justify-end">
+                          <Button 
+                            onClick={() => handleStartEditRow("performance", p)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-border/60 hover:bg-secondary/40"
+                          >
+                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                          </Button>
+                          <Button 
+                            onClick={() => handleDeleteRow("performance", p.id)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-red-500/50 hover:bg-red-500/10 text-red-400"
+                          >
+                            <Trash2 className="w-3 h-3" /> Delete
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                     {(profileDetails.performance || []).length === 0 && (
-                      <tr><td colSpan="4" className="p-4 text-center text-muted-foreground">No quarterly ratings finalized yet.</td></tr>
+                      <tr><td colSpan="5" className="p-4 text-center text-muted-foreground">No quarterly ratings finalized yet.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -724,47 +1649,67 @@ export default function EmployeeMaster({
 
             {/* TAB: LOANS */}
             <TabsContent value="loans" className="space-y-6 animate-in fade-in duration-300 text-xs">
-              <div className="overflow-x-auto border border-border/40 rounded-xl">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/30">
+                <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead>
                     <tr className="bg-secondary/35 border-b border-border/30 text-muted-foreground font-black text-[9px] uppercase tracking-wider">
                       <th className="p-3">Advance Type</th>
                       <th className="p-3">Principal Borrowed</th>
                       <th className="p-3">EMI Monthly Deduction</th>
                       <th className="p-3">Outstanding Balance</th>
-                      <th className="p-3 text-right">State Status</th>
+                      <th className="p-3 text-center">State Status</th>
+                      <th className="p-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20">
                     {(profileDetails.loans || []).map((l, i) => (
-                      <tr key={i} className="hover:bg-secondary/15">
+                      <tr key={l.id || i} className="hover:bg-secondary/15">
                         <td className="p-3 font-bold capitalize">{l.type}</td>
                         <td className="p-3">₹{l.amount.toLocaleString("en-IN")}</td>
                         <td className="p-3">₹{l.emi_amount.toLocaleString("en-IN")}/mo</td>
                         <td className="p-3 font-semibold text-red-400">₹{l.balance_outstanding.toLocaleString("en-IN")}</td>
-                        <td className="p-3 text-right"><span className="bg-emerald-500/15 text-emerald-500 px-2 py-0.5 rounded font-bold uppercase">{l.status}</span></td>
+                        <td className="p-3 text-center"><span className="bg-emerald-500/15 text-emerald-500 px-2 py-0.5 rounded font-bold uppercase">{l.status}</span></td>
+                        <td className="p-3 text-right flex gap-1.5 justify-end">
+                          <Button 
+                            onClick={() => handleStartEditRow("loan", l)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-border/60 hover:bg-secondary/40"
+                          >
+                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                          </Button>
+                          <Button 
+                            onClick={() => handleDeleteRow("loan", l.id)}
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-3 font-bold border-red-500/50 hover:bg-red-500/10 text-red-400"
+                          >
+                            <Trash2 className="w-3 h-3" /> Delete
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                     {(profileDetails.loans || []).length === 0 && (
-                      <tr><td colSpan="5" className="p-4 text-center text-muted-foreground">No active advance loans recorded.</td></tr>
+                      <tr><td colSpan="6" className="p-4 text-center text-muted-foreground">No active advance loans recorded.</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </TabsContent>
-
           </Tabs>
 
         </div>
       )}
 
-      {/* ==================== MODAL: ADD EMPLOYEE ONBOARDING WIZARD (6 TABS) ==================== */}
+      {/* ==================== MODAL: ADD/EDIT EMPLOYEE ONBOARDING WIZARD (6 TABS) ==================== */}
       <Dialog open={isOnboardingOpen} onOpenChange={setIsOnboardingOpen}>
         <DialogContent className="max-w-3xl bg-card border border-border/50 text-xs overflow-y-auto max-h-[85vh] scrollbar-thin">
           <DialogHeader>
-            <DialogTitle className="text-lg font-black tracking-tight text-primary">Onboard Enterprise Employee Portal</DialogTitle>
+            <DialogTitle className="text-lg font-black tracking-tight text-primary">
+              {isEditing ? "Edit Enterprise Employee Profile" : "Onboard Enterprise Employee Portal"}
+            </DialogTitle>
             <DialogDescription className="text-xs">
-              Configure personal parameters, compliance identities, salary CTC details, and seed them isolation isolated to this branch.
+              Configure personal parameters, compliance identities, salary CTC details, and map biometric keys securely.
             </DialogDescription>
           </DialogHeader>
 
@@ -823,18 +1768,22 @@ export default function EmployeeMaster({
                     className="text-xs bg-background/50 h-9"
                   />
                 </div>
+                
+                {/* Swap standard Gender select with SearchableSelect */}
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-bold text-muted-foreground">GENDER *</Label>
-                  <select 
+                  <SearchableSelect 
+                    label="GENDER *"
                     value={onboardForm.gender}
-                    onChange={e => setOnboardForm(prev => ({ ...prev, gender: e.target.value }))}
-                    className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
-                  >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
+                    onChange={val => setOnboardForm(prev => ({ ...prev, gender: val }))}
+                    options={[
+                      { value: "male", label: "Male" },
+                      { value: "female", label: "Female" },
+                      { value: "other", label: "Other" }
+                    ]}
+                    placeholder="Select Gender..."
+                  />
                 </div>
+
                 <div className="space-y-1">
                   <Label className="text-[10px] font-bold text-muted-foreground">BLOOD GROUP</Label>
                   <select 
@@ -893,47 +1842,81 @@ export default function EmployeeMaster({
                     placeholder="EMP-2026-001"
                     className="text-xs bg-background/50 h-9"
                     required
+                    disabled={isEditing}
                   />
                 </div>
+
+                {/* Swap Department select with SearchableSelect with manual option */}
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-bold text-muted-foreground">DEPARTMENT *</Label>
-                  <select 
-                    value={onboardForm.department_id}
-                    onChange={e => setOnboardForm(prev => ({ ...prev, department_id: e.target.value }))}
-                    className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
-                  >
-                    <option value="">Select Department...</option>
-                    {safeDepartmentsList.map((d, i) => (
-                      <option key={i} value={d.name}>{d.name}</option>
-                    ))}
-                  </select>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">DEPARTMENT *</Label>
+                    <button 
+                      type="button"
+                      onClick={() => setIsManualDept(!isManualDept)}
+                      className="text-[9px] text-amber-500 hover:underline font-bold"
+                    >
+                      {isManualDept ? "Select list" : "Type manually"}
+                    </button>
+                  </div>
+                  {isManualDept ? (
+                    <Input 
+                      value={onboardForm.department_id}
+                      onChange={e => setOnboardForm(prev => ({ ...prev, department_id: e.target.value }))}
+                      placeholder="Enter Department Name..."
+                      className="text-xs bg-background/50 h-9 font-bold"
+                      required
+                    />
+                  ) : (
+                    <SearchableSelect 
+                      value={onboardForm.department_id}
+                      onChange={val => setOnboardForm(prev => ({ ...prev, department_id: val }))}
+                      options={safeDepartmentsList.map(d => ({ value: d.name, label: d.name }))}
+                      placeholder="Select Department..."
+                    />
+                  )}
                 </div>
+
+                {/* Swap Designation select with SearchableSelect with manual option */}
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-bold text-muted-foreground">DESIGNATION *</Label>
-                  <select 
-                    value={onboardForm.designation_id}
-                    onChange={e => setOnboardForm(prev => ({ ...prev, designation_id: e.target.value }))}
-                    className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
-                  >
-                    <option value="">Select Designation...</option>
-                    {safeDesignationsList.map((d, i) => (
-                      <option key={i} value={d.name}>{d.name}</option>
-                    ))}
-                  </select>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">DESIGNATION *</Label>
+                    <button 
+                      type="button"
+                      onClick={() => setIsManualDesg(!isManualDesg)}
+                      className="text-[9px] text-amber-500 hover:underline font-bold"
+                    >
+                      {isManualDesg ? "Select list" : "Type manually"}
+                    </button>
+                  </div>
+                  {isManualDesg ? (
+                    <Input 
+                      value={onboardForm.designation_id}
+                      onChange={e => setOnboardForm(prev => ({ ...prev, designation_id: e.target.value }))}
+                      placeholder="Enter Designation Name..."
+                      className="text-xs bg-background/50 h-9 font-bold"
+                      required
+                    />
+                  ) : (
+                    <SearchableSelect 
+                      value={onboardForm.designation_id}
+                      onChange={val => setOnboardForm(prev => ({ ...prev, designation_id: val }))}
+                      options={safeDesignationsList.map(d => ({ value: d.name, label: d.name }))}
+                      placeholder="Select Designation..."
+                    />
+                  )}
                 </div>
+
+                {/* Swap Shift select with SearchableSelect */}
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-bold text-muted-foreground">SHIFT ROSTER *</Label>
-                  <select 
+                  <SearchableSelect 
+                    label="SHIFT ROSTER *"
                     value={onboardForm.shift_id}
-                    onChange={e => setOnboardForm(prev => ({ ...prev, shift_id: e.target.value }))}
-                    className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
-                  >
-                    <option value="">Select Shift...</option>
-                    {safeShiftsList.map((s, i) => (
-                      <option key={i} value={s.name}>{s.name} ({s.start_time} - {s.end_time})</option>
-                    ))}
-                  </select>
+                    onChange={val => setOnboardForm(prev => ({ ...prev, shift_id: val }))}
+                    options={safeShiftsList.map(s => ({ value: s.name, label: `${s.name} (${s.start_time} - ${s.end_time})` }))}
+                    placeholder="Select Shift..."
+                  />
                 </div>
+
                 <div className="space-y-1">
                   <Label className="text-[10px] font-bold text-muted-foreground">DATE OF JOINING *</Label>
                   <Input 
@@ -1103,14 +2086,89 @@ export default function EmployeeMaster({
 
             {/* TAB: Factory MES specifications */}
             <TabsContent value="factory" className="space-y-4 animate-in fade-in duration-300">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* High-Fidelity Interactive Biometric Enrollment simulator widget cards */}
+              <div className="border border-border/40 p-4 rounded-xl bg-slate-500/5 space-y-3">
+                <h4 className="font-black text-xs text-primary uppercase tracking-wider flex items-center gap-1">
+                  <Fingerprint className="w-4.5 h-4.5 text-primary" /> Premium Biometric enrollment Terminal
+                </h4>
+                <p className="text-[10px] text-muted-foreground leading-normal">
+                  Connect live hardware scanners to register employee credential maps. This matches cryptographic keys for floor gate scanners.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  {/* Face Scan Card */}
+                  <div className="bg-secondary/15 border border-border/40 p-4 rounded-xl flex flex-col items-center justify-between text-center relative overflow-hidden min-h-[200px]">
+                    {isFaceEnrolling && (
+                      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent animate-bounce shadow-md shadow-amber-400" />
+                    )}
+                    <div className="w-16 h-16 rounded-full bg-slate-500/5 border border-border/40 flex items-center justify-center relative">
+                      {isFaceEnrolling ? (
+                        <Cpu className="w-8 h-8 text-amber-500 animate-pulse" />
+                      ) : faceEnrollHash || onboardForm.biometric_id ? (
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                      ) : (
+                        <Users className="w-8 h-8 text-slate-500" />
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      <h5 className="font-extrabold text-[11px] text-foreground">Facial Recognition Scanner</h5>
+                      <p className="text-[10px] text-muted-foreground leading-tight">Map high-precision biometric face geometry.</p>
+                      {faceEnrollHash && (
+                        <span className="text-[8.5px] font-mono text-emerald-400 block break-all max-w-[200px] mt-1 bg-black/30 p-1 rounded border border-emerald-500/10">{faceEnrollHash}</span>
+                      )}
+                    </div>
+                    <Button 
+                      type="button" 
+                      onClick={handleStartFaceEnroll}
+                      disabled={isFaceEnrolling}
+                      className="text-[10px] font-bold h-7 bg-primary text-black mt-3 px-3 w-full"
+                    >
+                      {isFaceEnrolling ? "Mapping..." : faceEnrollHash || onboardForm.biometric_id ? "Re-scan Face Geometry" : "Start Face Scan"}
+                    </Button>
+                  </div>
+
+                  {/* Thumbprint Scan Card */}
+                  <div className="bg-secondary/15 border border-border/40 p-4 rounded-xl flex flex-col items-center justify-between text-center relative overflow-hidden min-h-[200px]">
+                    {isThumbEnrolling && (
+                      <div className="absolute inset-0 bg-primary/5 animate-pulse" />
+                    )}
+                    <div className="w-16 h-16 rounded-full bg-slate-500/5 border border-border/40 flex items-center justify-center relative">
+                      {isThumbEnrolling ? (
+                        <Fingerprint className="w-8 h-8 text-indigo-400 animate-bounce" />
+                      ) : thumbEnrollId || onboardForm.rfid_card_no ? (
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                      ) : (
+                        <UserCheck className="w-8 h-8 text-slate-500" />
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      <h5 className="font-extrabold text-[11px] text-foreground">Capacitive Fingerprint Sensor</h5>
+                      <p className="text-[10px] text-muted-foreground leading-tight">Enroll physical thumbprint cryptomap.</p>
+                      {thumbEnrollId && (
+                        <span className="text-[8.5px] font-mono text-emerald-400 block break-all max-w-[200px] mt-1 bg-black/30 p-1 rounded border border-emerald-500/10">{thumbEnrollId}</span>
+                      )}
+                    </div>
+                    <Button 
+                      type="button" 
+                      onClick={handleStartThumbEnroll}
+                      disabled={isThumbEnrolling}
+                      className="text-[10px] font-bold h-7 bg-indigo-500 text-black mt-3 px-3 hover:bg-indigo-600 w-full"
+                    >
+                      {isThumbEnrolling ? "Enrolling..." : thumbEnrollId || onboardForm.rfid_card_no ? "Re-scan Thumbprint" : "Scan & Map Thumbprint"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="space-y-1">
                   <Label className="text-[10px] font-bold text-muted-foreground">BIOMETRIC CONSOLE DEVICE ID</Label>
                   <Input 
                     value={onboardForm.biometric_id}
                     onChange={e => setOnboardForm(prev => ({ ...prev, biometric_id: e.target.value }))}
                     placeholder="BIO-9901"
-                    className="text-xs bg-background/50 h-9"
+                    className="text-xs bg-background/50 h-9 font-mono"
+                    disabled
                   />
                 </div>
                 <div className="space-y-1">
@@ -1119,47 +2177,44 @@ export default function EmployeeMaster({
                     value={onboardForm.rfid_card_no}
                     onChange={e => setOnboardForm(prev => ({ ...prev, rfid_card_no: e.target.value }))}
                     placeholder="RFID-99802"
-                    className="text-xs bg-background/50 h-9"
+                    className="text-xs bg-background/50 h-9 font-mono"
+                    disabled
                   />
                 </div>
                 
-                {activeBusinessType === "manufacturer" && (
-                  <>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-bold text-muted-foreground">PIECE-RATE OPTION</Label>
-                      <select 
-                        value={onboardForm.is_piece_rate ? "true" : "false"}
-                        onChange={e => setOnboardForm(prev => ({ ...prev, is_piece_rate: e.target.value === "true" }))}
-                        className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
-                      >
-                        <option value="false">Hourly / Monthly Wages</option>
-                        <option value="true">Piece-Rate (Per unit produced)</option>
-                      </select>
-                    </div>
-                    
-                    {onboardForm.is_piece_rate && (
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold text-muted-foreground">PIECE RATE PER UNIT PRODUCED (₹)</Label>
-                        <Input 
-                          type="number"
-                          value={onboardForm.piece_rate_per_unit}
-                          onChange={e => setOnboardForm(prev => ({ ...prev, piece_rate_per_unit: e.target.value }))}
-                          className="text-xs bg-background/50 h-9 font-bold text-emerald-500"
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="space-y-1 col-span-2">
-                      <Label className="text-[10px] font-bold text-muted-foreground">CERTIFIED MACHINERY (Comma-separated)</Label>
-                      <Input 
-                        value={onboardForm.machine_certified}
-                        onChange={e => setOnboardForm(prev => ({ ...prev, machine_certified: e.target.value }))}
-                        placeholder="Injection Moulding, CNC Lathe, Packaging Machine"
-                        className="text-xs bg-background/50 h-9"
-                      />
-                    </div>
-                  </>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-muted-foreground">PIECE-RATE OPTION</Label>
+                  <select 
+                    value={onboardForm.is_piece_rate ? "true" : "false"}
+                    onChange={e => setOnboardForm(prev => ({ ...prev, is_piece_rate: e.target.value === "true" }))}
+                    className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
+                  >
+                    <option value="false">Hourly / Monthly Wages</option>
+                    <option value="true">Piece-Rate (Per unit produced)</option>
+                  </select>
+                </div>
+                
+                {onboardForm.is_piece_rate && (
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground">PIECE RATE PER UNIT PRODUCED (₹)</Label>
+                    <Input 
+                      type="number"
+                      value={onboardForm.piece_rate_per_unit}
+                      onChange={e => setOnboardForm(prev => ({ ...prev, piece_rate_per_unit: e.target.value }))}
+                      className="text-xs bg-background/50 h-9 font-bold text-emerald-500"
+                    />
+                  </div>
                 )}
+                
+                <div className="space-y-1 col-span-2">
+                  <Label className="text-[10px] font-bold text-muted-foreground">CERTIFIED MACHINERY (Comma-separated)</Label>
+                  <Input 
+                    value={onboardForm.machine_certified}
+                    onChange={e => setOnboardForm(prev => ({ ...prev, machine_certified: e.target.value }))}
+                    placeholder="Injection Moulding, CNC Lathe, Packaging Machine"
+                    className="text-xs bg-background/50 h-9"
+                  />
+                </div>
               </div>
               
               <div className="flex justify-between pt-4 border-t border-border/20 mt-4">
@@ -1167,14 +2222,273 @@ export default function EmployeeMaster({
                 <Button 
                   onClick={handleOnboardSubmit}
                   type="button" 
-                  className="font-bold gold-gradient text-black text-xs h-9 px-6 shadow-lg shadow-amber-500/10"
+                  className="font-bold gold-gradient text-black text-xs h-9 px-6 shadow-lg shadow-amber-500/10 animate-pulse"
                 >
-                  Onboard &amp; Generate Credentials
+                  {isEditing ? "Save & Update Profile" : "Onboard & Generate Credentials"}
                 </Button>
               </div>
             </TabsContent>
 
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== DIALOG: ROW LEVEL INLINE EDIT MODAL ==================== */}
+      <Dialog open={isRowModalOpen} onOpenChange={setIsRowModalOpen}>
+        <DialogContent className="max-w-md bg-card border border-border/50 text-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase text-primary">Edit Profile Roster Item</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              Modify historical parameters directly in the secure Firestore entity collection.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingRowData && (
+            <form onSubmit={handleSaveRowEdit} className="space-y-4 pt-2">
+              {activeEditRowType === "attendance" && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Punch Type</Label>
+                    <select
+                      value={editingRowData.type}
+                      onChange={e => setEditingRowData({ ...editingRowData, type: e.target.value })}
+                      className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
+                    >
+                      <option value="CHECK_IN">CHECK_IN</option>
+                      <option value="CHECK_OUT">CHECK_OUT</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Date</Label>
+                    <Input
+                      type="date"
+                      value={editingRowData.date}
+                      onChange={e => setEditingRowData({ ...editingRowData, date: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Time</Label>
+                    <Input
+                      type="text"
+                      value={editingRowData.time}
+                      onChange={e => setEditingRowData({ ...editingRowData, time: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Match Score %</Label>
+                    <Input
+                      type="number"
+                      value={editingRowData.faceMatchScore}
+                      onChange={e => setEditingRowData({ ...editingRowData, faceMatchScore: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Audit Status</Label>
+                    <select
+                      value={editingRowData.status}
+                      onChange={e => setEditingRowData({ ...editingRowData, status: e.target.value })}
+                      className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
+                    >
+                      <option value="Verified">Verified</option>
+                      <option value="Verification Required">Verification Required</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {activeEditRowType === "leave" && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Leave Type</Label>
+                    <Input
+                      value={editingRowData.leaveType}
+                      onChange={e => setEditingRowData({ ...editingRowData, leaveType: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Start Date</Label>
+                    <Input
+                      type="date"
+                      value={editingRowData.startDate}
+                      onChange={e => setEditingRowData({ ...editingRowData, startDate: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">End Date</Label>
+                    <Input
+                      type="date"
+                      value={editingRowData.endDate}
+                      onChange={e => setEditingRowData({ ...editingRowData, endDate: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Days Span</Label>
+                    <Input
+                      type="number"
+                      value={editingRowData.durationDays}
+                      onChange={e => setEditingRowData({ ...editingRowData, durationDays: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Approval Status</Label>
+                    <select
+                      value={editingRowData.status}
+                      onChange={e => setEditingRowData({ ...editingRowData, status: e.target.value })}
+                      className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
+                    >
+                      <option value="Approved">Approved</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Rejected">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {activeEditRowType === "document" && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Category</Label>
+                    <Input
+                      value={editingRowData.doc_type}
+                      onChange={e => setEditingRowData({ ...editingRowData, doc_type: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Name</Label>
+                    <Input
+                      value={editingRowData.doc_name}
+                      onChange={e => setEditingRowData({ ...editingRowData, doc_name: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">File URL</Label>
+                    <Input
+                      value={editingRowData.file_url}
+                      onChange={e => setEditingRowData({ ...editingRowData, file_url: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeEditRowType === "performance" && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Review Period</Label>
+                    <Input
+                      value={editingRowData.review_period}
+                      onChange={e => setEditingRowData({ ...editingRowData, review_period: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Rating Scale</Label>
+                    <Input
+                      value={editingRowData.overall_rating}
+                      onChange={e => setEditingRowData({ ...editingRowData, overall_rating: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Rating Score (1-5)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={editingRowData.overall_score}
+                      onChange={e => setEditingRowData({ ...editingRowData, overall_score: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Increment %</Label>
+                    <Input
+                      type="number"
+                      value={editingRowData.increment_percent}
+                      onChange={e => setEditingRowData({ ...editingRowData, increment_percent: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeEditRowType === "loan" && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Loan Category</Label>
+                    <Input
+                      value={editingRowData.type}
+                      onChange={e => setEditingRowData({ ...editingRowData, type: e.target.value })}
+                      className="bg-background/50 h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Principal Borrowed</Label>
+                    <Input
+                      type="number"
+                      value={editingRowData.amount}
+                      onChange={e => setEditingRowData({ ...editingRowData, amount: e.target.value })}
+                      className="bg-background/50 h-9 font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Monthly EMI</Label>
+                    <Input
+                      type="number"
+                      value={editingRowData.emi_amount}
+                      onChange={e => setEditingRowData({ ...editingRowData, emi_amount: e.target.value })}
+                      className="bg-background/50 h-9 font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Outstanding Balance</Label>
+                    <Input
+                      type="number"
+                      value={editingRowData.balance_outstanding}
+                      onChange={e => setEditingRowData({ ...editingRowData, balance_outstanding: e.target.value })}
+                      className="bg-background/50 h-9 font-bold text-red-400"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">State Status</Label>
+                    <select
+                      value={editingRowData.status}
+                      onChange={e => setEditingRowData({ ...editingRowData, status: e.target.value })}
+                      className="w-full bg-background border border-border rounded-lg py-2 px-3 text-xs h-9 font-bold"
+                    >
+                      <option value="active">ACTIVE</option>
+                      <option value="closed">CLOSED</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-border/20 mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsRowModalOpen(false)}
+                  className="text-xs h-8 px-4"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="text-xs font-bold gold-gradient text-black h-8 px-5"
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

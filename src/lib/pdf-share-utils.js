@@ -59,7 +59,7 @@ export function generateThermalHTML(inv = {}, shop = {}, printerSize = "58mm") {
     <div class="item-row">
       <div class="item-grid ${is80mm ? 'wide' : 'narrow'}">
         <div>
-          <div class="item-name ${is80mm ? 'wide' : ''}">${item.name}</div>
+          <div class="item-name ${is80mm ? 'wide' : ''}">${item.name}${item.size ? ` (${item.size})` : ''}</div>
           ${item.hsn ? `<div class="item-hsn ${is80mm ? 'wide' : ''}">HSN: ${item.hsn} · GST: ${item.gst_rate || 18}%</div>` : ''}
         </div>
         <span class="item-cell ${is80mm ? 'wide' : ''}">${item.qty}</span>
@@ -284,6 +284,12 @@ export function generateThermalHTML(inv = {}, shop = {}, printerSize = "58mm") {
               <span class="totals-key ${is80mm ? 'wide' : ''}">SGST + CGST</span>
               <span class="totals-val ${is80mm ? 'wide' : ''}">₹${taxAmount.toFixed(2)}</span>
             </div>
+            ${inv.alteration_total > 0 ? `
+            <div class="totals-row">
+              <span class="totals-key ${is80mm ? 'wide' : ''}">Alterations</span>
+              <span class="totals-val ${is80mm ? 'wide' : ''}">₹${parseFloat(inv.alteration_total).toFixed(2)}</span>
+            </div>
+            ` : ""}
             ${discountRow}
             <div class="grand-total-row">
               <span class="gt-label ${is80mm ? 'wide' : ''}">Total</span>

@@ -38,6 +38,26 @@ export default function DocumentVault({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
 
+  // --- SMART FILTER & SEARCH STATES FOR CATALOG ---
+  const [searchVault, setSearchVault] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
+
+  const filteredDocs = useMemo(() => {
+    return safeDocumentsList.filter(doc => {
+      if (!doc) return false;
+      const emp = safeEmployees.find(e => e.id === doc.employeeId) || {};
+      const empName = emp.name || emp.full_name || "";
+      const matchesSearch = 
+        (doc.doc_name || "").toLowerCase().includes(searchVault.toLowerCase()) ||
+        (doc.doc_type || "").toLowerCase().includes(searchVault.toLowerCase()) ||
+        empName.toLowerCase().includes(searchVault.toLowerCase());
+      
+      const matchesCategory = categoryFilter === "ALL" || doc.doc_type === categoryFilter;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [safeDocumentsList, safeEmployees, searchVault, categoryFilter]);
+
   // Target Employee for letter writer
   const targetEmployee = useMemo(() => {
     return safeEmployees.find(e => e.id === selectedEmpId) || null;
@@ -455,41 +475,85 @@ export default function DocumentVault({
             )}
 
             {/* General Files Vault list */}
-            <div className="bg-card/40 border border-border/50 rounded-2xl p-5 backdrop-blur-md space-y-3">
-              <h4 className="font-black text-sm text-foreground border-b border-border/20 pb-2">Active Vault Files Vault Catalog</h4>
+            <div className="bg-card/40 border border-border/50 rounded-2xl p-5 backdrop-blur-md space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-border/20 pb-3 gap-3">
+                <h4 className="font-black text-sm text-foreground">Active Vault Files Vault Catalog</h4>
+                
+                {/* Search box overlay inline */}
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search file name or staff..."
+                    value={searchVault}
+                    onChange={e => setSearchVault(e.target.value)}
+                    className="text-xs bg-background/50 h-8 pl-8 border-border/40"
+                  />
+                </div>
+              </div>
+
+              {/* Smart Filters pills */}
+              <div className="flex flex-wrap items-center gap-3 text-[10px]">
+                <span className="font-extrabold text-muted-foreground uppercase">Category:</span>
+                <div className="flex bg-secondary/25 p-0.5 rounded-lg border border-border/20 flex-wrap">
+                  {["ALL", "aadhaar", "pan", "passport", "driving_license", "experience_letter", "other"].map(cat => (
+                    <button
+                      type="button"
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`px-2 py-0.5 rounded font-bold transition-all ${
+                        categoryFilter === cat 
+                          ? "bg-background text-foreground shadow-sm" 
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {cat === "ALL" ? "ALL" : cat === "aadhaar" ? "Aadhaar" : cat === "pan" ? "PAN" : cat === "passport" ? "Passport" : cat === "driving_license" ? "DL" : cat === "experience_letter" ? "Experience" : "Other"}
+                    </button>
+                  ))}
+                </div>
+                <div className="ml-auto text-[9px] text-muted-foreground">
+                  Showing <strong className="text-foreground">{filteredDocs.length}</strong> of {safeDocumentsList.length} files
+                </div>
+              </div>
               
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-secondary/35 border-b border-border/30 text-muted-foreground font-black text-[9px] uppercase tracking-wider">
                       <th className="p-3">Category</th>
-                      <th className="p-3">File Name</th>
+                      <th className="p-3">File Name &amp; Staff</th>
                       <th className="p-3">Date Uploaded</th>
                       <th className="p-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20 leading-relaxed font-sans">
-                    {safeDocumentsList.map((doc, i) => (
-                      <tr key={i} className="hover:bg-secondary/15 font-medium">
-                        <td className="p-3 capitalize font-bold text-primary">{doc.doc_type}</td>
-                        <td className="p-3 font-semibold text-slate-200">{doc.doc_name}</td>
-                        <td className="p-3 text-muted-foreground font-mono">{doc.uploaded_at ? doc.uploaded_at.split("T")[0] : "2026-05-20"}</td>
-                        <td className="p-3 text-right">
-                          <a 
-                            href={doc.file_url} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="bg-primary/10 border border-primary/20 text-primary py-0.5 px-2.5 rounded font-black text-[9px] hover:bg-primary/20 transition"
-                          >
-                            Download
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                    {safeDocumentsList.length === 0 && (
+                    {filteredDocs.map((doc, i) => {
+                      const emp = safeEmployees.find(e => e.id === doc.employeeId) || {};
+                      const empName = emp.name || emp.full_name || "Unassigned";
+                      return (
+                        <tr key={doc.id || i} className="hover:bg-secondary/15 font-medium">
+                          <td className="p-3 capitalize font-bold text-primary">{doc.doc_type}</td>
+                          <td className="p-3">
+                            <div className="font-semibold text-slate-200">{doc.doc_name}</div>
+                            <div className="text-[9px] text-muted-foreground font-mono mt-0.5">{empName}</div>
+                          </td>
+                          <td className="p-3 text-muted-foreground font-mono">{doc.uploaded_at ? doc.uploaded_at.split("T")[0] : "2026-05-20"}</td>
+                          <td className="p-3 text-right">
+                            <a 
+                              href={doc.file_url} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="bg-primary/10 border border-primary/20 text-primary py-0.5 px-2.5 rounded font-black text-[9px] hover:bg-primary/20 transition"
+                            >
+                              Download
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredDocs.length === 0 && (
                       <tr>
-                        <td colSpan="4" className="p-4 text-center text-muted-foreground font-medium">
-                          No identity documents currently logged in vault storage.
+                        <td colSpan="4" className="p-8 text-center text-muted-foreground font-medium">
+                          No matching identity documents found in vault catalog.
                         </td>
                       </tr>
                     )}

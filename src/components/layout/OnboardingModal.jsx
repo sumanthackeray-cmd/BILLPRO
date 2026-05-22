@@ -17,6 +17,7 @@ import { toast } from "@/lib/toast";
 import { Store, Building2, User, Landmark, FileText, Image as ImageIcon, Pen, Upload, ChevronRight, ChevronLeft, Check, ChevronsUpDown } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BUSINESS_TYPES } from "@/lib/shopCategories";
+import { useShopSettings } from "@/hooks/useShopSettings";
 
 const ENTITY_TYPES = [
   "Sole Proprietorship",
@@ -49,13 +50,7 @@ export default function OnboardingModal() {
   const currentUid = user?.id;
   const hasSaved = savedInSession || (currentUid ? sessionStorage.getItem(`onboarding_completed_${currentUid}`) === "true" : false);
   
-  const { data: settings = [], isLoading } = useQuery({
-    queryKey: ["shopSettings"],
-    queryFn: () => base44.entities.ShopSettings.list(),
-    enabled: !!user,
-  });
-  
-  const existing = settings[0];
+  const { settings, shopSettings: existing, updateSettingsOptimistically, isLoading } = useShopSettings();
 
   // Clean duplicate settings documents if any
   useEffect(() => {
@@ -146,6 +141,9 @@ export default function OnboardingModal() {
       return;
     }
 
+    // 1. Save optimistically
+    updateSettingsOptimistically(form);
+
     setSaving(true);
     try {
       if (auth.currentUser) {
@@ -156,14 +154,20 @@ export default function OnboardingModal() {
       }
       
       const latestSettings = await base44.entities.ShopSettings.list();
+      let savedSettings;
       if (latestSettings && latestSettings.length > 0) {
-        await base44.entities.ShopSettings.update(latestSettings[0].id, form);
+        savedSettings = await base44.entities.ShopSettings.update(latestSettings[0].id, form);
       } else {
-        await base44.entities.ShopSettings.create({ 
+        savedSettings = await base44.entities.ShopSettings.create({ 
           ...form, 
           invoice_counter: 0, 
           purchase_counter: 0 
         });
+      }
+      
+      if (savedSettings) {
+        queryClient.setQueryData(["shopSettings"], [savedSettings]);
+        localStorage.setItem("base44_shop_settings", JSON.stringify([savedSettings]));
       }
       
       queryClient.invalidateQueries({ queryKey: ["shopSettings"] });
@@ -174,6 +178,9 @@ export default function OnboardingModal() {
       toast.success("Profile setup complete!");
       setOpen(false);
     } catch (err) {
+      // Rollback
+      queryClient.setQueryData(["shopSettings"], settings);
+      localStorage.setItem("base44_shop_settings", JSON.stringify(settings));
       toast.error("Failed to save profile: " + err.message);
     } finally {
       setSaving(false);

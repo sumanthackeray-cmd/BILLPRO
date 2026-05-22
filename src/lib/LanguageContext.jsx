@@ -31,6 +31,11 @@ const TRANSLATIONS = {
     "nav.auditLogs": "Audit Logs",
     "nav.manufacturing": "Manufacturing ERP",
     "nav.hrms": "HRMS & Payroll",
+    "nav.supermarket_counters": "Counter Mgmt",
+    "nav.supermarket_offers": "Offers Engine",
+    "nav.supermarket_loyalty": "Loyalty Program",
+    "nav.supermarket_expiry": "Expiry Mgmt",
+    "nav.supermarket_reports": "Dept Reports",
 
     // Common
     "common.save": "Save",
@@ -685,6 +690,11 @@ const TRANSLATIONS = {
     "nav.auditLogs": "ऑडिट लॉग्स",
     "nav.manufacturing": "उत्पादन ईआरपी",
     "nav.hrms": "HRMS और पेरोल",
+    "nav.supermarket_counters": "काउंटर प्रबंधन",
+    "nav.supermarket_offers": "ऑफ़र इंजन",
+    "nav.supermarket_loyalty": "लॉयल्टी प्रोग्राम",
+    "nav.supermarket_expiry": "समाप्ति प्रबंधन",
+    "nav.supermarket_reports": "विभाग रिपोर्ट",
 
     // Common
     "common.save": "सेव करें",

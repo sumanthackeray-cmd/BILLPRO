@@ -1,11 +1,52 @@
 import { base44 } from "@/api/base44Client";
 
-// --- STATUTORY CONSTANTS ---
+// --- STATUTORY CONSTANTS & CONFIG SYSTEM ---
+export function getRegulatoryConfig() {
+  if (typeof window === "undefined") {
+    return {
+      country: "India",
+      currency: "₹",
+      pfEmployeeRate: 12,
+      pfEmployerRate: 12,
+      esicEmployeeRate: 0.75,
+      esicEmployerRate: 3.25,
+      esicThreshold: 21000,
+      ptRate: 200,
+      tdsThreshold: 700000
+    };
+  }
+  const stored = localStorage.getItem("hrms_regulatory_config");
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  return {
+    country: "India",
+    currency: "₹",
+    pfEmployeeRate: 12,      // %
+    pfEmployerRate: 12,      // %
+    esicEmployeeRate: 0.75,  // %
+    esicEmployerRate: 3.25,  // %
+    esicThreshold: 21000,
+    ptRate: 200,             // Fixed professional tax
+    tdsThreshold: 700000     // Annual threshold below which tax is nil
+  };
+}
+
+export function saveRegulatoryConfig(config) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("hrms_regulatory_config", JSON.stringify(config));
+  }
+}
+
 export const PF_RATE_EMPLOYEE = 0.12;
 export const PF_RATE_EMPLOYER = 0.12;
 export const ESIC_RATE_EMPLOYEE = 0.0075;
 export const ESIC_RATE_EMPLOYER = 0.0325;
-export const PT_FIXED_MH = 200; // Standard PT for Maharashtra (and general fallback)
+export const PT_FIXED_MH = 200;
 
 // --- COMPLIANCE CALCULATORS ---
 
@@ -14,51 +55,56 @@ export const PT_FIXED_MH = 200; // Standard PT for Maharashtra (and general fall
  * PF is typically 12% of Basic Salary.
  */
 export function calculatePF(basic) {
-  const empPF = Math.round(basic * PF_RATE_EMPLOYEE);
-  const emprPF = Math.round(basic * PF_RATE_EMPLOYER);
+  const config = getRegulatoryConfig();
+  const empPF = Math.round(basic * (config.pfEmployeeRate / 100));
+  const emprPF = Math.round(basic * (config.pfEmployerRate / 100));
   return { employee: empPF, employer: emprPF };
 }
 
 /**
  * Calculates Employee & Employer ESIC contribution
- * ESIC applies if Gross Salary is <= ₹21,000.
- * Employee rate: 0.75% of Gross, Employer rate: 3.25% of Gross.
+ * ESIC applies if Gross Salary is <= threshold.
  */
 export function calculateESIC(gross) {
-  if (gross > 21000) {
+  const config = getRegulatoryConfig();
+  if (config.esicThreshold && gross > config.esicThreshold) {
     return { employee: 0, employer: 0 };
   }
-  const empESIC = Number((gross * ESIC_RATE_EMPLOYEE).toFixed(2));
-  const emprESIC = Number((gross * ESIC_RATE_EMPLOYER).toFixed(2));
+  const empESIC = Number((gross * (config.esicEmployeeRate / 100)).toFixed(2));
+  const emprESIC = Number((gross * (config.esicEmployerRate / 100)).toFixed(2));
   return { employee: empESIC, employer: emprESIC };
 }
 
 /**
  * Calculates Professional Tax (PT)
- * Pt is standard state-wise. Fallback to ₹200.
+ * Pt is standard state-wise. Fallback to customized rate.
  */
 export function calculatePT(gross, state = "Maharashtra") {
+  const config = getRegulatoryConfig();
+  if (config.country !== "India") {
+    return config.ptRate || 0;
+  }
   if (gross < 7500) return 0;
   if (gross < 10000) return 175;
-  return PT_FIXED_MH;
+  return config.ptRate || 200;
 }
 
 /**
  * Calculates estimated monthly TDS (Withholding tax)
- * A simple standard new slab estimation for monthly run.
+ * A dynamic regime based on configurable tdsThreshold.
  */
 export function calculateTDS(monthlyGross) {
+  const config = getRegulatoryConfig();
   const annualGross = monthlyGross * 12;
   let annualTax = 0;
   
-  // FY 2025-26 New Tax Regime simplified slabs:
-  // Up to ₹7L: Nil tax (with rebate)
-  // We apply general incremental slab tax if above ₹7L:
-  if (annualGross <= 700000) {
+  if (annualGross <= config.tdsThreshold) {
     annualTax = 0;
   } else {
-    const taxable = annualGross - 300000; // standard deduction etc simplified
-    if (taxable <= 300000) {
+    const taxable = annualGross - config.tdsThreshold;
+    if (taxable <= 0) {
+      annualTax = 0;
+    } else if (taxable <= 300000) {
       annualTax = taxable * 0.05;
     } else if (taxable <= 600000) {
       annualTax = 15000 + (taxable - 300000) * 0.10;

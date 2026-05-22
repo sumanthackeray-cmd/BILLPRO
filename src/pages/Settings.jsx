@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { INDIAN_STATES } from "@/lib/gst-utils";
+import { useShopSettings } from "@/hooks/useShopSettings";
 import { auth } from "@/api/firebase";
 import { updateProfile } from "firebase/auth";
 import { useAuth } from "@/hooks/useAuth";
@@ -57,12 +58,17 @@ export default function Settings() {
     saveStaffList(updated);
   };
 
-  const { data: settings = [], refetch, error, isError, isLoading } = useQuery({
-    queryKey: ["shopSettings"],
-    queryFn: () => base44.entities.ShopSettings.list(),
+  const { settings, shopSettings: existing, updateSettingsOptimistically, refetch, error, isError, isLoading } = useShopSettings();
+
+  const { data: employees = [] } = useQuery({
+    queryKey: ["employees"],
+    queryFn: () => base44.entities.Employee.list(),
     enabled: !!user,
   });
-  const existing = settings[0];
+
+  const currentEmployee = employees.find(e => e.id === user?.id);
+  const userDesignation = currentEmployee?.designation || currentEmployee?.designation_id || (user?.role_id ? user.role_id.replace("role-", "").replace("_", " ") : user?.role ? user.role : "Administrator");
+
 
   // Clean duplicate settings documents if any
   useEffect(() => {
@@ -146,6 +152,9 @@ export default function Settings() {
   };
 
   const handleSave = async () => {
+    // 1. Execute optimistic cache and local persistence instantly (0ms UI latency!)
+    updateSettingsOptimistically(form);
+    
     setSaving(true);
     try {
       if (auth.currentUser) {
@@ -155,16 +164,27 @@ export default function Settings() {
         updateAuthUser(form.owner_name);
       }
       
+      // 2. Perform backend operations in background (up to 1 second)
       const latestSettings = await base44.entities.ShopSettings.list();
+      let savedSettings;
       if (latestSettings && latestSettings.length > 0 && !latestSettings[0].id.startsWith("seed")) {
-        await base44.entities.ShopSettings.update(latestSettings[0].id, form);
+        savedSettings = await base44.entities.ShopSettings.update(latestSettings[0].id, form);
       } else {
-        await base44.entities.ShopSettings.create({ ...form, invoice_counter: 0, purchase_counter: 0 });
+        savedSettings = await base44.entities.ShopSettings.create({ ...form, invoice_counter: 0, purchase_counter: 0 });
+      }
+      
+      // 3. Set server-defined structure details (e.g. ID, audit logs) without interrupting the client
+      if (savedSettings) {
+        queryClient.setQueryData(["shopSettings"], [savedSettings]);
+        localStorage.setItem("base44_shop_settings", JSON.stringify([savedSettings]));
       }
       
       queryClient.invalidateQueries({ queryKey: ["shopSettings"] });
       toast.success("Settings saved!");
     } catch (err) {
+      // Rollback cache if write fails completely
+      queryClient.setQueryData(["shopSettings"], settings);
+      localStorage.setItem("base44_shop_settings", JSON.stringify(settings));
       toast.error("Failed to save settings: " + err.message);
     } finally {
       setSaving(false);
@@ -311,7 +331,7 @@ export default function Settings() {
                     </p>
                     {user.hierarchy_level <= 2 ? (
                       <Link to="/settings/permissions">
-                        <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold gap-2 shadow-lg shadow-purple-600/20">
+                        <Button className="w-full !bg-purple-600 hover:!bg-purple-700 active:!bg-purple-800 !text-white font-bold gap-2 shadow-lg shadow-purple-600/20 border !border-purple-700">
                           <Sliders className="w-4 h-4" /> Open Security Matrix
                         </Button>
                       </Link>
@@ -349,9 +369,9 @@ export default function Settings() {
               <div className="flex-1 min-w-0">
                 <h2 className="text-2xl font-black">{user?.full_name || user?.name || "User Profile"}</h2>
                 <div className="flex flex-wrap items-center gap-2 mt-1 opacity-90 text-sm">
-                  <span className="font-mono bg-black/20 px-2 py-0.5 rounded tracking-wider">{localStorage.getItem('user_code') || user?.id?.substring(0,8).toUpperCase() || "ADMIN-001"}</span>
+                  <span className="font-mono bg-black/20 px-2 py-0.5 rounded tracking-wider">{(localStorage.getItem('user_code') || user?.user_code) === 'ADMIN-001' ? `${(localStorage.getItem('company_id') || 'COMP').split('-')[0].substring(0, 6).toUpperCase()}-ADMIN-001` : (localStorage.getItem('user_code') || user?.user_code || user?.id?.substring(0, 6) || "STF-01")}</span>
                   <span>•</span>
-                  <span className="capitalize font-semibold">{user?.role_id ? user.role_id.replace("role-", "").replace("_", " ") : user?.role ? user.role : "Administrator"}</span>
+                  <span className="capitalize font-semibold">{userDesignation}</span>
                 </div>
                 {localStorage.getItem('company_id') && (
                   <div className="mt-2 inline-flex items-center gap-1.5 bg-white/15 border border-white/30 px-3 py-1 rounded-lg text-xs font-bold backdrop-blur-sm">
@@ -392,9 +412,9 @@ export default function Settings() {
                   </h4>
                   <div className="space-y-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                     <div>
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase">Assigned Role</p>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase">Designation / Role</p>
                       <p className="font-medium text-[14px] capitalize text-indigo-600 dark:text-indigo-400">
-                        {user?.role_id ? user.role_id.replace("role-", "").replace("_", " ") : user?.role ? user.role : "Administrator"}
+                        {userDesignation}
                       </p>
                     </div>
                     <div>

@@ -2,15 +2,10 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { isOverdue, getMonth } from "@/lib/gst-utils";
+import { useShopSettings } from "./useShopSettings";
 
 export function useDashboardData(startDate, endDate) {
-  const { data: settings = [] } = useQuery({
-    queryKey: ["shopSettings"],
-    queryFn: () => base44.entities.ShopSettings.list(),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
-  const shopSettings = settings[0] || {};
+  const { shopSettings } = useShopSettings();
   const businessType = shopSettings.business_type || "retail";
 
   const { data: invoices = [], refetch: refetchInvoices } = useQuery({

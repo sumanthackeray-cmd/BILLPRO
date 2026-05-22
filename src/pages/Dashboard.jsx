@@ -3,6 +3,9 @@ import DashboardShell from "@/components/dashboard/DashboardShell";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import ProfileCompletionBanner from '../modules/registration/ProfileCompletionBanner';
 
+import { useSupermarketMode } from "@/hooks/useSupermarketMode";
+import SupermarketDashboard from "@/pages/SupermarketDashboard";
+
 const GeneralDashboard = React.lazy(() => import("@/components/dashboards/GeneralDashboard"));
 const GroceryDashboard = React.lazy(() => import("@/components/dashboards/GroceryDashboard"));
 const MedicalDashboard = React.lazy(() => import("@/components/dashboards/MedicalDashboard"));
@@ -24,12 +27,16 @@ export default function DashboardRouter() {
 
   const dashboardData = useDashboardData(startDate, endDate);
   const { businessType, refetchAll } = dashboardData;
+  const { isSupermarket } = useSupermarketMode();
 
   useEffect(() => {
     refetchAll();
   }, [startDate, endDate]);
 
   const renderDashboard = () => {
+    if (isSupermarket) {
+      return <SupermarketDashboard data={dashboardData} />;
+    }
     switch (businessType) {
       case "grocery": return <GroceryDashboard data={dashboardData} />;
       case "medical": return <MedicalDashboard data={dashboardData} />;
@@ -41,6 +48,7 @@ export default function DashboardRouter() {
       case "bakery": return <BakeryDashboard data={dashboardData} />;
       case "wholesaler":
       case "manufacturer":
+      case "supermarket":
       case "importer_exporter": return <WholesalerDashboard data={dashboardData} />;
       default: return <GeneralDashboard data={dashboardData} />;
     }

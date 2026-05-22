@@ -167,15 +167,20 @@ function ProductDetailDialog({ product, onClose, onEdit, onAdjust }) {
   if (!product) return null;
   const stockStatus = product.stock <= 0 ? "out" : product.stock <= (product.min_stock || 5) ? "low" : "ok";
   const abcLabel = product.abcClass ? `Class ${product.abcClass}` : "—";
-  const abcColor = product.abcClass === 'A' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : product.abcClass === 'B' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20";
+  const abcColor = product.abcClass === 'A' 
+    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.25)]" 
+    : product.abcClass === 'B' 
+    ? "bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.25)]" 
+    : "bg-purple-500/10 text-purple-400 border-purple-500/30 shadow-[0_0_12px_rgba(168,85,247,0.25)]";
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] max-w-md max-h-[88vh] overflow-y-auto p-0">
-        <DialogHeader className="p-4 pb-3 border-b border-border sticky top-0 bg-card z-10">
+      <DialogContent className="w-[95vw] max-w-md max-h-[88vh] overflow-y-auto p-0 border border-border/60 bg-card/95 backdrop-blur-md shadow-2xl">
+        <DialogHeader className="p-4 pb-3 border-b border-border sticky top-0 bg-card/95 backdrop-blur-md z-10">
           <DialogTitle className="text-sm font-black flex items-center justify-between pr-6">
-            <span>{product.name}</span>
-            <span className={cn("text-[9px] font-black px-2 py-0.5 rounded border uppercase shrink-0", abcColor)}>
+            <span className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">{product.name}</span>
+            <span className={cn("text-[9px] font-black px-2 py-0.5 rounded border uppercase shrink-0 tracking-wider flex items-center gap-1", abcColor)}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
               SAP {abcLabel}
             </span>
           </DialogTitle>
@@ -1160,20 +1165,59 @@ export default function Inventory() {
       {activeSubTab === "catalog" && (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: t("inventory.total_products"), value: stats.total, icon: Package, color: "text-blue-400", action: () => { setStockFilter("all"); setAbcFilter("all"); } },
-              { label: t("inventory.out_of_stock"), value: stats.outOfStock, icon: AlertTriangle, color: "text-red-400", action: () => { setStockFilter("out"); setAbcFilter("all"); } },
-              { label: t("inventory.low_stock"), value: stats.lowStock, icon: TrendingDown, color: "text-amber-400", action: () => { setStockFilter("low"); setAbcFilter("all"); } },
-              { label: t("inventory.total_value"), value: fmtINR(stats.totalValue), icon: BarChart3, color: "text-green-400", action: () => { setStockFilter("all"); setAbcFilter("all"); } },
+              { 
+                label: t("inventory.total_products"), 
+                value: stats.total, 
+                icon: Package, 
+                color: "text-cyan-400", 
+                border: "border-cyan-500/20 hover:border-cyan-500/40",
+                bg: "bg-cyan-500/5",
+                action: () => { setStockFilter("all"); setAbcFilter("all"); } 
+              },
+              { 
+                label: t("inventory.out_of_stock"), 
+                value: stats.outOfStock, 
+                icon: AlertTriangle, 
+                color: stats.outOfStock > 0 ? "text-rose-400" : "text-muted-foreground/60", 
+                border: stats.outOfStock > 0 ? "border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.15)]" : "border-border/60",
+                bg: stats.outOfStock > 0 ? "bg-rose-500/10 animate-pulse" : "bg-secondary/40",
+                action: () => { setStockFilter("out"); setAbcFilter("all"); } 
+              },
+              { 
+                label: t("inventory.low_stock"), 
+                value: stats.lowStock, 
+                icon: TrendingDown, 
+                color: stats.lowStock > 0 ? "text-amber-400" : "text-muted-foreground/60", 
+                border: stats.lowStock > 0 ? "border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]" : "border-border/60",
+                bg: stats.lowStock > 0 ? "bg-amber-500/10" : "bg-secondary/40",
+                action: () => { setStockFilter("low"); setAbcFilter("all"); } 
+              },
+              { 
+                label: t("inventory.total_value"), 
+                value: fmtINR(stats.totalValue), 
+                icon: BarChart3, 
+                color: "text-emerald-400", 
+                border: "border-emerald-500/20 hover:border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.05)]",
+                bg: "bg-emerald-500/5",
+                action: () => { setStockFilter("all"); setAbcFilter("all"); } 
+              },
             ].map((s, i) => (
-              <button key={i} onClick={s.action} className="bg-card border border-border rounded-xl p-3 flex items-center gap-2 hover:border-primary/30 transition-all text-left w-full">
-                <div className={cn("w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0", s.color)}>
-                  <s.icon className="w-4 h-4" />
+              <button 
+                key={i} 
+                onClick={s.action} 
+                className={cn(
+                  "bg-card/65 backdrop-blur-sm border rounded-xl p-3.5 flex items-center gap-3 transition-all duration-300 hover:-translate-y-0.5 text-left w-full",
+                  s.border
+                )}
+              >
+                <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", s.bg, s.color)}>
+                  <s.icon className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-base font-black leading-tight">{s.value}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{s.label}</p>
+                  <p className={cn("text-base font-black leading-tight", s.color)}>{s.value}</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5 truncate">{s.label}</p>
                 </div>
               </button>
             ))}
@@ -1324,26 +1368,44 @@ export default function Inventory() {
                 const badge = getStockBadge(product);
                 const isSelected = bulkSelected.includes(product.id);
                 const stockValue = product.stockValuation;
-                const abcBadgeColor = product.abcClass === 'A' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : product.abcClass === 'B' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20";
                 
+                // Premium ABC badge colors
+                const abcBadgeColor = product.abcClass === 'A' 
+                  ? "bg-emerald-950/60 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]" 
+                  : product.abcClass === 'B' 
+                  ? "bg-amber-950/60 text-amber-400 border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.2)]" 
+                  : "bg-purple-950/60 text-purple-400 border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.2)]";
+
+                // Stock status warning styling
+                const isOutOfStock = (product.stock ?? 0) <= 0;
+                const isLowStock = !isOutOfStock && (product.stock ?? 0) <= (product.min_stock ?? 5);
+                const stockStatusStyle = isOutOfStock
+                  ? "bg-red-500/10 text-red-400 border border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.15)]"
+                  : isLowStock
+                  ? "bg-amber-500/10 text-amber-400 border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.15)] animate-pulse"
+                  : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+
                 return (
                   <div
                     key={product.id}
                     className={cn(
-                      "bg-card border rounded-xl p-4 transition-all duration-200 group cursor-pointer relative overflow-hidden",
-                      isSelected ? "border-primary ring-1 ring-primary/30 bg-primary/5" : "border-border hover:border-primary/30"
+                      "bg-card/45 backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 group cursor-pointer relative overflow-hidden hover:-translate-y-1 hover:shadow-lg",
+                      isSelected 
+                        ? "border-primary ring-1 ring-primary/30 bg-primary/10 shadow-[0_0_15px_rgba(217,119,6,0.15)]" 
+                        : "border-border/60 hover:border-primary/40"
                     )}
                     onClick={() => bulkMode ? toggleBulkSelect(product.id) : setDetailProduct(product)}
                   >
                     {/* SAP ABC Tag */}
-                    <div className="absolute top-0 right-0">
-                      <span className={cn("text-[8px] font-black tracking-widest px-2 py-0.5 rounded-bl uppercase border-l border-b", abcBadgeColor)}>
+                    <div className="absolute top-0 right-0 z-10">
+                      <span className={cn("text-[8px] font-black tracking-widest px-2.5 py-1 rounded-bl-xl uppercase border-l border-b flex items-center gap-1", abcBadgeColor)}>
+                        <span className="w-1 h-1 rounded-full bg-current" />
                         {product.abcClass}
                       </span>
                     </div>
 
                     {/* Header row */}
-                    <div className="flex items-start justify-between mb-2.5 pr-6">
+                    <div className="flex items-start justify-between mb-3 pr-8">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         {bulkMode && (
                           <div className="shrink-0">
@@ -1351,24 +1413,24 @@ export default function Inventory() {
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="font-black text-[13px] leading-tight truncate">{product.name}</p>
-                          {product.category && <p className="text-[10px] text-muted-foreground truncate">{product.category}</p>}
+                          <p className="font-black text-[13px] leading-tight truncate group-hover:text-primary transition-colors">{product.name}</p>
+                          {product.category && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{product.category}</p>}
                         </div>
                       </div>
                     </div>
 
                     {/* Stock count */}
-                    <div className="flex items-end justify-between mb-3">
+                    <div className="flex items-end justify-between mb-3 bg-secondary/20 p-2.5 rounded-xl border border-border/40">
                       <div>
-                        <p className="text-[10px] text-muted-foreground font-semibold">{t("inventory.stock")}</p>
-                        <p className={cn("text-2xl font-black", (product.stock ?? 0) <= 0 ? "text-red-500" : (product.stock ?? 0) <= (product.min_stock ?? 5) ? "text-amber-500" : "text-foreground")}>
-                          {product.stock ?? 0}
-                          <span className="text-sm font-semibold text-muted-foreground ml-1">{product.unit || "pcs"}</span>
-                        </p>
+                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">{t("inventory.stock")}</p>
+                        <div className={cn("mt-1 px-2 py-0.5 rounded text-lg font-black flex items-baseline gap-1.5 w-fit", stockStatusStyle)}>
+                          <span>{product.stock ?? 0}</span>
+                          <span className="text-[10px] font-semibold opacity-85 uppercase">{product.unit || "pcs"}</span>
+                        </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] text-muted-foreground font-semibold">Valuation</p>
-                        <p className="text-sm font-bold">{fmtINR(stockValue)}</p>
+                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Valuation</p>
+                        <p className="text-xs font-black text-foreground/90 mt-1.5 font-mono">{fmtINR(stockValue)}</p>
                       </div>
                     </div>
 
@@ -1592,7 +1654,11 @@ export default function Inventory() {
                     varianceBg = "bg-green-500/5";
                   }
 
-                  const abcClassColor = p.abcClass === 'A' ? "bg-emerald-500/10 text-emerald-500" : p.abcClass === 'B' ? "bg-amber-500/10 text-amber-500" : "bg-indigo-500/10 text-indigo-500";
+                  const abcClassColor = p.abcClass === 'A' 
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.2)]" 
+                    : p.abcClass === 'B' 
+                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.2)]" 
+                    : "bg-purple-500/10 text-purple-400 border border-purple-500/30 shadow-[0_0_8px_rgba(168,85,247,0.2)]";
 
                   return (
                     <tr key={p.id} className={cn("border-b border-border/40 hover:bg-secondary/10 transition-all", varianceBg)}>
@@ -1601,7 +1667,8 @@ export default function Inventory() {
                         <p className="text-[10px] text-muted-foreground font-mono">{p.barcode || "No Barcode"}</p>
                       </td>
                       <td className="p-3">
-                        <span className={cn("px-2 py-0.5 rounded text-[9px] font-black uppercase", abcClassColor)}>
+                        <span className={cn("px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 w-fit", abcClassColor)}>
+                          <span className="w-1 h-1 rounded-full bg-current" />
                           {p.abcClass}
                         </span>
                       </td>

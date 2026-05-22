@@ -9,6 +9,7 @@ const BUSINESS_TYPES = [
   'Garments & Apparel',
   'Pharmacy / Medical',
   'Hardware & Paints',
+  'Mall / Supermarket',
   'FMCG Distribution',
   'Manufacturing Plant',
   'Services / Agency',

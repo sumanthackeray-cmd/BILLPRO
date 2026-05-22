@@ -16,6 +16,8 @@ import AccountingLink from "./hrms/AccountingLink";
 import ComplianceCenter from "./hrms/ComplianceCenter";
 import DocumentVault from "./hrms/DocumentVault";
 import FactoryMES from "./hrms/FactoryMES";
+import OrgStructure from "./hrms/OrgStructure";
+
 
 // Master seed trigger logic & compliance utilities
 import { ensureHRMSeedData } from "./hrms/hrmsUtils";
@@ -123,13 +125,13 @@ export default function HRMS() {
   });
 
   // 11. Master seed queries
-  const { data: departmentsList = [] } = useQuery({
+  const { data: departmentsList = [], refetch: refetchDepts } = useQuery({
     queryKey: ["hrms_departments"],
     queryFn: () => base44.entities.Department.list(),
     enabled: !!user,
   });
 
-  const { data: designationsList = [] } = useQuery({
+  const { data: designationsList = [], refetch: refetchDesigs } = useQuery({
     queryKey: ["hrms_designations"],
     queryFn: () => base44.entities.Designation.list(),
     enabled: !!user,
@@ -158,6 +160,8 @@ export default function HRMS() {
     refetchLoans();
     refetchDocs();
     refetchPerformance();
+    if (refetchDepts) refetchDepts();
+    if (refetchDesigs) refetchDesigs();
   };
 
   // Combine baseline Auth records with custom Employee collections details
@@ -259,6 +263,12 @@ export default function HRMS() {
             <Users className="w-3.5 h-3.5 text-blue-400" /> Employee Master
           </button>
           <button 
+            onClick={() => setActiveTab("org_structure")}
+            className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "org_structure" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
+          >
+            <Briefcase className="w-3.5 h-3.5 text-pink-400" /> Departments &amp; Roles
+          </button>
+          <button 
             onClick={() => setActiveTab("salary")}
             className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "salary" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
           >
@@ -318,6 +328,15 @@ export default function HRMS() {
             documentsList={documentsList}
             attendanceLogs={attendanceLogs}
             leavesList={leaveRequests}
+            salaryStructures={salaryStructures}
+          />
+        )}
+
+        {activeTab === "org_structure" && (
+          <OrgStructure 
+            departmentsList={departmentsList}
+            designationsList={designationsList}
+            refetchDetails={handleRefetchAll}
           />
         )}
 
@@ -344,6 +363,7 @@ export default function HRMS() {
             employees={employees}
             refetchDetails={handleRefetchAll}
             activeBusinessType={activeBusinessType}
+            attendanceLogs={attendanceLogs}
           />
         )}
 

@@ -2,7 +2,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import app, { auth, db, firebaseConfig } from "./config";
 import { initializeApp as initSecondaryApp, deleteApp } from "firebase/app";
 import { createUserWithEmailAndPassword, signOut, getAuth } from "firebase/auth";
-import { doc, writeBatch, serverTimestamp, collection, getDoc, getDocs, query, where, updateDoc, setDoc } from "firebase/firestore";
+import { doc, writeBatch, serverTimestamp, collection, getDoc, getDocs, query, where, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 const functions = getFunctions(app);
 
@@ -462,6 +462,37 @@ export const manageStaffUser = async (data) => {
         entityId: uid,
         branchId: targetData.branch_id || "MAIN",
         description: `Staff user ${targetData.user_code} updated. Active status set to ${is_active} (Client Fallback).`,
+        timestamp: serverTimestamp(),
+        createdAt: new Date().toISOString()
+      });
+      await batch.commit();
+
+      return { success: true };
+    } else if (action === "DELETE") {
+      const { uid } = data;
+      if (!uid) {
+        throw new Error("Missing target user UID.");
+      }
+
+      const userRef = doc(db, `companies/${companyId}/users`, uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        throw new Error("Target user profile not found.");
+      }
+
+      const targetData = userSnap.data();
+      await deleteDoc(userRef);
+
+      // Log action to Tenant Audit Log
+      const auditRef = doc(collection(db, `companies/${companyId}/auditLogs`));
+      const batch = writeBatch(db);
+      batch.set(auditRef, {
+        action: "USER_DELETE",
+        userId: auth.currentUser?.uid || null,
+        entityType: "User",
+        entityId: uid,
+        branchId: targetData.branch_id || "MAIN",
+        description: `Staff user ${targetData.user_code} deleted (Client Fallback).`,
         timestamp: serverTimestamp(),
         createdAt: new Date().toISOString()
       });

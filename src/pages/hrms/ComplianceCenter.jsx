@@ -1,13 +1,16 @@
 import { useState, useMemo } from "react";
 import { 
   Building2, FileSpreadsheet, ShieldAlert, HeartPulse, Award, FileText, CheckCircle2, 
-  HelpCircle, Sparkles, HelpCircle as HelpIcon, ArrowDownToLine, Calculator
+  HelpCircle, Sparkles, HelpCircle as HelpIcon, ArrowDownToLine, Calculator, Globe, Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
-import { calculatePF, calculateESIC, calculatePT, calculateStatutoryBonus, calculateGratuity } from "./hrmsUtils";
+import { 
+  calculatePF, calculateESIC, calculatePT, calculateStatutoryBonus, calculateGratuity,
+  getRegulatoryConfig, saveRegulatoryConfig 
+} from "./hrmsUtils";
 
 export default function ComplianceCenter({ 
   employees = [], 
@@ -18,6 +21,9 @@ export default function ComplianceCenter({
   const safeMonthlyPayrolls = useMemo(() => Array.isArray(monthlyPayrolls) ? monthlyPayrolls : [], [monthlyPayrolls]);
   const [selectedMonth, setSelectedMonth] = useState("2026-05");
   const [selectedCalculator, setSelectedCalculator] = useState("gratuity");
+
+  // Dynamic Compliance Config
+  const [config, setConfig] = useState(() => getRegulatoryConfig());
 
   // Gratuity Calculator States
   const [calcEmployeeId, setCalcEmployeeId] = useState("");
@@ -55,6 +61,14 @@ export default function ComplianceCenter({
     return { basic, percent, amount };
   }, [bonusTargetEmp, bonusRate, bonusManualBasic]);
 
+  const handleSaveConfig = () => {
+    saveRegulatoryConfig(config);
+    toast.success(`Regulatory guidelines calibrated for ${config.country || "selected country"}! All calculations re-computed.`);
+    if (refetchDetails) {
+      refetchDetails();
+    }
+  };
+
   // File download helper (EPF ECR text format with `#~#` delimiter)
   const handleDownloadECR = () => {
     if (safeEmployees.length === 0) {
@@ -63,19 +77,19 @@ export default function ComplianceCenter({
 
     try {
       let ecrText = "";
-      safeEmployees.forEach((emp, index) => {
+      safeEmployees.forEach((emp) => {
         if (!emp) return;
         const uan = emp.uan_number || "100987654321";
         const name = (emp.name || emp.full_name || "Employee").toUpperCase();
         const basic = Number(emp.basicSalary || emp.salary || 15000);
         
-        // ECR columns: UAN#~#MemberName#~#GrossWages#~#EPFWages#~#EPSWages#~#EEPF#~#EEPS#~#ERPF#~#NCPDays#~#Refunds
+        // ECR columns using config rates
         const grossWages = basic + 5000; 
-        const epfWages = Math.min(basic, 15000); // capped at Statutory wage threshold
+        const epfWages = Math.min(basic, 15000); 
         const epsWages = Math.min(basic, 15000);
-        const employeePF = Math.round(epfWages * 0.12);
-        const epsContribution = Math.round(epsWages * 0.0833);
-        const erPFDifference = employeePF - epsContribution;
+        const employeePF = Math.round(epfWages * (config.pfEmployeeRate / 100));
+        const epsContribution = Math.round(epsWages * (config.pfEmployerRate / 100));
+        const erPFDifference = Math.max(0, employeePF - epsContribution);
         
         ecrText += `${uan}#~#${name}#~#${grossWages}#~#${epfWages}#~#${epsWages}#~#${employeePF}#~#${epsContribution}#~#${erPFDifference}#~#0#~#0\r\n`;
       });
@@ -89,7 +103,7 @@ export default function ComplianceCenter({
       link.click();
       document.body.removeChild(link);
       
-      toast.success("EPF ECR file generated with official '#~#' character-delimited layout!");
+      toast.success("EPF ECR file generated with dynamic statutory rates!");
     } catch (err) {
       toast.error("ECR Generation failed: " + err.message);
     }
@@ -165,49 +179,176 @@ export default function ComplianceCenter({
   return (
     <div className="space-y-8 animate-fade-in text-xs leading-relaxed">
       
+      {/* International Compliance Customizer */}
+      <div className="bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl p-6 space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/20 pb-4">
+          <div className="space-y-1">
+            <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+              <Globe className="w-5 h-5 text-amber-500 animate-pulse" />
+               HCM Regulatory Customizer (Global Settings)
+            </h3>
+            <p className="text-muted-foreground text-[10px]">
+              Set the active country rules, tax regime slabs, and dynamic currency symbol globally.
+            </p>
+          </div>
+          <Button 
+            onClick={handleSaveConfig} 
+            size="sm" 
+            className="bg-amber-500 hover:bg-amber-600 text-black font-black text-[10px] h-8 px-4 flex items-center gap-1.5"
+          >
+            <Settings2 className="w-3.5 h-3.5" /> Save Country Configuration
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="space-y-1.5">
+            <Label className="font-extrabold text-[9px] uppercase tracking-wider text-slate-300">Country Rule Set</Label>
+            <Input 
+              type="text"
+              value={config.country}
+              onChange={e => setConfig(prev => ({ ...prev, country: e.target.value }))}
+              placeholder="e.g. India, UK..."
+              className="bg-background/40 h-8 text-[11px] border-border/40 font-bold"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-extrabold text-[9px] uppercase tracking-wider text-slate-300">Currency Indicator</Label>
+            <Input 
+              type="text"
+              value={config.currency}
+              onChange={e => setConfig(prev => ({ ...prev, currency: e.target.value }))}
+              placeholder="e.g. ₹, £, $, €..."
+              className="bg-background/40 h-8 text-[11px] border-border/40 font-bold"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-extrabold text-[9px] uppercase tracking-wider text-slate-300">EPF Employee Rate (%)</Label>
+            <Input 
+              type="number"
+              step="0.01"
+              value={config.pfEmployeeRate}
+              onChange={e => setConfig(prev => ({ ...prev, pfEmployeeRate: parseFloat(e.target.value) || 0 }))}
+              placeholder="12"
+              className="bg-background/40 h-8 text-[11px] border-border/40 font-bold"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-extrabold text-[9px] uppercase tracking-wider text-slate-300">EPF Employer Rate (%)</Label>
+            <Input 
+              type="number"
+              step="0.01"
+              value={config.pfEmployerRate}
+              onChange={e => setConfig(prev => ({ ...prev, pfEmployerRate: parseFloat(e.target.value) || 0 }))}
+              placeholder="12"
+              className="bg-background/40 h-8 text-[11px] border-border/40 font-bold"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-extrabold text-[9px] uppercase tracking-wider text-slate-300">ESIC Employee Rate (%)</Label>
+            <Input 
+              type="number"
+              step="0.01"
+              value={config.esicEmployeeRate}
+              onChange={e => setConfig(prev => ({ ...prev, esicEmployeeRate: parseFloat(e.target.value) || 0 }))}
+              placeholder="0.75"
+              className="bg-background/40 h-8 text-[11px] border-border/40 font-bold"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-extrabold text-[9px] uppercase tracking-wider text-slate-300">ESIC Employer Rate (%)</Label>
+            <Input 
+              type="number"
+              step="0.01"
+              value={config.esicEmployerRate}
+              onChange={e => setConfig(prev => ({ ...prev, esicEmployerRate: parseFloat(e.target.value) || 0 }))}
+              placeholder="3.25"
+              className="bg-background/40 h-8 text-[11px] border-border/40 font-bold"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-extrabold text-[9px] uppercase tracking-wider text-slate-300">ESIC Salary Ceiling ({config.currency})</Label>
+            <Input 
+              type="number"
+              value={config.esicThreshold}
+              onChange={e => setConfig(prev => ({ ...prev, esicThreshold: parseFloat(e.target.value) || 0 }))}
+              placeholder="21000"
+              className="bg-background/40 h-8 text-[11px] border-border/40 font-bold"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-extrabold text-[9px] uppercase tracking-wider text-slate-300">Professional Tax rate ({config.currency})</Label>
+            <Input 
+              type="number"
+              value={config.ptRate}
+              onChange={e => setConfig(prev => ({ ...prev, ptRate: parseFloat(e.target.value) || 0 }))}
+              placeholder="200"
+              className="bg-background/40 h-8 text-[11px] border-border/40 font-bold"
+            />
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2 md:col-span-4">
+            <Label className="font-extrabold text-[9px] uppercase tracking-wider text-slate-300">TDS Annual Exemption Threshold ({config.currency})</Label>
+            <Input 
+              type="number"
+              value={config.tdsThreshold}
+              onChange={e => setConfig(prev => ({ ...prev, tdsThreshold: parseFloat(e.target.value) || 0 }))}
+              placeholder="700000"
+              className="bg-background/40 h-8 text-[11px] border-border/40 font-bold"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Overview statutory cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-card/40 border border-border/50 rounded-2xl p-5 backdrop-blur-md space-y-3">
           <div className="flex justify-between items-center">
             <span className="p-2 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20"><Building2 className="w-5 h-5" /></span>
-            <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">12% Basic</span>
+            <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">{config.pfEmployeeRate}% Basic</span>
           </div>
           <div>
             <h4 className="font-black text-sm text-foreground">EPF Compliance</h4>
-            <p className="text-muted-foreground mt-1 text-[10px]">Auto calculated employee/employer shares capped at ₹15,000 threshold.</p>
+            <p className="text-muted-foreground mt-1 text-[10px]">Calculated dynamic employee/employer share as configured.</p>
           </div>
         </div>
 
         <div className="bg-card/40 border border-border/50 rounded-2xl p-5 backdrop-blur-md space-y-3">
           <div className="flex justify-between items-center">
             <span className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><HeartPulse className="w-5 h-5" /></span>
-            <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">0.75% / 3.25%</span>
+            <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">{config.esicEmployeeRate}% / {config.esicEmployerRate}%</span>
           </div>
           <div>
             <h4 className="font-black text-sm text-foreground">ESIC Compliance</h4>
-            <p className="text-muted-foreground mt-1 text-[10px]">Applicable for staff with gross salary under ₹21,000.</p>
+            <p className="text-muted-foreground mt-1 text-[10px]">Applicable for staff with gross salary under {config.currency}{config.esicThreshold.toLocaleString()}.</p>
           </div>
         </div>
 
         <div className="bg-card/40 border border-border/50 rounded-2xl p-5 backdrop-blur-md space-y-3">
           <div className="flex justify-between items-center">
             <span className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20"><Award className="w-5 h-5" /></span>
-            <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">Slabs</span>
+            <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">{config.currency}{config.ptRate}</span>
           </div>
           <div>
             <h4 className="font-black text-sm text-foreground">Professional Tax (PT)</h4>
-            <p className="text-muted-foreground mt-1 text-[10px]">State-wise slab structures (e.g. Maharashtra ₹200 fixed deduction).</p>
+            <p className="text-muted-foreground mt-1 text-[10px]">Customized deduction standard rate at {config.currency}{config.ptRate} fixed rate.</p>
           </div>
         </div>
 
         <div className="bg-card/40 border border-border/50 rounded-2xl p-5 backdrop-blur-md space-y-3">
           <div className="flex justify-between items-center">
             <span className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><FileText className="w-5 h-5" /></span>
-            <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">FY 2025-26</span>
+            <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">Limit: {config.currency}{(config.tdsThreshold/1000).toFixed(0)}k</span>
           </div>
           <div>
             <h4 className="font-black text-sm text-foreground">Withholding Tax (TDS)</h4>
-            <p className="text-muted-foreground mt-1 text-[10px]">New Tax Regime incremental slabs integrated inside monthly calculations.</p>
+            <p className="text-muted-foreground mt-1 text-[10px]">Dynamic regime threshold starting from {config.currency}{config.tdsThreshold.toLocaleString()} per year.</p>
           </div>
         </div>
       </div>
@@ -218,7 +359,7 @@ export default function ComplianceCenter({
         <div className="bg-card/40 border border-border/50 rounded-2xl p-6 backdrop-blur-md space-y-6">
           <div className="border-b border-border/20 pb-3">
             <h3 className="font-black text-sm text-foreground">Statutory Returns &amp; Portal Export Suite</h3>
-            <p className="text-muted-foreground text-[10px] mt-1">Download ready-to-upload files formatted specifically for Indian compliance portals.</p>
+            <p className="text-muted-foreground text-[10px] mt-1">Download ready-to-upload files formatted specifically for compliance portals.</p>
           </div>
 
           <div className="space-y-4">
@@ -268,7 +409,7 @@ export default function ComplianceCenter({
               {/* Form 24Q Return Button */}
               <div className="flex items-center justify-between p-3.5 bg-secondary/15 rounded-xl border border-border/30 hover:border-indigo-500/30 transition duration-300">
                 <div className="space-y-0.5">
-                  <span className="font-black text-xs text-foreground block">Quarterly TDS Form 24Q summary (.csv)</span>
+                  <span className="font-black text-xs text-foreground block">Quarterly TDS summary (.csv)</span>
                   <span className="text-[10px] text-muted-foreground block">Income tax withholding consolidated ledger.</span>
                 </div>
                 <Button 
@@ -280,6 +421,7 @@ export default function ComplianceCenter({
                   <ArrowDownToLine className="w-3.5 h-3.5 mr-1" /> TDS Form
                 </Button>
               </div>
+
             </div>
           </div>
         </div>
@@ -374,7 +516,7 @@ export default function ComplianceCenter({
 
                 <div className="flex justify-between pt-2 text-sm border-t border-border/20 items-baseline">
                   <span className="font-bold text-foreground">Total Accrued Gratuity:</span>
-                  <strong className="text-lg font-black text-amber-500">₹{gratuityOutput.amount.toLocaleString("en-IN")}</strong>
+                  <strong className="text-lg font-black text-amber-500">{config.currency}{gratuityOutput.amount.toLocaleString()}</strong>
                 </div>
 
                 <p className="text-[10px] text-muted-foreground leading-normal mt-1">
@@ -445,7 +587,7 @@ export default function ComplianceCenter({
 
                 <div className="flex justify-between pt-2 text-sm border-t border-border/20 items-baseline">
                   <span className="font-bold text-foreground">Estimated Bonus Payable:</span>
-                  <strong className="text-lg font-black text-emerald-500">₹{bonusOutput.amount.toLocaleString("en-IN")}</strong>
+                  <strong className="text-lg font-black text-emerald-500">{config.currency}{bonusOutput.amount.toLocaleString()}</strong>
                 </div>
 
                 <p className="text-[10px] text-muted-foreground leading-normal mt-1">
