@@ -1,27 +1,29 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { emailVerificationService } from "@/services/emailVerificationService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, ArrowLeft, Loader2 } from "lucide-react";
+import { Mail, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
     try {
-      await base44.auth.resetPasswordRequest(email);
-    } catch {
-      // Always show success regardless
+      await emailVerificationService.sendPasswordResetEmail(email);
+      setSent(true);
+    } catch (err) {
+      setError(err.message || "Failed to send reset link. Please try again.");
     } finally {
       setLoading(false);
-      setSent(true);
     }
   };
 
@@ -37,11 +39,29 @@ export default function ForgotPassword() {
       }
     >
       {sent ? (
-        <p className="text-sm text-foreground text-center">
-          If an account exists with that email, you'll receive a password reset link shortly.
-        </p>
+        <div className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-sm text-green-800">
+              If an account exists with that email, you'll receive a password reset link shortly. Please check your inbox and spam folder.
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            className="w-full h-12"
+            onClick={() => setSent(false)}
+          >
+            Send another reset link
+          </Button>
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3">
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="email">Email address</Label>
             <div className="relative">
@@ -56,10 +76,16 @@ export default function ForgotPassword() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10 h-12"
                 required
+                disabled={loading}
               />
             </div>
           </div>
-          <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
+          
+          <Button 
+            type="submit" 
+            className="w-full h-12 font-medium" 
+            disabled={loading || !email}
+          >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -69,6 +95,10 @@ export default function ForgotPassword() {
               "Send reset link"
             )}
           </Button>
+
+          <p className="text-xs text-muted-foreground text-center mt-4">
+            We'll send a secure link to verify your email and reset your password.
+          </p>
         </form>
       )}
     </AuthLayout>
