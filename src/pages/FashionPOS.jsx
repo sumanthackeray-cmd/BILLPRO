@@ -672,8 +672,8 @@ export default function FashionPOS() {
       toast.error("POS Counter Error: Cart is empty");
       return;
     }
-    if (!selectedCustomerId || selectedCustomerId === "walk-in") {
-      toast.error("Please add customer.");
+    if (!selectedCustomerId) {
+      toast.error("Please select a customer.");
       return;
     }
 

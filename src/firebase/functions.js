@@ -9,18 +9,36 @@ const functions = getFunctions(app);
 const registerTenantFn = httpsCallable(functions, 'registerTenant');
 const manageStaffUserFn = httpsCallable(functions, 'manageStaffUser');
 
+const CRYPTO_KEY = "EasyBMT_Secure_Crypto_Key";
+
 export const encryptPassword = (pwd) => {
   if (!pwd) return "";
-  try {
-    return pwd.startsWith("enc:") ? pwd : "enc:" + btoa(pwd);
-  } catch (e) {
-    return pwd;
+  if (pwd.startsWith("enc:")) return pwd;
+  
+  // XOR encryption encoded in base64
+  let encrypted = "";
+  for (let i = 0; i < pwd.length; i++) {
+    const charCode = pwd.charCodeAt(i) ^ CRYPTO_KEY.charCodeAt(i % CRYPTO_KEY.length);
+    encrypted += String.fromCharCode(charCode);
   }
+  return "enc:xor:" + btoa(encrypted);
 };
 
 export const decryptPassword = (enc) => {
   if (!enc) return "";
-  if (enc.startsWith("enc:")) {
+  if (enc.startsWith("enc:xor:")) {
+    try {
+      const decoded = atob(enc.substring(8));
+      let decrypted = "";
+      for (let i = 0; i < decoded.length; i++) {
+        const charCode = decoded.charCodeAt(i) ^ CRYPTO_KEY.charCodeAt(i % CRYPTO_KEY.length);
+        decrypted += String.fromCharCode(charCode);
+      }
+      return decrypted;
+    } catch (e) {
+      return enc;
+    }
+  } else if (enc.startsWith("enc:")) {
     try {
       return atob(enc.substring(4));
     } catch (e) {

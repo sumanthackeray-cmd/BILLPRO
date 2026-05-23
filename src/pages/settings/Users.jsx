@@ -2,9 +2,23 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/hooks/useAuth";
+const CRYPTO_KEY = "EasyBMT_Secure_Crypto_Key";
+
 const decryptPassword = (enc) => {
   if (!enc) return "";
-  if (enc.startsWith("enc:")) {
+  if (enc.startsWith("enc:xor:")) {
+    try {
+      const decoded = atob(enc.substring(8));
+      let decrypted = "";
+      for (let i = 0; i < decoded.length; i++) {
+        const charCode = decoded.charCodeAt(i) ^ CRYPTO_KEY.charCodeAt(i % CRYPTO_KEY.length);
+        decrypted += String.fromCharCode(charCode);
+      }
+      return decrypted;
+    } catch (e) {
+      return enc;
+    }
+  } else if (enc.startsWith("enc:")) {
     try {
       return atob(enc.substring(4));
     } catch (e) {

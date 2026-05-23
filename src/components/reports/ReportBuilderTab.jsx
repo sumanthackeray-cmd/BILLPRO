@@ -5,7 +5,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { cn } from "@/lib/utils";
 import { fmtINR } from "@/lib/gst-utils";
-import { Download, FileText, Save, Trash2, FolderOpen, Plus } from "lucide-react";
+import { Download, FileText, Save, Trash2, FolderOpen } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { usePermission } from "@/hooks/usePermission";
 

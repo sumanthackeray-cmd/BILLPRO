@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useLanguage } from "@/lib/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
-import { cn } from "@/lib/utils";
 import { 
   BarChart2, 
   Sliders, 
@@ -13,6 +12,7 @@ import {
   Lock
 } from "lucide-react";
 import Unauthorized from "@/pages/Unauthorized";
+import ResponsiveTabs from "@/components/ui/ResponsiveTabs";
 
 // Import Refactored Components
 import OverviewTab from "@/components/reports/OverviewTab";
@@ -60,41 +60,33 @@ export default function Reports() {
         <p className="text-sm text-muted-foreground">{t("reports.subtitle")}</p>
       </div>
 
-      <div className="bg-card/50 backdrop-blur border border-border/50 rounded-xl p-1 shadow-sm overflow-x-auto no-scrollbar">
-        <div className="flex gap-1 min-w-max">
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            const isLocked = tab.perm === "export" && !hasReportsExport;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabClick(tab)}
-                disabled={isLocked}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-bold transition-all duration-200",
-                  isLocked
-                    ? "text-muted-foreground/40 cursor-not-allowed opacity-50"
-                    : activeTab === tab.id
-                      ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
-                      : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-                )}
-                title={isLocked ? "Upgrade your plan or request permission to access this feature" : ""}
-              >
-                {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Icon className="w-4 h-4" />}
-                <span>{t(tab.tKey) || tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <ResponsiveTabs 
+        activeTab={activeTab} 
+        setActiveTab={(tabId) => {
+          const tab = TABS.find(t => t.id === tabId);
+          if (tab) handleTabClick(tab);
+        }} 
+        containerClassName="bg-card/50"
+        tabs={TABS.map(tab => {
+          const Icon = tab.icon;
+          const isLocked = tab.perm === "export" && !hasReportsExport;
+          return {
+            id: tab.id,
+            label: t(tab.tKey) || tab.label,
+            icon: isLocked ? <Lock className="w-3.5 h-3.5" /> : <Icon className="w-4 h-4" />,
+            disabled: isLocked,
+            title: isLocked ? "Upgrade your plan or request permission to access this feature" : ""
+          };
+        })}
+      />
 
       {activeTab === "overview" && <OverviewTab />}
-      {activeTab === "builder" && <ReportBuilderTab />}
-      {activeTab === "schedule" && <ScheduledReportsTab />}
+      {activeTab === "builder" && hasReportsExport && <ReportBuilderTab />}
+      {activeTab === "schedule" && hasReportsExport && <ScheduledReportsTab />}
       {activeTab === "shifts" && <ShiftReportsTab />}
       {activeTab === "cashiers" && <CashierBoardTab />}
       {activeTab === "hours" && <PeakHoursTab />}
-      {activeTab === "forecast" && <ForecastTab />}
+      {activeTab === "forecast" && hasReportsExport && <ForecastTab />}
     </div>
   );
 }

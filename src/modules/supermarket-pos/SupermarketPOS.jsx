@@ -27,6 +27,7 @@ import { generateThermalHTML, downloadInvoicePDF } from "@/lib/pdf-share-utils";
 import { useAuth } from "@/hooks/useAuth";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/api/firebase";
+import Sidebar from "@/components/layout/Sidebar";
 
 export default function SupermarketPOS() {
   const { companyId } = useAuth();
@@ -326,7 +327,12 @@ const categoryIcons = {
  * Main Supermarket Terminal Component
  */
 function Terminal({ activeSession, products, activeOffers, loyaltyCards, onCloseShift, companyName }) {
+  const { userCode, user } = useAuth();
   const queryClient = useQueryClient();
+  const isMounted = useRef(true);
+  useEffect(() => {
+    return () => { isMounted.current = false; };
+  }, []);
   const cartEndRef = useRef(null);
   const miniCartEndRef = useRef(null);
   const [cart, setCart] = useState([]);
@@ -621,7 +627,8 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
   // Supervisor override code verification
   const handleSupervisorOverride = (e) => {
     e.preventDefault();
-    if (supervisorPin === "8822") { // Mock supervisor PIN
+    const targetPin = shopSettings?.supervisor_pin || "8822";
+    if (supervisorPin === targetPin) {
       setOverrideApproved(true);
       setShowSupervisorModal(false);
       setSupervisorPin("");
@@ -635,10 +642,6 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
   const handleCheckoutSubmit = async () => {
     if (cart.length === 0) {
       toast.error("Cart is empty.");
-      return;
-    }
-    if (!activeMember) {
-      toast.error("Please add customer.");
       return;
     }
 
@@ -684,6 +687,8 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
         created_date: new Date().toISOString(),
         loyalty_card_number: activeMember ? activeMember.card_number : "",
         points_earned: Math.floor(totalDue / 100),
+        cashier_code: userCode || "",
+        cashier_name: user?.name || user?.user_code || "Cashier",
       };
 
       const createdInvoice = await base44.entities.Invoice.create(invoicePayload);
@@ -824,9 +829,16 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
   }, [products, activeCategory, searchTerm]);
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 select-none overflow-hidden">
+    <>
+    <div className="flex flex-row h-screen bg-slate-50 dark:bg-slate-950 select-none overflow-hidden">
+      
+      {/* Sidebar Injection */}
+      <Sidebar mobile={false} defaultCollapsed={true} />
+
+      {/* Main Container */}
+      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300 relative h-full">
       {/* Header bar */}
-      <header className="flex flex-row justify-between items-center bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2 md:px-4 h-[30px] md:h-[35px] border-b border-border shadow-sm">
+      <header className="flex flex-row justify-between items-center bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2 md:px-4 h-[35px] border-b border-border shadow-sm">
         <div className="flex items-center gap-2 w-full md:w-auto overflow-hidden">
           <span className="text-sm md:text-base">🏪</span>
           <div className="flex items-center gap-2">
@@ -940,7 +952,7 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
             </div>
 
             {/* Scrollable products list */}
-            <div className="flex-1 overflow-y-auto mt-2 pr-1 space-y-2">
+          <div className="flex-1 min-h-0 overflow-y-auto mt-2 pr-1 space-y-0.5">
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">
                   <ShoppingCart className="w-8 h-8 text-slate-300 mb-1" />
@@ -1078,7 +1090,7 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
           </div>
 
         {/* Quick Access Item Grid (24 items max) */}
-        <div className="flex-1 overflow-y-auto pr-1 pb-20 md:pb-0">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 pb-20 md:pb-0">
           {filteredQuickAccess.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <ShoppingBag className="w-12 h-12 text-slate-300 mb-2" />
@@ -1086,7 +1098,10 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {filteredQuickAccess.map(p => (
+                {filteredQuickAccess.map(p => {
+                  const cartQty = cart.reduce((sum, item) => item.id === p.id ? sum + item.qty : sum, 0);
+                  
+                  return (
                   <button
                     key={p.id}
                     onClick={() => {
@@ -1099,8 +1114,15 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
                         playScanBeep();
                       }
                     }}
-                    className="flex flex-col justify-between items-start text-left p-3 rounded-2xl bg-white dark:bg-slate-900 border border-border/40 hover:border-blue-500/60 shadow-sm hover:shadow-md transition-all group relative overflow-hidden"
+                    className="flex flex-col justify-between items-start text-left p-3 rounded-2xl bg-white dark:bg-slate-900 border border-border/40 hover:border-blue-500/60 shadow-sm hover:shadow-md transition-all group relative overflow-visible"
                   >
+                    {/* CART BADGE */}
+                    {cartQty > 0 && (
+                      <div className="absolute top-1.5 right-1.5 bg-emerald-500 text-white text-[11px] font-black w-6 h-6 flex items-center justify-center rounded-full shadow-md z-10 animate-fade-in border border-white/50 dark:border-slate-800">
+                        {cartQty}
+                      </div>
+                    )}
+
                     {/* PLU Tag */}
                     {p.plu_code && (
                       <span className="absolute top-1 right-2 text-[8px] font-mono text-slate-400 group-hover:text-blue-600 font-black">
@@ -1133,10 +1155,10 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
                       )}
                     </div>
                   </button>
-                ))}
+                )})}
               </div>
             )}
-          </div>
+        </div>
 
           {/* Active promotions ticker ticker */}
           <div className="h-10 bg-blue-600/5 dark:bg-blue-600/10 rounded-2xl px-4 flex items-center justify-between text-xs border border-blue-500/10">
@@ -1203,7 +1225,7 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
           )}
 
           {/* Cart items list */}
-          <div className="flex-1 overflow-y-auto border border-border/40 rounded-2xl">
+          <div className="flex-1 min-h-0 overflow-y-auto border border-border/40 rounded-2xl">
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center text-muted-foreground">
                 <ShoppingCart className="w-10 h-10 text-slate-300 mb-2" />
@@ -1226,7 +1248,7 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
                       const discount = item.discountAmount || 0;
                       return (
                         <TableRow key={item.id} className="hover:bg-slate-100/30 dark:hover:bg-slate-800/10">
-                          <TableCell className="py-2.5">
+                          <TableCell className="py-1">
                             <div className="space-y-0.5">
                               <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
                                 {item.name}
@@ -1243,7 +1265,7 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="py-2.5 text-center">
+                          <TableCell className="py-1 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 onClick={() => updateQty(item.id, -1)}
@@ -1262,10 +1284,10 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
                               </button>
                             </div>
                           </TableCell>
-                          <TableCell className="py-2.5 text-right font-mono text-xs font-bold">
+                          <TableCell className="py-1 text-right font-mono text-xs font-bold">
                             ₹{(item.finalPrice * item.qty).toFixed(2)}
                           </TableCell>
-                          <TableCell className="py-2.5 text-center">
+                          <TableCell className="py-1 text-center">
                             <button
                               onClick={() => removeFromCart(item.id)}
                               className="text-red-500 hover:text-red-600"
@@ -1340,68 +1362,72 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
       </main>
 
       {/* Persistent Mobile Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200/50 dark:border-slate-800/50 px-2 flex justify-around items-center z-30 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] h-14 pb-safe">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200/50 dark:border-slate-800/50 px-2 flex justify-around items-end pb-1.5 z-30 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] h-[46px]">
         {/* Home/Dashboard */}
         <Link
           to="/"
-          className="flex flex-col items-center justify-center flex-1 gap-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
+          className="flex flex-col items-center justify-end flex-1 gap-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all h-full"
         >
-          <Store className="w-5 h-5" />
-          <span className="text-[9px] font-bold uppercase tracking-wider leading-none">Home</span>
+          <Store className="w-4 h-4 mb-0.5" />
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none">Home</span>
         </Link>
 
         {/* POS Catalog */}
         <button
           type="button"
           onClick={() => setActiveMobileTab("catalog")}
-          className={`flex flex-col items-center justify-center flex-1 gap-1 transition-all ${
-            activeMobileTab === "catalog" ? "text-blue-600 dark:text-blue-400 font-black scale-105" : "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+          className={`flex flex-col items-center justify-end flex-1 gap-1 transition-all h-full ${
+            activeMobileTab === "catalog" ? "text-blue-600 dark:text-blue-400 font-black" : "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
           }`}
         >
-          <Package className="w-5 h-5" />
-          <span className="text-[9px] font-bold uppercase tracking-wider leading-none">Catalog</span>
+          <Package className={`w-4 h-4 mb-0.5 transition-transform ${activeMobileTab === "catalog" ? "scale-110" : ""}`} />
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none">Catalog</span>
         </button>
 
         {/* Fast Scan */}
         <button
           type="button"
           onClick={() => setMobileScannerOpen(true)}
-          className="flex flex-col items-center justify-center flex-1 gap-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
+          className="flex flex-col items-center justify-end flex-1 relative transition-all h-full"
         >
-          <div className="relative -top-3 w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/40 hover:bg-blue-700 active:scale-95 transition-all">
-            <Scan className="w-6 h-6" />
+          <div className="absolute bottom-[16px] w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/40 hover:bg-blue-700 active:scale-95 transition-all">
+            <Scan className="w-4 h-4" />
           </div>
-          <span className="text-[9px] font-bold uppercase tracking-wider leading-none -mt-2">Scan</span>
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none mt-auto text-slate-500 dark:text-slate-400">Scan</span>
         </button>
 
         {/* Cart */}
         <button
           type="button"
           onClick={() => setActiveMobileTab("cart")}
-          className={`flex flex-col items-center justify-center flex-1 gap-1 relative transition-all ${
-            activeMobileTab === "cart" ? "text-blue-600 dark:text-blue-400 font-black scale-105" : "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+          className={`flex flex-col items-center justify-end flex-1 gap-1 relative transition-all h-full ${
+            activeMobileTab === "cart" ? "text-blue-600 dark:text-blue-400 font-black" : "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
           }`}
         >
-          <div className="relative">
-            <ShoppingCart className="w-5 h-5" />
+          <div className="relative mb-0.5">
+            <ShoppingCart className={`w-4 h-4 transition-transform ${activeMobileTab === "cart" ? "scale-110" : ""}`} />
             {cart.reduce((sum, item) => sum + (item.qty || 0), 0) > 0 && (
-              <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-pulse">
+              <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-pulse">
                 {cart.reduce((sum, item) => sum + (item.qty || 0), 0)}
               </span>
             )}
           </div>
-          <span className="text-[9px] font-bold uppercase tracking-wider leading-none">Cart</span>
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none">Cart</span>
         </button>
 
         {/* End Shift */}
         <button
           type="button"
           onClick={handleCloseShiftSession}
-          className="flex flex-col items-center justify-center flex-1 gap-1 text-rose-500 dark:text-rose-400 hover:text-rose-600 transition-all"
+          className="flex flex-col items-center justify-end flex-1 gap-1 text-rose-500 dark:text-rose-400 hover:text-rose-600 transition-all h-full"
         >
-          <Power className="w-5 h-5" />
-          <span className="text-[9px] font-bold uppercase tracking-wider leading-none">End Shift</span>
+          <Power className="w-4 h-4 mb-0.5" />
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none">End Shift</span>
         </button>
+      </div>
+      </div>
+
+      {/* End Main Container */}
       </div>
 
       {/* WEIGHING SCALE MODAL DIALOG */}
@@ -1763,7 +1789,7 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
               <ShieldAlert className="w-5 h-5" /> Supervisor Authorization
             </DialogTitle>
             <DialogDescription className="text-xs">
-              This action requires supervisor verification. Enter code "8822".
+              This action requires supervisor verification. Please enter the supervisor PIN.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSupervisorOverride} className="space-y-4 pt-2">
@@ -1772,10 +1798,10 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
               <Input
                 type="password"
                 value={supervisorPin}
-                onChange={e => setSupervisorPin(e.target.value)}
+                onChange={e => setSupervisorPin(e.target.value.replace(/\D/g, ''))}
                 placeholder="••••"
                 className="h-10 text-center font-mono text-lg bg-slate-50 dark:bg-slate-800"
-                maxLength={4}
+                maxLength={8}
                 required
               />
             </div>
@@ -1891,6 +1917,6 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

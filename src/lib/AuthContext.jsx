@@ -56,6 +56,13 @@ export const AuthProvider = ({ children }) => {
   });
 
   useEffect(() => {
+    // Never leave the app on a blank screen if Firebase auth is slow/unreachable
+    const authBootTimeout = setTimeout(() => {
+      setIsLoadingPublicSettings(false);
+      setIsLoadingAuth(false);
+      setAuthChecked(true);
+    }, 10000);
+
     // Initialize token session management (idle timeout, concurrency monitoring)
     const cleanupTokenManager = initTokenManager();
 
@@ -132,7 +139,9 @@ export const AuthProvider = ({ children }) => {
           } catch (e) {
             console.error("Failed to load auth resources:", e);
             setAuthError({ type: 'load_failed', message: 'Failed to load authorization data. Please check your connection and reload.' });
-            setLoading(false);
+            setIsLoadingPublicSettings(false);
+            setIsLoadingAuth(false);
+            setAuthChecked(true);
             return;
           }
 
@@ -261,9 +270,11 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
       setAuthChecked(true);
+      clearTimeout(authBootTimeout);
     });
 
     return () => {
+      clearTimeout(authBootTimeout);
       cleanupTokenManager();
       unsubscribe();
     };

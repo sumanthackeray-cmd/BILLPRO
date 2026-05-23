@@ -7,17 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Zap, Search, ShoppingCart, User, Plus, Minus, Trash2, 
-  Printer, ArrowLeft, RotateCcw, CreditCard, AlertTriangle, Edit,
+  Printer, ArrowLeft, RotateCcw, AlertTriangle, Edit,
   Utensils, Pill, Shirt, Store, Package, Check, Scan, Scale,
   History, Mic, MicOff, X, FileText, RefreshCw, Camera,
-  TrendingUp, Calendar, Clock, IndianRupee, BarChart2,
-  Moon, Sun
+  TrendingUp, Calendar, Clock, IndianRupee, BarChart2, Power, Filter
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Link } from "react-router-dom";
@@ -43,6 +41,7 @@ import { useFashionMode } from "@/hooks/useFashionMode";
 import FashionPOS from "./FashionPOS";
 import { useSupermarketMode } from "@/hooks/useSupermarketMode";
 import SupermarketPOS from "@/modules/supermarket-pos/SupermarketPOS";
+import Sidebar from "@/components/layout/Sidebar";
 
 // Auto-generate SKU
 const generateSKU = (name = "") => {
@@ -158,9 +157,17 @@ function POSContent() {
   const [layout, setLayout] = useState("retail"); // retail, restaurant, medical, fashion, grocery
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [barcodeMode, setBarcodeMode] = useState(false);
+  const [barcodeMode, setBarcodeMode] = useState(true);
   const [cart, setCart] = useState([]);
+  const cartEndRef = useRef(null);
   const [mobileTab, setMobileTab] = useState("products"); // products, cart
+
+  useEffect(() => {
+    // Only scroll into view if the cart tab is active or we are on desktop
+    setTimeout(() => {
+      cartEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+  }, [cart, mobileTab]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("walk-in");
   const [discountType, setDiscountType] = useState("percent"); // percent, cash
   const [discountValue, setDiscountValue] = useState(0);
@@ -455,58 +462,58 @@ function POSContent() {
   const syncOfflineQueue = async () => {
     try {
       const queue = JSON.parse(localStorage.getItem("gst_pos_offline_invoice_sync_queue") || "[]");
-      if (queue.length === 0) return;
-      
+      if (!queue.length) return;
+
       let syncedCount = 0;
       for (const inv of queue) {
         try {
           const cleanInv = { ...inv };
           delete cleanInv.id;
           delete cleanInv.isOfflinePending;
-          
+
           const sanitizedCleanInv = JSON.parse(JSON.stringify(cleanInv, (k, v) => (v === undefined ? null : v)));
           await base44.entities.Invoice.create(sanitizedCleanInv);
 
-          // Best-effort: create sale JournalEntry (double-entry) for offline invoices
           try {
             const journalPayload = buildSaleJournalEntry(cleanInv);
-            // createJournalEntry validates debit/credit balance
             await accountingService.createJournalEntry(journalPayload);
           } catch (e) {
             console.error("Offline sync: failed to post sale JournalEntry (best-effort).", e);
           }
-          
-          // Reconcile stock for each item in the offline invoice
-          for (const item of cleanInv.items) {
-             const prodId = item.product_id;
-             if (!prodId) continue;
-             // 1. branch inventory
-             if (cleanInv.branchId) {
-                try {
-                   await updateInventory(prodId, cleanInv.branchId, -item.qty, 'pos_offline_sync');
-                } catch(e) { console.error(`Error updating branch inventory for offline sync ${prodId}:`, e); }
-             }
-             // 2. Global product catalog
-             try {
-                const realProd = await base44.entities.Product.get(prodId);
-                if (realProd) {
-                   const newStock = Math.max(0, (realProd.stock || 0) - item.qty);
-                   await base44.entities.Product.update(prodId, { stock: newStock });
-                }
-             } catch(e) { console.error(`Error updating global stock for offline sync ${prodId}:`, e); }
+
+          for (const item of cleanInv.items || []) {
+            const prodId = item.product_id;
+            if (!prodId) continue;
+            if (cleanInv.branchId) {
+              try {
+                await updateInventory(prodId, cleanInv.branchId, -item.qty, "pos_offline_sync");
+              } catch (e) {
+                console.error(`Error updating branch inventory for offline sync ${prodId}:`, e);
+              }
+            }
+            try {
+              const realProd = await base44.entities.Product.get(prodId);
+              if (realProd) {
+                const newStock = Math.max(0, (realProd.stock || 0) - item.qty);
+                await base44.entities.Product.update(prodId, { stock: newStock });
+              }
+            } catch (e) {
+              console.error(`Error updating global stock for offline sync ${prodId}:`, e);
+            }
           }
-          
+
           syncedCount++;
         } catch (err) {
           console.error("Failed to sync invoice:", err);
         }
       }
-      
+
       localStorage.setItem("gst_pos_offline_invoice_sync_queue", "[]");
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+
       if (syncedCount > 0) {
-        toast.success(` Synced ${syncedCount} offline transaction(s) to cloud database successfully!`);
+        toast.success(`Synced ${syncedCount} offline transaction(s) to cloud database successfully!`);
       }
     } catch (e) {
       console.error(e);
@@ -856,8 +863,25 @@ function POSContent() {
       addToCart(product);
     }
   };
+  const playScanBeep = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(1100, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.08);
+    } catch (e) {
+      console.log("Audio blocked: ", e);
+    }
+  };
 
   const addToCart = (product, size = "", color = "", overrideQty = null) => {
+    playScanBeep();
     // If medical layout, check expiry
     if (layout === "medical" && product.expiry_date) {
       const expDate = new Date(product.expiry_date);
@@ -881,10 +905,8 @@ function POSContent() {
       const existing = prev.find(item => item.cartKey === cartKey);
       if (existing) {
         const nextQty = parseFloat((existing.qty + addedQty).toFixed(3));
-        speak("voice.cart_added");
         return prev.map(item => item.cartKey === cartKey ? { ...item, qty: nextQty } : item);
       }
-      speak("voice.cart_added");
       return [...prev, { ...product, qty: addedQty, selected_size: size, selected_color: color, cartKey }];
     });
   };
@@ -908,7 +930,6 @@ function POSContent() {
 
   const removeFromCart = (cartKey) => {
     setCart(prev => prev.filter(item => item.cartKey !== cartKey));
-    speak("voice.cart_removed");
   };
 
   const updateQty = (cartKey, change) => {
@@ -1071,8 +1092,8 @@ function POSContent() {
       toast.error("Cart is empty");
       return;
     }
-    if (!selectedCustomerId || selectedCustomerId === "walk-in") {
-      toast.error("Please add customer.");
+    if (!selectedCustomerId) {
+      toast.error("Please select a customer.");
       return;
     }
     // Auto-activate shift silently if not active (shift is optional tracking  never block checkout)
@@ -1148,7 +1169,7 @@ function POSContent() {
 
         // Save to offline queue
         const queue = JSON.parse(localStorage.getItem("gst_pos_offline_invoice_sync_queue") || "[]");
-        queue.push(createdInvoice);
+        queue.push({ ...createdInvoice, isOfflinePending: true });
         localStorage.setItem("gst_pos_offline_invoice_sync_queue", JSON.stringify(queue));
 
         toast.warning(" Connection offline. Invoice processed and queued for cloud sync!");
@@ -1284,6 +1305,8 @@ function POSContent() {
 
           // Sanitize to remove any remaining undefined values that crash Firebase
           const sanitizedInvoice = JSON.parse(JSON.stringify(newInvoice, (k, v) => (v === undefined ? null : v)));
+          sanitizedInvoice.cashier_code = user?.user_code || "";
+          sanitizedInvoice.cashier_name = user?.name || user?.user_code || "Cashier";
           
           createdInvoice = await base44.entities.Invoice.create(sanitizedInvoice);
 
@@ -1589,6 +1612,9 @@ function POSContent() {
   const filteredInvoices = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return invoices.filter(inv => {
+      // RBAC: Cashiers only see their own invoices
+      if (user?.role !== "admin" && inv.cashier_code !== user?.user_code) return false;
+
       if (historyPayFilter !== "all" && inv.payment_method !== historyPayFilter) return false;
       if (historyDateFrom && inv.date < historyDateFrom) return false;
       if (historyDateTo && inv.date > historyDateTo) return false;
@@ -1597,22 +1623,26 @@ function POSContent() {
           !inv.customer_name?.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [invoices, historySearchTerm, historyPayFilter, historyDateFrom, historyDateTo]);
+  }, [invoices, historySearchTerm, historyPayFilter, historyDateFrom, historyDateTo, user]);
 
   const filteredParkedCarts = useMemo(() => {
     return parkedCarts.filter(hold => {
+      if (user?.role !== "admin" && hold.cashier_code !== user?.user_code) return false;
       const q = historySearchTerm.toLowerCase();
       if (!q) return true;
       const customer = customers.find(c => c.id === hold.customerId);
       const custName = customer?.name || "Walk-in Customer";
       return hold.label.toLowerCase().includes(q) || custName.toLowerCase().includes(q);
     });
-  }, [parkedCarts, historySearchTerm, customers]);
+  }, [parkedCarts, historySearchTerm, customers, user]);
 
   const todayInvoices = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    return invoices.filter(inv => inv.date === today && inv.status !== "returned");
-  }, [invoices]);
+    return invoices.filter(inv => {
+      if (user?.role !== "admin" && inv.cashier_code !== user?.user_code) return false;
+      return inv.date === today && inv.status !== "returned";
+    });
+  }, [invoices, user]);
 
   const todayRevenue = useMemo(() => todayInvoices.reduce((s, inv) => s + (inv.grand_total || 0), 0), [todayInvoices]);
 
@@ -1801,68 +1831,59 @@ function POSContent() {
 
   return (
     <>
-    <div className="h-screen max-h-screen bg-slate-100 dark:bg-[#070913] text-slate-900 dark:text-slate-100 flex flex-col font-sans select-none overflow-hidden">
-      {/* Dynamic Grid Background Effect */}
+    <div className="h-screen max-h-screen bg-slate-100 dark:bg-[#070913] text-slate-900 dark:text-slate-100 flex flex-row font-sans select-none overflow-hidden">
+      
+      {/* Sidebar Injection */}
+      <Sidebar mobile={false} defaultCollapsed={true} />
+
+      {/* Main POS Container */}
+      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300 relative h-full">
+        {/* Dynamic Grid Background Effect */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/5 dark:from-blue-900/10 via-background to-background pointer-events-none z-0" />
 
-      {/* POS Top Header */}
-      <header className="relative bg-white dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 px-3 flex items-center justify-between z-10 shrink-0 h-[30px] md:h-[35px] shadow-sm">
-        <div className="flex items-center gap-2 md:gap-3 h-full">
-          <Link to="/">
-            <Button 
-              variant="ghost" 
-              className="gap-1 h-5 md:h-7 px-1.5 md:px-2.5 text-[9px] md:text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:bg-slate-800 rounded-lg"
-            >
-              <ArrowLeft className="w-3 h-3 md:w-3.5 md:h-3.5" /> 
-              <span className="hidden sm:inline">Dashboard</span>
-            </Button>
-          </Link>
-          <div className="h-3 md:h-4 w-[1px] bg-slate-100 dark:bg-slate-800 hidden sm:block" />
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs md:text-sm font-black bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 bg-clip-text text-transparent tracking-wider">EasyBMT</span>
-            <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[7px] md:text-[8px] font-black px-1 md:px-1.5 py-0 h-3 md:h-4 flex items-center rounded-full shrink-0">PRO POS</Badge>
+      {/* POS Top Header - Supermarket Style */}
+      <header className="flex flex-row justify-between items-center bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2 md:px-4 h-[35px] border-b border-border shadow-sm z-10 shrink-0">
+        <div className="flex items-center gap-1 w-full md:w-auto overflow-hidden shrink-0">
+          <span className="text-sm md:text-base hidden sm:inline">🏪</span>
+          <div className="flex items-center gap-1">
+            <h1 className="text-[10px] md:text-xs font-black tracking-tight flex items-center gap-1.5 truncate">
+              <span className="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 bg-clip-text text-transparent tracking-wider text-[11px] md:text-sm">EasyBMT</span> 
+              <span className="hidden sm:inline text-slate-800 dark:text-slate-200">POS</span>
+              <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white border-none font-bold text-[8px] h-3 px-1 ml-0.5">
+                ACTIVE
+              </Badge>
+            </h1>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 hidden sm:flex ml-1">
+              T: <strong className="text-slate-700 dark:text-slate-200 ml-0.5">{currentCounter?.toUpperCase() || "C-1"}</strong>
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 md:gap-2 h-full">
-          {/* Shift Management Button */}
-          <button
-            type="button"
-            disabled={!canShift}
-            onClick={() => {
-              if (isShiftActive) {
-                setIsShiftCloseDialogOpen(true);
+        <div className="flex items-center gap-1.5 justify-end ml-auto">
+          {/* Header Barcode Scan Box */}
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            if (searchTerm.trim() && barcodeMode) {
+              const matchedProduct = products.find(p => p.barcode === searchTerm || p.sku === searchTerm || p.hsn === searchTerm);
+              if (matchedProduct) {
+                handleProductClick(matchedProduct);
+                setSearchTerm("");
               } else {
-                setIsShiftOpenDialogOpen(true);
+                toast.error("Product not found via Barcode scan.");
               }
-            }}
-            className={cn(
-              "flex items-center gap-1 h-5 md:h-7 px-1.5 md:px-2.5 rounded-lg border text-[8px] md:text-[9px] font-black uppercase tracking-wide shadow-sm transition-all duration-150",
-              isShiftActive
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
-                : "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 animate-pulse"
-            )}
-          >
-            <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" />
-            <span>
-              {isShiftActive 
-                ? `${t("pos.cashier") || "Cashier"}: ${currentCounter}` 
-                : t("pos.open_shift") || "Open Shift"}
-            </span>
-          </button>
-
-          {/* History Button - hidden on mobile, visible on md+ */}
-          <button
-            type="button"
-            onClick={() => setIsHistoryOpen(true)}
-            className="hidden md:flex items-center gap-1 h-5 md:h-7 px-1.5 md:px-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/80 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-[8px] md:text-[9px] font-black uppercase tracking-wide shadow-sm"
-          >
-            <History className="w-2.5 h-2.5 md:w-3 md:h-3" />
-            <span className="hidden sm:inline">History</span>
-          </button>
+            }
+          }} className="relative w-20 sm:w-24 md:w-32 shrink-0">
+            <Scan className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-3.5 md:h-3.5 absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setShowSuggestions(e.target.value.length > 0); }}
+              placeholder="Scan..."
+              className="h-6 md:h-7 pl-4 sm:pl-5 md:pl-7 pr-1 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-[8px] sm:text-[9px] md:text-[10px] font-mono rounded-md focus:ring-1 focus:ring-amber-500 w-full"
+            />
+          </form>
 
           {/* Billing Type Toggle Switch */}
-          <div className="flex bg-slate-100 dark:bg-slate-950 p-0.5 rounded-lg border border-slate-200 dark:border-slate-850 h-[18px] md:h-7 items-center scale-[0.9] md:scale-100 origin-right shrink-0">
+          <div className="flex bg-slate-100 dark:bg-slate-950 p-0.5 rounded-lg border border-slate-200 dark:border-slate-850 h-6 md:h-7 items-center shrink-0">
             {["B2C", "B2B"].map((type) => (
               <button
                 key={type}
@@ -1884,31 +1905,25 @@ function POSContent() {
             ))}
           </div>
 
-          {/* Barcode Toggle */}
-          <div className="flex items-center gap-1 md:gap-1.5 bg-slate-50 dark:bg-slate-950/80 px-1.5 md:px-2.5 py-0 h-[18px] md:h-7 rounded-lg border border-slate-200 dark:border-slate-800/80 scale-[0.8] md:scale-100 origin-right shrink-0">
-            <Scan className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-slate-600 dark:text-slate-400" />
-            <Label htmlFor="barcode-switch" className="text-[8px] md:text-[9px] font-black tracking-wide text-slate-600 dark:text-slate-400 hidden sm:inline uppercase">Barcode</Label>
-            <Switch 
-              id="barcode-switch"
-              checked={barcodeMode}
-              onCheckedChange={(val) => {
-                setBarcodeMode(val);
-                toast.info(`Barcode Mode ${val ? "ENABLED" : "DISABLED"}`);
-              }}
-              className="scale-[0.55] md:scale-[0.8] origin-right"
-            />
-          </div>
-
-          {/* Light/Dark Mode Toggle */}
           <button
             type="button"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="flex items-center justify-center w-[18px] h-[18px] md:w-7 md:h-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/80 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm shrink-0"
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            onClick={() => setIsHistoryOpen(true)}
+            className="hidden md:flex bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 font-bold h-6 md:h-7 text-[10px] rounded gap-1 px-2 items-center"
           >
-            <Sun className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 absolute rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <History className="w-3 h-3" />
+            <span className="hidden sm:inline">History</span>
           </button>
+
+          <Button 
+            onClick={() => {
+              if (isShiftActive) setIsShiftCloseDialogOpen(true);
+              else setIsShiftOpenDialogOpen(true);
+            }}
+            className={cn("font-bold h-6 md:h-7 text-[10px] rounded gap-1 px-2 whitespace-nowrap", isShiftActive ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700")}
+          >
+            <span className="hidden sm:inline">{isShiftActive ? "🚪 End Shift" : "⏱️ Open Shift"}</span>
+            <span className="sm:hidden">{isShiftActive ? "🚪" : "⏱️"}</span>
+          </Button>
         </div>
       </header>
 
@@ -2112,12 +2127,21 @@ function POSContent() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 pb-6">
                 {filteredProducts.map((p) => {
                   const isLowStock = (p.stock || 0) <= (p.min_stock || 5);
+                  const cartQty = cart.reduce((sum, item) => item.id === p.id ? sum + item.qty : sum, 0);
+                  
                   return (
                     <div
                       key={p.id}
                       onClick={() => handleProductClick(p)}
                       className="group bg-white dark:bg-slate-900/40 hover:bg-amber-50/70 dark:hover:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 hover:border-amber-500/40 hover:shadow-md rounded-2xl p-3 flex flex-col justify-between min-h-[125px] transition-all duration-200 cursor-pointer relative shadow-sm dark:shadow-lg active:scale-95 animate-fade-in"
                     >
+                      {/* CART BADGE */}
+                      {cartQty > 0 && (
+                        <div className="absolute top-1.5 right-1.5 bg-emerald-500 text-white text-[11px] font-black w-6 h-6 flex items-center justify-center rounded-full shadow-md z-10 animate-fade-in border border-white/50 dark:border-slate-800">
+                          {cartQty}
+                        </div>
+                      )}
+                      
                       <div className="space-y-1">
                         <div className="flex justify-between items-start gap-1">
                           <span className="font-extrabold text-[13px] leading-tight text-slate-800 dark:text-slate-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate max-w-[85%]">
@@ -2337,7 +2361,7 @@ function POSContent() {
           )}
 
           {/* Active Cart items list */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1">
             {editingInvoiceId && (
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex justify-between items-center gap-2 mb-2 shrink-0 animate-pulse">
                 <div className="flex items-center gap-2">
@@ -2374,7 +2398,7 @@ function POSContent() {
               </div>
             ) : (
               cart.map((item) => (
-                <div key={item.cartKey} className="bg-white dark:bg-slate-900/35 border border-slate-200 dark:border-slate-850 hover:border-amber-300/50 dark:hover:border-slate-800 rounded-xl sm:rounded-2xl p-1.5 sm:p-3 flex gap-1.5 sm:gap-3 items-center justify-between transition-colors shadow-sm">
+                <div key={item.cartKey} className="bg-white dark:bg-slate-900/35 border border-slate-200 dark:border-slate-850 hover:border-amber-300/50 dark:hover:border-slate-800 rounded-xl sm:rounded-2xl p-1 sm:p-1.5 flex gap-1.5 sm:gap-2 items-center justify-between transition-colors shadow-sm">
                   {/* Product Image */}
                   {item.image_url ? (
                     <img
@@ -2466,6 +2490,7 @@ function POSContent() {
                 </div>
               ))
             )}
+            <div ref={cartEndRef} className="h-10" />
           </div>
 
           {/* Checkout & Pricing Controls */}
@@ -2587,78 +2612,88 @@ function POSContent() {
         </div>
       </div>
 
-      {/* Persistent Mobile Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#070913]/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-850 px-1 flex justify-around items-center z-30 shadow-[0_-8px_30px_rgb(0,0,0,0.12)]" style={{ height: '35px' }}>
+      {/* Persistent Mobile Bottom Navigation Bar - Supermarket Style */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200/50 dark:border-slate-800/50 px-2 flex justify-around items-end pb-1.5 z-30 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] h-[46px]">
         {/* Home/Dashboard */}
         <Link
           to="/"
-          className="flex flex-col items-center justify-center flex-1 gap-0.5 text-slate-400 hover:text-slate-200 transition-all"
+          className="flex flex-col items-center justify-end flex-1 gap-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all h-full"
         >
-          <Store className="w-3.5 h-3.5" />
-          <span className="text-[7px] font-extrabold uppercase tracking-wider leading-none">Home</span>
+          <Store className="w-4 h-4 mb-0.5" />
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none">Home</span>
         </Link>
 
         {/* POS Catalog */}
         <button
           type="button"
           onClick={() => setMobileTab("products")}
-          className={`flex flex-col items-center justify-center flex-1 gap-0.5 transition-all ${
-            mobileTab === "products" ? "text-amber-500 font-extrabold" : "text-slate-400 hover:text-slate-200"
+          className={`flex flex-col items-center justify-end flex-1 gap-1 transition-all h-full ${
+            mobileTab === "products" ? "text-blue-600 dark:text-blue-400 font-black" : "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
           }`}
         >
-          <Package className="w-3.5 h-3.5" />
-          <span className="text-[7px] font-extrabold uppercase tracking-wider leading-none">Catalog</span>
+          <Package className={`w-4 h-4 mb-0.5 transition-transform ${mobileTab === "products" ? "scale-110" : ""}`} />
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none">Catalog</span>
+        </button>
+
+        {/* Fast Scan */}
+        <button
+          type="button"
+          onClick={() => {
+            if (!barcodeMode) {
+              setBarcodeMode(true);
+              toast.info("Barcode Mode ENABLED");
+            }
+            setMobileTab("products");
+            setTimeout(() => {
+              searchInputRef.current?.focus();
+            }, 50);
+          }}
+          className="flex flex-col items-center justify-end flex-1 relative transition-all h-full"
+        >
+          <div className={`absolute bottom-[16px] w-8 h-8 rounded-full ${barcodeMode ? 'bg-amber-500 shadow-amber-500/40' : 'bg-blue-600 shadow-blue-500/40'} text-white flex items-center justify-center shadow-lg hover:brightness-110 active:scale-95 transition-all`}>
+            <Scan className="w-4 h-4" />
+          </div>
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none mt-auto">Scan</span>
         </button>
 
         {/* Cart */}
         <button
           type="button"
           onClick={() => setMobileTab("cart")}
-          className={`flex flex-col items-center justify-center flex-1 gap-0.5 relative transition-all ${
-            mobileTab === "cart" ? "text-amber-500 font-extrabold" : "text-slate-400 hover:text-slate-200"
+          className={`flex flex-col items-center justify-end flex-1 gap-1 relative transition-all h-full ${
+            mobileTab === "cart" ? "text-blue-600 dark:text-blue-400 font-black" : "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
           }`}
         >
-          <div className="relative">
-            <ShoppingCart className="w-3.5 h-3.5" />
+          <div className="relative mb-0.5">
+            <ShoppingCart className={`w-4 h-4 transition-transform ${mobileTab === "cart" ? "scale-110" : ""}`} />
             {totalCartQty > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-amber-400 text-slate-950 text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-slate-950">
+              <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-pulse">
                 {totalCartQty}
               </span>
             )}
           </div>
-          <span className="text-[7px] font-extrabold uppercase tracking-wider leading-none">Cart</span>
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none">Cart</span>
         </button>
 
         {/* History */}
         <button
           type="button"
           onClick={() => setIsHistoryOpen(true)}
-          className="flex flex-col items-center justify-center flex-1 gap-0.5 text-slate-400 hover:text-slate-200 transition-all"
+          className="flex flex-col items-center justify-end flex-1 gap-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all h-full"
         >
-          <History className="w-3.5 h-3.5" />
-          <span className="text-[7px] font-extrabold uppercase tracking-wider leading-none">History</span>
+          <History className="w-4 h-4 mb-0.5" />
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none">History</span>
         </button>
 
-        {/* Payment */}
+        {/* End Shift */}
         <button
           type="button"
-          onClick={() => { if (cart.length > 0) { setMobileTab("cart"); } else { setMobileTab("cart"); } }}
-          className={`flex flex-col items-center justify-center flex-1 gap-0.5 transition-all ${
-            mobileTab === "cart" ? "text-amber-500 font-extrabold" : "text-slate-400 hover:text-slate-200"
-          }`}
+          onClick={() => setIsShiftCloseDialogOpen(true)}
+          className="flex flex-col items-center justify-end flex-1 gap-1 text-rose-500 dark:text-rose-400 hover:text-rose-600 transition-all h-full"
         >
-          <CreditCard className="w-3.5 h-3.5" />
-          <span className="text-[7px] font-extrabold uppercase tracking-wider leading-none">Payment</span>
+          <Power className="w-4 h-4 mb-0.5" />
+          <span className="text-[8px] font-bold uppercase tracking-wider leading-none">End Shift</span>
         </button>
-
-        {/* Reports */}
-        <Link
-          to="/reports"
-          className="flex flex-col items-center justify-center flex-1 gap-0.5 text-slate-400 hover:text-slate-200 transition-all"
-        >
-          <BarChart2 className="w-3.5 h-3.5" />
-          <span className="text-[7px] font-extrabold uppercase tracking-wider leading-none">Reports</span>
-        </Link>
       </div>
 
       {/* QUICK ADD CUSTOMER MODAL */}
@@ -3158,7 +3193,8 @@ function POSContent() {
         </DialogContent>
       </Dialog>
     </div>
-
+    {/* End Main POS Container */}
+    </div>
 
     {/* 
         QUICK ADD PRODUCT  Full-featured slide-over dialog
@@ -3671,7 +3707,7 @@ function POSContent() {
         BILLING HISTORY  Full-height slide-over panel
          */}
     <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-      <DialogContent className="w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col bg-white dark:bg-[#0d0f1e] border-slate-200 dark:border-slate-800 rounded-3xl text-slate-900 dark:text-slate-100 p-0">
+      <DialogContent showClose={false} className="!w-full h-[100dvh] !max-h-screen !rounded-none md:!w-[calc(100%-1.5rem)] md:h-auto md:!max-h-[95vh] md:!rounded-3xl max-w-2xl overflow-hidden flex flex-col bg-white dark:bg-[#0d0f1e] border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 p-0 border-x-0 md:border-x">
         {/* Header */}
         <div className="bg-white dark:bg-[#0d0f1e] border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -3688,113 +3724,122 @@ function POSContent() {
           </button>
         </div>
 
-        {/* Sub-Tabs Selector */}
-        <div className="px-6 py-2 bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800 flex gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => { setHistorySubTab("invoices"); setSelectedHistoryInvoice(null); setSelectedParkedCart(null); }}
-            className={`flex-1 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-              historySubTab === "invoices"
-                ? "bg-slate-900 dark:bg-slate-800 text-white shadow-sm border border-slate-700/50"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-            }`}
-          >
-             {t("pos.invoices_log")}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setHistorySubTab("parked"); setSelectedHistoryInvoice(null); setSelectedParkedCart(null); }}
-            className={`flex-1 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all relative ${
-              historySubTab === "parked"
-                ? "bg-slate-900 dark:bg-slate-800 text-white shadow-sm border border-slate-700/50"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-            }`}
-          >
-            ️ {t("pos.parked_bills")}
-            {parkedCarts.length > 0 && (
-              <span className="ml-1.5 bg-amber-500 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                {parkedCarts.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Today Stats Strip */}
-        <div className="px-6 py-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border-b border-amber-200/50 dark:border-amber-800/30 flex items-center gap-6 shrink-0">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">{t("pos.today_bills")}</p>
-              <p className="text-lg font-black text-slate-900 dark:text-slate-100">{todayInvoices.length}</p>
-            </div>
-          </div>
-          <div className="w-px h-8 bg-amber-200 dark:bg-amber-800/50" />
-          <div className="flex items-center gap-2">
-            <IndianRupee className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">{t("pos.today_revenue")}</p>
-              <p className="text-lg font-black text-slate-900 dark:text-slate-100">{todayRevenue.toFixed(2)}</p>
-            </div>
-          </div>
-          <div className="w-px h-8 bg-amber-200 dark:bg-amber-800/50" />
-          <div className="flex items-center gap-2">
-            <BarChart2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">{t("pos.total_bills")}</p>
-              <p className="text-lg font-black text-slate-900 dark:text-slate-100">{invoices.length}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 space-y-2 shrink-0">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <Input
-                value={historySearchTerm}
-                onChange={e => setHistorySearchTerm(e.target.value)}
-                placeholder={t("pos.search_invoice_placeholder")}
-                className="pl-8 h-9 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-xs"
-              />
-            </div>
-            <Select value={historyPayFilter} onValueChange={setHistoryPayFilter}>
-              <SelectTrigger className="h-9 w-28 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-xs">
-                <SelectValue placeholder={t("pos.payment_method") || "Payment"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("common.all") || "All Methods"}</SelectItem>
-                <SelectItem value="cash">{t("pos.cash")}</SelectItem>
-                <SelectItem value="card">Card</SelectItem>
-                <SelectItem value="upi">UPI</SelectItem>
-                <SelectItem value="split">Split</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2 items-center">
-            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <Input type="date" value={historyDateFrom} onChange={e => setHistoryDateFrom(e.target.value)} className="h-7 w-36 rounded-lg bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-[11px]" />
-            <span className="text-[10px] text-slate-400">to</span>
-            <Input type="date" value={historyDateTo} onChange={e => setHistoryDateTo(e.target.value)} className="h-7 w-36 rounded-lg bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-[11px]" />
-            {(historyDateFrom || historyDateTo || historySearchTerm || historyPayFilter !== "all") && (
+        {/* Content Area with Scrollable Left Panel */}
+        <div className="flex-1 overflow-hidden flex">
+          
+          {/* Left Panel: Stats + Filters + List */}
+          <div className={cn(
+            "overflow-y-auto flex-col h-full bg-white dark:bg-[#0d0f1e] relative",
+            selectedHistoryInvoice ? "w-2/5 hidden md:flex border-r border-slate-200 dark:border-slate-800" : "w-full flex"
+          )}>
+            
+            {/* Sub-Tabs Selector */}
+            <div className="px-6 py-2 bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800 flex gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => { setHistorySearchTerm(""); setHistoryPayFilter("all"); setHistoryDateFrom(""); setHistoryDateTo(""); }}
-                className="h-7 px-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-red-500 text-[10px] font-bold hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                onClick={() => { setHistorySubTab("invoices"); setSelectedHistoryInvoice(null); setSelectedParkedCart(null); }}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  historySubTab === "invoices"
+                    ? "bg-slate-900 dark:bg-slate-800 text-white shadow-sm border border-slate-700/50"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
               >
-                Clear
+                 {t("pos.invoices_log")}
               </button>
-            )}
-          </div>
-        </div>
+              <button
+                type="button"
+                onClick={() => { setHistorySubTab("parked"); setSelectedHistoryInvoice(null); setSelectedParkedCart(null); }}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all relative ${
+                  historySubTab === "parked"
+                    ? "bg-slate-900 dark:bg-slate-800 text-white shadow-sm border border-slate-700/50"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                ️ {t("pos.parked_bills")}
+                {parkedCarts.length > 0 && (
+                  <span className="ml-1.5 bg-amber-500 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                    {parkedCarts.length}
+                  </span>
+                )}
+              </button>
+            </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-hidden flex">
-          {/* Invoice List */}
-          <div className={cn(
-            "overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800",
-            selectedHistoryInvoice ? "w-2/5 hidden md:block" : "w-full"
-          )}>
+            {/* Today Stats Strip */}
+            <div className="px-6 py-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border-b border-amber-200/50 dark:border-amber-800/30 flex items-center gap-6 shrink-0">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">{t("pos.today_bills")}</p>
+                  <p className="text-lg font-black text-slate-900 dark:text-slate-100">{todayInvoices.length}</p>
+                </div>
+              </div>
+              <div className="w-px h-8 bg-amber-200 dark:bg-amber-800/50" />
+              <div className="flex items-center gap-2">
+                <IndianRupee className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">{t("pos.today_revenue")}</p>
+                  <p className="text-lg font-black text-slate-900 dark:text-slate-100">{todayRevenue.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="w-px h-8 bg-amber-200 dark:bg-amber-800/50" />
+              <div className="flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">{t("pos.total_bills")}</p>
+                  <p className="text-lg font-black text-slate-900 dark:text-slate-100">{invoices.length}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Smart Filters (Sticky!) */}
+            <div className="sticky top-0 z-20 px-6 py-3 border-b border-slate-200 dark:border-slate-800 space-y-2 bg-white/95 dark:bg-[#0d0f1e]/95 backdrop-blur-md shadow-sm shrink-0">
+              <div className="flex items-center justify-between mb-0.5">
+                 <span className="text-[9px] font-black tracking-widest text-blue-600 dark:text-blue-400 uppercase flex items-center gap-1.5">
+                    <Filter className="w-3 h-3" /> Smart Search & Filter
+                 </span>
+              </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={historySearchTerm}
+                    onChange={e => setHistorySearchTerm(e.target.value)}
+                    placeholder={t("pos.search_invoice_placeholder")}
+                    className="pl-8 h-9 rounded-xl bg-slate-50/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 text-xs focus:bg-white dark:focus:bg-slate-900 transition-colors"
+                  />
+                </div>
+                <Select value={historyPayFilter} onValueChange={setHistoryPayFilter}>
+                  <SelectTrigger className="h-9 w-28 rounded-xl bg-slate-50/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 text-xs">
+                    <SelectValue placeholder={t("pos.payment_method") || "Payment"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t("common.all") || "All Methods"}</SelectItem>
+                    <SelectItem value="cash">{t("pos.cash")}</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="upi">UPI</SelectItem>
+                    <SelectItem value="split">Split</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 items-center">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <Input type="date" value={historyDateFrom} onChange={e => setHistoryDateFrom(e.target.value)} className="h-7 w-36 rounded-lg bg-slate-50/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 text-[11px]" />
+                <span className="text-[10px] text-slate-400">to</span>
+                <Input type="date" value={historyDateTo} onChange={e => setHistoryDateTo(e.target.value)} className="h-7 w-36 rounded-lg bg-slate-50/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 text-[11px]" />
+                {(historyDateFrom || historyDateTo || historySearchTerm || historyPayFilter !== "all") && (
+                  <button
+                    type="button"
+                    onClick={() => { setHistorySearchTerm(""); setHistoryPayFilter("all"); setHistoryDateFrom(""); setHistoryDateTo(""); }}
+                    className="h-7 px-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-red-500 text-[10px] font-bold hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors ml-auto"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Invoice List Items */}
+            <div className="flex-1 divide-y divide-slate-100 dark:divide-slate-800">
             {isLoadingInvoices ? (
               <div className="flex flex-col items-center justify-center h-40 gap-3">
                 <div className="w-6 h-6 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
@@ -3842,6 +3887,7 @@ function POSContent() {
                 </button>
               ))
             )}
+          </div>
           </div>
 
           {/* Invoice Detail Panel */}

@@ -10,7 +10,7 @@ import { INDIAN_STATES, GST_RATES, calcItems, numToWords, fmtINR, today, addDays
 import { X, Search, Eye } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
-export default function InvoiceForm({ open, onOpenChange, invoice, customers, products, onSave, type = "sale" }) {
+export default function InvoiceForm({ open, onOpenChange, invoice, customers = [], products = [], onSave, type = "sale" }) {
   const [form, setForm] = useState({
     date: invoice?.date || today(),
     due_date: invoice?.due_date || addDays(today(), 15),

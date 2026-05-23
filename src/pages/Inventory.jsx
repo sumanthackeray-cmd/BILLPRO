@@ -12,8 +12,8 @@ import {
   Plus, Search, Package, Edit, Trash2, TrendingDown,
   AlertTriangle, ArrowDownCircle, ArrowUpCircle, BarChart3,
   Filter, ScanBarcode, Eye, X, ChevronDown, ChevronUp,
-  CheckSquare, Square, Layers, RotateCcw, ClipboardCheck, Coins, PieChart as PieIcon,
-  Activity, ShieldCheck, Printer, MessageSquare, FileText, ShoppingCart
+  CheckSquare, Layers, RotateCcw, ClipboardCheck, Coins, PieChart as PieIcon,
+  Activity, ShieldCheck, Printer, MessageSquare, FileText, ShoppingCart, FolderEdit, Download
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";

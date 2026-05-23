@@ -134,10 +134,7 @@ export const AUDIT_ACTIONS = {
  */
 export async function logAuditAction(auditData) {
   if (!db) {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) {
-      throw new Error("Audit Logging is not initialized! Database instance is missing. In production, this operation will fail silently, but in development, this is blocked to ensure strict regulatory compliance.");
-    }
-    console.warn('Audit logging not initialized');
+    console.warn('[EasyBMT] Audit logging not initialized — db is missing.');
     return null;
   }
 

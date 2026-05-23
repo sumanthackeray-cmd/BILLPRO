@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Sparkles, TrendingUp, Award, Sliders, Search, Plus, Trash2,
   ShieldAlert, DollarSign, Clock, Activity, ChevronRight, RefreshCw,
-  Cpu, ShieldCheck,
-  Menu, X, SlidersHorizontal, Info
+  Cpu, ShieldCheck, Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLanguage } from '@/lib/LanguageContext';
 import { base44 } from '@/api/base44Client';
 import { toast } from '@/lib/toast';
+import ResponsiveTabs from '@/components/ui/ResponsiveTabs';
 
 export default function EnterpriseIntelligence() {
   const { t } = useLanguage();
@@ -588,17 +588,6 @@ export default function EnterpriseIntelligence() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24 lg:pb-12 animate-fade-up">
-      {/* CSS Override Injection to Hide Default Mobile Navigation bar specifically on this page */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @media (max-width: 1023px) {
-          div.lg\\:hidden.fixed.bottom-0:not(.intel-custom-nav) {
-            display: none !important;
-          }
-          main {
-            padding-bottom: 96px !important;
-          }
-        }
-      `}} />
 
       {/* Header Container */}
       <div className="relative overflow-hidden bg-card/40 backdrop-blur-md border border-border/40 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -740,46 +729,18 @@ export default function EnterpriseIntelligence() {
         </Card>
       </div>
 
-      {/* Desktop Luxury Selector Navigation Tabs Bar */}
-      <div className="hidden lg:flex items-center justify-between p-1.5 bg-card/40 backdrop-blur-md border border-border/40 rounded-2xl shadow-sm">
-        <div className="flex gap-2 flex-1">
-          <button 
-            onClick={() => setActiveTab('ai')} 
-            className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all duration-300 ${activeTab === 'ai' ? 'gold-gradient text-black shadow-md shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'}`}
-          >
-            <Cpu className="w-3.5 h-3.5" />
-            AI Projections
-          </button>
-          <button 
-            onClick={() => setActiveTab('ml')} 
-            className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all duration-300 ${activeTab === 'ml' ? 'gold-gradient text-black shadow-md shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'}`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            ML & RFM Engine
-          </button>
-          <button 
-            onClick={() => setActiveTab('shifts')} 
-            className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all duration-300 ${activeTab === 'shifts' ? 'gold-gradient text-black shadow-md shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'}`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            Counter Audits
-          </button>
-          <button 
-            onClick={() => setActiveTab('loyalty')} 
-            className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all duration-300 ${activeTab === 'loyalty' ? 'gold-gradient text-black shadow-md shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'}`}
-          >
-            <Award className="w-3.5 h-3.5" />
-            Loyalty & Offers
-          </button>
-          <button 
-            onClick={() => setActiveTab('audit')} 
-            className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all duration-300 ${activeTab === 'audit' ? 'gold-gradient text-black shadow-md shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'}`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            Compliance Trails
-          </button>
-        </div>
-      </div>
+      {/* Responsive Tabs Navigation */}
+      <ResponsiveTabs 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        tabs={[
+          { id: 'ai', label: 'AI Projections', icon: <Cpu className="w-3.5 h-3.5" /> },
+          { id: 'ml', label: 'ML & RFM Engine', icon: <Sparkles className="w-3.5 h-3.5" /> },
+          { id: 'shifts', label: 'Counter Audits', icon: <Clock className="w-3.5 h-3.5" /> },
+          { id: 'loyalty', label: 'Loyalty & Offers', icon: <Award className="w-3.5 h-3.5" /> },
+          { id: 'audit', label: 'Compliance Trails', icon: <ShieldAlert className="w-3.5 h-3.5" /> }
+        ]}
+      />
 
       {/* Main Core Dashboard Frame */}
       <div className="bg-card/40 backdrop-blur-md border border-border/40 rounded-2xl p-4 lg:p-6 shadow-sm">
@@ -1575,126 +1536,6 @@ export default function EnterpriseIntelligence() {
 
       </div>
 
-      {/* ==================== PREMIUM COLLAPSIBLE BOTTOM NAVIGATION BAR (MOBILE ONLY) ==================== */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/85 backdrop-blur-xl border-t border-border/60 pb-safe shadow-2xl transition-all duration-300 intel-custom-nav">
-        
-        {/* Secondary Sliding Collapsible Action drawer for Mobile Quick Tools */}
-        {isMobileMenuOpen && (
-          <div className="px-4 py-4 bg-background/95 border-b border-border/50 space-y-4 animate-fade-up">
-            <div className="flex items-center justify-between border-b border-border/20 pb-2">
-              <span className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Hub Quick Actions
-              </span>
-              <button 
-                onClick={() => setIsMobileMenuOpen(false)} 
-                className="p-1 text-muted-foreground hover:text-foreground active:scale-95"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <button 
-                onClick={() => { setIsMobileMenuOpen(false); runAIPredictions(true); }} 
-                disabled={aiLoading} 
-                className="flex items-center justify-center gap-1.5 p-2 bg-secondary/80 border border-border/50 rounded-xl text-[10px] font-black hover:bg-secondary active:scale-95 transition-all text-foreground"
-              >
-                <RefreshCw className={`w-3 h-3 text-primary ${aiLoading ? 'animate-spin' : ''}`} />
-                {aiLoading ? 'Syning...' : 'Sync AI'}
-              </button>
-
-              <button 
-                onClick={() => { setIsMobileMenuOpen(false); setActiveTab('ml'); }} 
-                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl text-[10px] font-black transition-all ${activeTab === 'ml' ? 'gold-gradient text-black shadow-inner' : 'bg-secondary/80 border border-border/50 text-foreground'}`}
-              >
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                ML & RFM
-              </button>
-
-              <button 
-                onClick={() => { setIsMobileMenuOpen(false); resetOfferForm(); setIsOfferOpen(true); }} 
-                className="flex items-center justify-center gap-1.5 p-2 gold-gradient text-black rounded-xl text-[10px] font-black shadow-md shadow-primary/10 active:scale-95 transition-all"
-              >
-                <Plus className="w-3 h-3 stroke-[3]" />
-                New Campaign
-              </button>
-            </div>
-            
-            <div className="text-[9px] text-muted-foreground text-center flex items-center justify-center gap-1 font-medium">
-              <Info className="w-3 h-3 text-primary shrink-0" /> Settings reflect automatically across registers.
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-stretch justify-around px-2 py-2">
-          {/* AI Tab button */}
-          <button 
-            onClick={() => { setActiveTab('ai'); setIsMobileMenuOpen(false); }}
-            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 relative select-none ${activeTab === 'ai' ? 'text-primary' : 'text-muted-foreground'}`}
-          >
-            {activeTab === 'ai' && (
-              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full gold-gradient shadow-md" />
-            )}
-            <div className={`flex items-center justify-center w-10 h-7 rounded-xl transition-all ${activeTab === 'ai' ? 'bg-primary/10 scale-105' : 'active:bg-accent/40'}`}>
-              <Cpu className="w-4 h-4" />
-            </div>
-            <span className="text-[9px] font-black mt-1 leading-none">AI Forecast</span>
-          </button>
-
-          {/* Shifts Tab button */}
-          <button 
-            onClick={() => { setActiveTab('shifts'); setIsMobileMenuOpen(false); }}
-            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 relative select-none ${activeTab === 'shifts' ? 'text-primary' : 'text-muted-foreground'}`}
-          >
-            {activeTab === 'shifts' && (
-              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full gold-gradient shadow-md" />
-            )}
-            <div className={`flex items-center justify-center w-10 h-7 rounded-xl transition-all ${activeTab === 'shifts' ? 'bg-primary/10 scale-105' : 'active:bg-accent/40'}`}>
-              <Clock className="w-4 h-4" />
-            </div>
-            <span className="text-[9px] font-black mt-1 leading-none">Counter Audits</span>
-          </button>
-
-          {/* Collapsible Actions menu trigger button */}
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 select-none ${isMobileMenuOpen ? 'text-primary' : 'text-muted-foreground'}`}
-          >
-            <div className={`flex items-center justify-center w-12 h-10 -mt-2 rounded-full gold-gradient text-black shadow-lg shadow-primary/20 scale-110 active:scale-95 transition-all`}>
-              {isMobileMenuOpen ? <X className="w-5 h-5 stroke-[2.5]" /> : <Menu className="w-5 h-5 stroke-[2.5]" />}
-            </div>
-            <span className="text-[9px] font-black mt-1 leading-none text-foreground">Menu</span>
-          </button>
-
-          {/* Loyalty Tab button */}
-          <button 
-            onClick={() => { setActiveTab('loyalty'); setIsMobileMenuOpen(false); }}
-            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 relative select-none ${activeTab === 'loyalty' ? 'text-primary' : 'text-muted-foreground'}`}
-          >
-            {activeTab === 'loyalty' && (
-              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full gold-gradient shadow-md" />
-            )}
-            <div className={`flex items-center justify-center w-10 h-7 rounded-xl transition-all ${activeTab === 'loyalty' ? 'bg-primary/10 scale-105' : 'active:bg-accent/40'}`}>
-              <Award className="w-4 h-4" />
-            </div>
-            <span className="text-[9px] font-black mt-1 leading-none">Loyalty</span>
-          </button>
-
-          {/* Audit Tab button */}
-          <button 
-            onClick={() => { setActiveTab('audit'); setIsMobileMenuOpen(false); }}
-            className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-200 relative select-none ${activeTab === 'audit' ? 'text-primary' : 'text-muted-foreground'}`}
-          >
-            {activeTab === 'audit' && (
-              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full gold-gradient shadow-md" />
-            )}
-            <div className={`flex items-center justify-center w-10 h-7 rounded-xl transition-all ${activeTab === 'audit' ? 'bg-primary/10 scale-105' : 'active:bg-accent/40'}`}>
-              <ShieldAlert className="w-4 h-4" />
-            </div>
-            <span className="text-[9px] font-black mt-1 leading-none">Compliance</span>
-          </button>
-        </div>
-      </div>
 
       {/* ==================== DIALOGS & OVERLAY FORMS ==================== */}
 

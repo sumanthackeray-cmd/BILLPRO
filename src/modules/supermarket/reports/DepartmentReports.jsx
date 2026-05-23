@@ -14,6 +14,7 @@ import {
   RefreshCw, Clock, AlertCircle, Percent, Sparkles, Award
 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import ResponsiveTabs from "@/components/ui/ResponsiveTabs";
 
 const COLORS = ["#0066CC", "#2ECC71", "#FF6B00", "#9B59B6", "#E74C3C", "#1ABC9C", "#34495E", "#E67E22"];
 
@@ -253,20 +254,17 @@ export default function DepartmentReports() {
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-border/40 pb-3 overflow-x-auto whitespace-nowrap scrollbar-none flex-nowrap w-full scroll-smooth">
-        <Button variant={activeTab === "pnl" ? "default" : "ghost"} onClick={() => setActiveTab("pnl")} className="font-bold gap-1.5 h-10 flex-shrink-0">
-          <BarChart2 className="w-4 h-4" /> Department-wise P&L
-        </Button>
-        <Button variant={activeTab === "heatmap" ? "default" : "ghost"} onClick={() => setActiveTab("heatmap")} className="font-bold gap-1.5 h-10">
-          <Clock className="w-4 h-4" /> Hourly Sales Heatmap
-        </Button>
-        <Button variant={activeTab === "abc" ? "default" : "ghost"} onClick={() => setActiveTab("abc")} className="font-bold gap-1.5 h-10">
-          <TrendingUp className="w-4 h-4" /> ABC Inventory Class
-        </Button>
-        <Button variant={activeTab === "basket" ? "default" : "ghost"} onClick={() => setActiveTab("basket")} className="font-bold gap-1.5 h-10">
-          <ShoppingBag className="w-4 h-4" /> Basket Association Analysis
-        </Button>
-      </div>
+      <ResponsiveTabs 
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        containerClassName="border-b border-border/40 pb-3"
+        tabs={[
+          { id: "pnl", label: "Department-wise P&L", icon: <BarChart2 className="w-4 h-4" /> },
+          { id: "heatmap", label: "Hourly Sales Heatmap", icon: <Clock className="w-4 h-4" /> },
+          { id: "abc", label: "ABC Inventory Class", icon: <TrendingUp className="w-4 h-4" /> },
+          { id: "basket", label: "Basket Association Analysis", icon: <ShoppingBag className="w-4 h-4" /> }
+        ]}
+      />
 
       {/* Content Render */}
       {activeTab === "pnl" && (

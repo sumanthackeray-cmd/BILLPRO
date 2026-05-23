@@ -1,30 +1,29 @@
-// Safely patch DOM manipulation to prevent crashes from Google Translate / Browser Extensions
+// Prevent React DOM crashes from browser extensions / Google Translate
 if (typeof window !== 'undefined') {
   const nativeRemoveChild = Node.prototype.removeChild;
-  Node.prototype.removeChild = function(child) {
-    if (child.parentNode !== this) {
-      if (console && console.warn) {
-        console.warn('Prevented React removeChild crash on unmatching parentNode:', child, this);
-      }
-      return child;
-    }
+  Node.prototype.removeChild = function (child) {
+    if (child?.parentNode !== this) return child;
     return nativeRemoveChild.apply(this, arguments);
   };
 
   const nativeInsertBefore = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function(newNode, referenceNode) {
-    if (newNode && newNode.parentNode === this && referenceNode === newNode) {
-      // Prevent inserting node before itself
-      return newNode;
-    }
-    if (referenceNode && referenceNode.parentNode !== this) {
-      if (console && console.warn) {
-        console.warn('Prevented React insertBefore crash on unmatching parentNode:', referenceNode, this);
-      }
-      return newNode;
-    }
+  Node.prototype.insertBefore = function (newNode, referenceNode) {
+    if (newNode?.parentNode === this && referenceNode === newNode) return newNode;
+    if (referenceNode && referenceNode.parentNode !== this) return newNode;
     return nativeInsertBefore.apply(this, arguments);
   };
+
+  window.addEventListener('error', (event) => {
+    if (event.message?.includes('ResizeObserver')) {
+      event.stopImmediatePropagation();
+      return;
+    }
+    console.error('[EasyBMT] Uncaught error:', event.error || event.message);
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('[EasyBMT] Unhandled promise rejection:', event.reason);
+  });
 }
 
 import React from 'react'
@@ -39,37 +38,24 @@ import { initializeBranchService } from '@/api/branchService'
 import { initializeInventorySyncService } from '@/api/inventorySyncService'
 import { initializeAuditLogging } from '@/api/auditLogging'
 
-// Initialize core retail services
-initializeBranchService(db);
-initializeInventorySyncService(db);
-initializeAuditLogging(db);
-
-// Register PWA Service Worker
-if ('serviceWorker' in navigator) {
-  registerSW({ immediate: true })
+try {
+  initializeBranchService(db);
+  initializeInventorySyncService(db);
+  initializeAuditLogging(db);
+} catch (e) {
+  console.error('[EasyBMT] Service init failed:', e);
 }
 
-// Global error listener to capture early loading errors
-window.addEventListener('error', (event) => {
-  if (event.message && event.message.includes('ResizeObserver')) {
-    event.stopImmediatePropagation();
-    return;
-  }
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  registerSW({ immediate: true });
+}
+if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((r) => r.unregister());
+  });
+}
 
-  const root = document.getElementById('root');
-  if (root) {
-    root.innerHTML = `
-      <div style="padding: 20px; background: #fee2e2; color: #991b1b; border: 1px solid #f87171; margin: 20px; font-family: sans-serif; border-radius: 8px;">
-        <h3 style="margin-top:0;">Global JS Error Caught</h3>
-        <p><strong>Message:</strong> ${event.message}</p>
-        <p><strong>Source:</strong> ${event.filename}:${event.lineno}:${event.colno}</p>
-        <pre style="background:#fff; padding:10px; border-radius:4px; overflow-x:auto;">${event.error?.stack || ''}</pre>
-      </div>
-    `;
-  }
-});
-
-class ErrorBoundary extends React.Component {
+class RootErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -78,15 +64,22 @@ class ErrorBoundary extends React.Component {
     return { hasError: true, error };
   }
   componentDidCatch(error, errorInfo) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
+    console.error('[EasyBMT Root Error]', error, errorInfo);
   }
   render() {
     if (this.state.hasError) {
+      const err = this.state.error;
       return (
-        <div style={{ padding: '20px', background: '#fee2e2', color: '#991b1b', border: '1px solid #f87171', margin: '20px', fontFamily: 'sans-serif', borderRadius: '8px' }}>
-          <h3 style={{ marginTop: 0 }}>React Render Error Caught</h3>
-          <p><strong>Message:</strong> {this.state.error?.message}</p>
-          <pre style={{ background: '#fff', padding: '10px', borderRadius: '4px', overflowX: 'auto' }}>{this.state.error?.stack}</pre>
+        <div style={{ padding: '24px', background: '#1a1a2e', color: '#ff4444', fontFamily: 'system-ui,sans-serif', minHeight: '100vh' }}>
+          <h2 style={{ color: '#ff8800', marginTop: 0 }}>Something went wrong</h2>
+          <p style={{ color: '#ccc' }}>{err?.message || 'An unexpected error occurred.'}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{ marginTop: '16px', padding: '10px 20px', background: '#ff8800', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            Reload app
+          </button>
         </div>
       );
     }
@@ -95,11 +88,11 @@ class ErrorBoundary extends React.Component {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <ErrorBoundary>
+  <RootErrorBoundary>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme" attribute="class">
       <LanguageProvider>
         <App />
       </LanguageProvider>
     </ThemeProvider>
-  </ErrorBoundary>
+  </RootErrorBoundary>
 )

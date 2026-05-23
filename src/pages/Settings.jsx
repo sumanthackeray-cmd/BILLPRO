@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
 import { Save, Store, CreditCard, FileText, Upload, Image, Pen, Crown, Monitor, Sun, Moon, Printer, Bluetooth, Wifi, Usb, RefreshCw, Sliders, Check, Users, Plus, Trash2, UserCheck, Shield, Lock, User, Eye, EyeOff, Building2 } from "lucide-react";
 import CompanyProfile from './settings/CompanyProfile';
+import ResponsiveTabs from "@/components/ui/ResponsiveTabs";
 import { Link } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -22,9 +23,23 @@ import { MOCK_PRINTER_DEVICES, sendEscPosToPrinter, generateEscPosPayload } from
 import { BUSINESS_TYPES } from "@/lib/shopCategories";
 import { useLanguage } from "@/lib/LanguageContext";
 
+const CRYPTO_KEY = "EasyBMT_Secure_Crypto_Key";
+
 const decryptPassword = (enc) => {
   if (!enc) return "";
-  if (enc.startsWith("enc:")) {
+  if (enc.startsWith("enc:xor:")) {
+    try {
+      const decoded = atob(enc.substring(8));
+      let decrypted = "";
+      for (let i = 0; i < decoded.length; i++) {
+        const charCode = decoded.charCodeAt(i) ^ CRYPTO_KEY.charCodeAt(i % CRYPTO_KEY.length);
+        decrypted += String.fromCharCode(charCode);
+      }
+      return decrypted;
+    } catch (e) {
+      return enc;
+    }
+  } else if (enc.startsWith("enc:")) {
     try {
       return atob(enc.substring(4));
     } catch (e) {
@@ -119,6 +134,7 @@ export default function Settings() {
     printer_port: "9100",
     auto_print: false,
     paired_printer_name: "",
+    supervisor_pin: "8822",
   });
 
   useEffect(() => {
@@ -155,6 +171,7 @@ export default function Settings() {
         printer_port: existing.printer_port || "9100",
         auto_print: existing.auto_print ?? false,
         paired_printer_name: existing.paired_printer_name || "",
+        supervisor_pin: existing.supervisor_pin || "8822",
       });
     }
   }, [existing]);
@@ -216,6 +233,8 @@ export default function Settings() {
     }
   };
 
+  const [activeTab, setActiveTab] = useState("business");
+
   return (
     <div className="animate-fade-up space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -235,19 +254,24 @@ export default function Settings() {
         </div>
       </div>
 
-      <Tabs defaultValue="business" className="w-full">
-        <TabsList className="bg-secondary mb-4 flex-wrap h-auto gap-1">
-          <TabsTrigger value="business" className="gap-1.5"><Store className="w-3.5 h-3.5" /> {t('settings.general') || 'Business'}</TabsTrigger>
-          <TabsTrigger value="security" className="gap-1.5"><Shield className="w-3.5 h-3.5" /> Security & Roles</TabsTrigger>
-          <TabsTrigger value="company_profile" className="gap-1.5"><Building2 className="w-3.5 h-3.5" /> Company Profile</TabsTrigger>
-          <TabsTrigger value="profile" className="gap-1.5"><User className="w-3.5 h-3.5" /> My Profile</TabsTrigger>
-          <TabsTrigger value="staff" className="gap-1.5"><Users className="w-3.5 h-3.5" /> Staff &amp; Cashiers</TabsTrigger>
-          <TabsTrigger value="bank" className="gap-1.5"><CreditCard className="w-3.5 h-3.5" /> {t('settings.bank_details') || 'Bank'}</TabsTrigger>
-          <TabsTrigger value="invoice" className="gap-1.5"><FileText className="w-3.5 h-3.5" /> {t('settings.invoice_prefix') || 'Invoice'}</TabsTrigger>
-          <TabsTrigger value="branding" className="gap-1.5"><Image className="w-3.5 h-3.5" /> {t('settings.branding') || 'Branding'}</TabsTrigger>
-          <TabsTrigger value="printers" className="gap-1.5"><Printer className="w-3.5 h-3.5" /> {t('settings.printer_settings') || 'Printer Setup'}</TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-1.5"><Monitor className="w-3.5 h-3.5" /> {t('settings.appearance') || 'Appearance'}</TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <ResponsiveTabs 
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          containerClassName="mb-4"
+          tabs={[
+            { id: "business", label: t('settings.general') || 'Business', icon: <Store className="w-3.5 h-3.5" /> },
+            { id: "security", label: 'Security & Roles', icon: <Shield className="w-3.5 h-3.5" /> },
+            { id: "company_profile", label: 'Company Profile', icon: <Building2 className="w-3.5 h-3.5" /> },
+            { id: "profile", label: 'My Profile', icon: <User className="w-3.5 h-3.5" /> },
+            { id: "staff", label: 'Staff & Cashiers', icon: <Users className="w-3.5 h-3.5" /> },
+            { id: "bank", label: t('settings.bank_details') || 'Bank', icon: <CreditCard className="w-3.5 h-3.5" /> },
+            { id: "invoice", label: t('settings.invoice_prefix') || 'Invoice', icon: <FileText className="w-3.5 h-3.5" /> },
+            { id: "branding", label: t('settings.branding') || 'Branding', icon: <Image className="w-3.5 h-3.5" /> },
+            { id: "printers", label: t('settings.printer_settings') || 'Printer Setup', icon: <Printer className="w-3.5 h-3.5" /> },
+            { id: "appearance", label: t('settings.appearance') || 'Appearance', icon: <Monitor className="w-3.5 h-3.5" /> }
+          ]}
+        />
 
         <TabsContent value="business">
           <div className="bg-card border border-border rounded-xl p-5 space-y-4">
@@ -318,53 +342,73 @@ export default function Settings() {
 
         <TabsContent value="security">
           <div className="bg-card border border-border rounded-xl p-5 space-y-5">
-            {/* SAP RBAC Promotion/Control Panel Banner */}
             {user && user.hierarchy_level <= 3 ? (
-              <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-white dark:from-indigo-950/50 dark:via-purple-950/20 dark:to-slate-900/10 border border-indigo-200 dark:border-indigo-500/30 rounded-xl p-6 flex flex-col gap-5 backdrop-blur-sm shadow-xl shadow-indigo-500/5">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-pulse" />
-                    <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 tracking-wider uppercase">SAP Enterprise Security Profile</span>
-                  </div>
-                  <h4 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Advanced Role-Based Access Control (RBAC)</h4>
-                  <p className="text-sm text-slate-600 dark:text-muted-foreground max-w-3xl">
-                    Configure staff accounts, enforce hierarchical authority rules, assign dynamic capabilities, and toggle column field-level data protection. This acts as the command center for data and future access control for all users in your organization.
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div className="bg-white/50 dark:bg-black/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg p-4">
-                    <h5 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2 mb-2">
-                      <Users className="w-4 h-4" /> User Management
-                    </h5>
-                    <p className="text-xs text-slate-600 dark:text-muted-foreground mb-4">
-                      Create staff accounts, assign them to branches, set roles based on hierarchy, and manage their active statuses.
+              <div className="space-y-6">
+                <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-white dark:from-indigo-950/50 dark:via-purple-950/20 dark:to-slate-900/10 border border-indigo-200 dark:border-indigo-500/30 rounded-xl p-6 flex flex-col gap-5 backdrop-blur-sm shadow-xl shadow-indigo-500/5">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+                      <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 tracking-wider uppercase">SAP Enterprise Security Profile</span>
+                    </div>
+                    <h4 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Advanced Role-Based Access Control (RBAC)</h4>
+                    <p className="text-sm text-slate-600 dark:text-muted-foreground max-w-3xl">
+                      Configure staff accounts, enforce hierarchical authority rules, assign dynamic capabilities, and toggle column field-level data protection. This acts as the command center for data and future access control for all users in your organization.
                     </p>
-                    <Link to="/settings/users">
-                      <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-2 shadow-lg shadow-indigo-600/20">
-                        <Users className="w-4 h-4" /> Manage Staff Users
-                      </Button>
-                    </Link>
                   </div>
-
-                  <div className="bg-white/50 dark:bg-black/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg p-4 flex flex-col">
-                    <h5 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2 mb-2">
-                      <Lock className="w-4 h-4" /> Data &amp; Future Access
-                    </h5>
-                    <p className="text-xs text-slate-600 dark:text-muted-foreground mb-4 flex-1">
-                      Control module-wise access (View, Create, Edit, Delete, Export) and mask sensitive fields (Purchase Price, Profit Margin, Salary) per role.
-                    </p>
-                    {user.hierarchy_level <= 2 ? (
-                      <Link to="/settings/permissions">
-                        <Button className="w-full !bg-purple-600 hover:!bg-purple-700 active:!bg-purple-800 !text-white font-bold gap-2 shadow-lg shadow-purple-600/20 border !border-purple-700">
-                          <Sliders className="w-4 h-4" /> Open Security Matrix
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    <div className="bg-white/50 dark:bg-black/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg p-4">
+                      <h5 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2 mb-2">
+                        <Users className="w-4 h-4" /> User Management
+                      </h5>
+                      <p className="text-xs text-slate-600 dark:text-muted-foreground mb-4">
+                        Create staff accounts, assign them to branches, set roles based on hierarchy, and manage their active statuses.
+                      </p>
+                      <Link to="/settings/users">
+                        <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-2 shadow-lg shadow-indigo-600/20">
+                          <Users className="w-4 h-4" /> Manage Staff Users
                         </Button>
                       </Link>
-                    ) : (
-                      <Button disabled className="w-full font-bold gap-2 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700 cursor-not-allowed">
-                        <Lock className="w-4 h-4" /> Access Restricted (Requires Owner/CEO)
-                      </Button>
-                    )}
+                    </div>
+
+                    <div className="bg-white/50 dark:bg-black/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg p-4 flex flex-col">
+                      <h5 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2 mb-2">
+                        <Lock className="w-4 h-4" /> Data &amp; Future Access
+                      </h5>
+                      <p className="text-xs text-slate-600 dark:text-muted-foreground mb-4 flex-1">
+                        Control module-wise access (View, Create, Edit, Delete, Export) and mask sensitive fields (Purchase Price, Profit Margin, Salary) per role.
+                      </p>
+                      {user.hierarchy_level <= 2 ? (
+                        <Link to="/settings/permissions">
+                          <Button className="w-full !bg-purple-600 hover:!bg-purple-700 active:!bg-purple-800 !text-white font-bold gap-2 shadow-lg shadow-purple-600/20 border !border-purple-700">
+                            <Sliders className="w-4 h-4" /> Open Security Matrix
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button disabled className="w-full font-bold gap-2 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700 cursor-not-allowed">
+                          <Lock className="w-4 h-4" /> Access Restricted (Requires Owner/CEO)
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-card border border-border rounded-xl p-5 space-y-4 shadow-sm">
+                  <div className="flex items-center gap-2 border-b border-border/30 pb-3">
+                    <Lock className="w-4 h-4 text-indigo-500" />
+                    <h4 className="font-bold text-[14px]">Supervisor Authorization Settings</h4>
+                  </div>
+                  <div className="max-w-xs space-y-1.5">
+                    <Label className="text-[11px] font-bold">Supervisor Override PIN</Label>
+                    <Input 
+                      type="password" 
+                      value={form.supervisor_pin || ""} 
+                      onChange={e => set("supervisor_pin", e.target.value.replace(/\D/g, ''))} 
+                      placeholder="e.g. 8822" 
+                      maxLength={8}
+                      className="font-mono tracking-widest text-[13px] bg-background/50 h-10 border-border/40"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Used for validating cart price overrides and applying supervisor manual discounts at checkout terminals.</p>
                   </div>
                 </div>
               </div>

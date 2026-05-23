@@ -12,6 +12,7 @@ import { useLanguage } from '@/lib/LanguageContext';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import PermissionGuard from '@/components/PermissionGuard';
+import ResponsiveTabs from "@/components/ui/ResponsiveTabs";
 import { useNavigate } from 'react-router-dom';
 
 export default function WarehouseManagement() {
@@ -998,20 +999,17 @@ export default function WarehouseManagement() {
       </div>
 
       {/* Modern Tabs Selector */}
-      <div className="flex overflow-x-auto hide-scrollbar gap-1.5 p-1.5 bg-secondary/40 backdrop-blur-md border border-border/50 rounded-2xl max-w-2xl animate-fade-up shadow-sm" style={{ animationDelay: '0.2s' }}>
-        <button onClick={() => setActiveTab('vendors')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[11px] font-bold tracking-wide whitespace-nowrap transition-all duration-300 ${activeTab === 'vendors' ? 'bg-background text-primary shadow-md shadow-black/5 scale-[1.02]' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'}`}>
-          <Building2 className="w-4 h-4" /> {t('warehouse.tab_vendors')}
-        </button>
-        <button onClick={() => setActiveTab('rack')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[11px] font-bold tracking-wide whitespace-nowrap transition-all duration-300 ${activeTab === 'rack' ? 'bg-background text-primary shadow-md shadow-black/5 scale-[1.02]' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'}`}>
-          <Layers className="w-4 h-4" /> {t('warehouse.tab_rack')}
-        </button>
-        <button onClick={() => setActiveTab('batches')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[11px] font-bold tracking-wide whitespace-nowrap transition-all duration-300 ${activeTab === 'batches' ? 'bg-background text-primary shadow-md shadow-black/5 scale-[1.02]' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'}`}>
-          <AlertTriangle className="w-4 h-4" /> {t('warehouse.tab_expiry')}
-        </button>
-        <button onClick={() => setActiveTab('po')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[11px] font-bold tracking-wide whitespace-nowrap transition-all duration-300 ${activeTab === 'po' ? 'bg-background text-primary shadow-md shadow-black/5 scale-[1.02]' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'}`}>
-          <FileText className="w-4 h-4" /> {t('warehouse.tab_po')}
-        </button>
-      </div>
+      <ResponsiveTabs 
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        containerClassName="max-w-2xl bg-secondary/40"
+        tabs={[
+          { id: 'vendors', label: t('warehouse.tab_vendors') || 'Vendors', icon: <Building2 className="w-4 h-4" /> },
+          { id: 'rack', label: t('warehouse.tab_rack') || 'Rack', icon: <Layers className="w-4 h-4" /> },
+          { id: 'batches', label: t('warehouse.tab_expiry') || 'Expiry', icon: <AlertTriangle className="w-4 h-4" /> },
+          { id: 'po', label: t('warehouse.tab_po') || 'PO', icon: <FileText className="w-4 h-4" /> }
+        ]}
+      />
 
       {/* Main Grid Panels */}
       <Card className="border-0 shadow-none bg-transparent animate-fade-up">

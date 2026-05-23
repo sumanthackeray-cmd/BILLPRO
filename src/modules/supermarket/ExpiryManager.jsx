@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Trash2, AlertTriangle, ShieldCheck, HeartHandshake, Printer, Sparkles, Check, RefreshCw } from "lucide-react";
+import ResponsiveTabs from "@/components/ui/ResponsiveTabs";
 
 export default function ExpiryManager() {
   const queryClient = useQueryClient();
@@ -237,12 +238,17 @@ export default function ExpiryManager() {
                 {activeTab.toUpperCase()}
               </Badge>
             </CardTitle>
-            <div className="flex gap-2 w-full sm:w-auto overflow-x-auto whitespace-nowrap pb-1 scrollbar-none flex-nowrap scroll-smooth">
-              <Button size="sm" variant={activeTab === "all" ? "default" : "outline"} onClick={() => setActiveTab("all")}>All</Button>
-              <Button size="sm" variant={activeTab === "expired" ? "default" : "outline"} onClick={() => setActiveTab("expired")}>Expired</Button>
-              <Button size="sm" variant={activeTab === "critical" ? "default" : "outline"} onClick={() => setActiveTab("critical")}>1-3 Days</Button>
-              <Button size="sm" variant={activeTab === "warning" ? "default" : "outline"} onClick={() => setActiveTab("warning")}>4-7 Days</Button>
-            </div>
+            <ResponsiveTabs 
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              containerClassName="w-full sm:w-auto"
+              tabs={[
+                { id: "all", label: "All" },
+                { id: "expired", label: "Expired" },
+                { id: "critical", label: "1-3 Days" },
+                { id: "warning", label: "4-7 Days" }
+              ]}
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0">

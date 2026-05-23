@@ -6,8 +6,9 @@ import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
   Users, BarChart3, Settings, Sparkles, ScanBarcode, LogOut, Crown,
   Receipt, BookOpen, Landmark, Building2, Zap, GitBranch, RefreshCw, Warehouse, TrendingUp, Shield, Scissors,
-  Monitor, Tag, Award, Calendar, Search
+  Monitor, Tag, Award, Calendar, Search, ChevronLeft, ChevronRight
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { cn } from "@/lib/utils";
 import { useFashionMode } from "@/hooks/useFashionMode";
@@ -58,7 +59,7 @@ const NAV_ITEMS = [
   { path: "/subscription", icon: Crown, label: "Upgrade", badge: "PRO", isPro: true, tKey: "nav.upgrade" },
 ];
 
-export default function Sidebar({ mobile = false, onClose }) {
+export default function Sidebar({ mobile = false, onClose, defaultCollapsed = false }) {
   const location = useLocation();
   const { user } = useAuth();
   const { language, setLanguage, voiceEnabled, setVoiceEnabled, t, speak } = useLanguage();
@@ -67,6 +68,7 @@ export default function Sidebar({ mobile = false, onClose }) {
   const [branches, setBranches] = useState(() => getCachedBranches());
   const [activeBranchId, setActiveBranchId] = useState(localStorage.getItem('selectedBranch') || '');
   const [searchQuery, setSearchQuery] = useState("");
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   // Fetch shop settings
   const { shopSettings } = useShopSettings();
@@ -230,16 +232,32 @@ export default function Sidebar({ mobile = false, onClose }) {
   });
 
   return (
-    <aside className={cn(
-      "flex flex-col bg-sidebar border-r border-sidebar-border shrink-0 overflow-hidden",
-      mobile ? "w-full h-full" : "hidden lg:flex w-[220px] h-full"
-    )}>
-      {/* Logo & Brand */}
-      <div className="px-5 pt-[5px] pb-[1px] border-b border-sidebar-border/30 shrink-0">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-2xl font-black gold-text">EasyBMT</span>
-        </div>
-        <div className="flex flex-col gap-0.5 mb-2">
+    <TooltipProvider delayDuration={0}>
+      <aside className={cn(
+        "flex flex-col bg-sidebar border-r border-sidebar-border shrink-0 overflow-visible transition-all duration-300 ease-in-out relative group/sidebar z-50",
+        mobile ? "w-full h-full" : collapsed ? "hidden lg:flex w-[76px] h-full" : "hidden lg:flex w-[260px] h-full"
+      )}>
+        
+        {/* Toggle Button */}
+        {!mobile && (
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="absolute -right-3 top-7 bg-background text-foreground hover:bg-secondary border border-border/50 p-1 rounded-full shadow-md z-[60] transition-transform active:scale-95"
+            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4 text-primary" /> : <ChevronLeft className="w-4 h-4 text-primary" />}
+          </button>
+        )}
+
+        <div className="flex-1 flex flex-col w-full h-full overflow-hidden bg-sidebar relative z-40">
+          {/* Logo & Brand */}
+          <div className={cn("px-5 pt-[5px] pb-[1px] border-b border-sidebar-border/30 shrink-0 transition-all duration-300", collapsed ? "px-2 flex flex-col items-center" : "px-5")}>
+            <div className={cn("flex items-center gap-2 mb-2", collapsed && "justify-center mt-3")}>
+              <span className={cn("font-black gold-text transition-all", collapsed ? "text-xl" : "text-2xl")}>{collapsed ? "EB" : "EasyBMT"}</span>
+            </div>
+            
+            {!collapsed && (
+              <div className="flex flex-col gap-0.5 mb-2 animate-in fade-in duration-300">
           <p className="text-[12px] text-foreground font-extrabold uppercase tracking-wider truncate">
             🏢 {shopSettings.shop_name || user?.business_name || "Business Outlet"}
           </p>
@@ -248,12 +266,13 @@ export default function Sidebar({ mobile = false, onClose }) {
             <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground text-[8px] font-bold border border-border/50">
               ID: {(user?.user_code === 'ADMIN-001' || localStorage.getItem('user_code') === 'ADMIN-001' ? `${(localStorage.getItem('company_id') || 'COMP').split('-')[0].substring(0, 6).toUpperCase()}-ADMIN-001` : user?.user_code || user?.id?.substring(0, 6) || "STF-01")}
             </span>
-          </div>
-        </div>
+              </div>
+              </div>
+            )}
 
-        {/* Dynamic Branch Dropdown Switcher */}
-        {branches.length > 0 && (
-          <div className="mt-2 space-y-1">
+            {/* Dynamic Branch Dropdown Switcher */}
+            {!collapsed && branches.length > 0 && (
+              <div className="mt-2 space-y-1 animate-in fade-in duration-300">
             <label className="text-[9px] uppercase tracking-wider text-muted-foreground font-extrabold flex items-center gap-1">
               <GitBranch className="w-2.5 h-2.5 text-amber-500" /> {t("branches.active_outlet")}
             </label>
@@ -271,8 +290,9 @@ export default function Sidebar({ mobile = false, onClose }) {
           </div>
         )}
 
-        <div className="mt-3 relative flex items-center">
-          <Search className="absolute left-2 w-3 h-3 text-muted-foreground" />
+        {!collapsed && (
+          <div className="mt-3 mb-2 relative flex items-center animate-in fade-in duration-300">
+            <Search className="absolute left-2 w-3 h-3 text-muted-foreground" />
           <input 
             type="text" 
             value={searchQuery}
@@ -281,30 +301,33 @@ export default function Sidebar({ mobile = false, onClose }) {
             className="w-full h-[30px] bg-secondary/50 border border-border/50 rounded text-[10px] pl-6 pr-2 focus:outline-none focus:ring-1 focus:ring-primary/40 text-foreground placeholder:text-muted-foreground/70"
           />
         </div>
+        )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 pt-0 pb-2 overflow-y-auto space-y-0.5 no-scrollbar">
+      <nav className={cn("flex-1 pt-2 pb-2 overflow-y-auto no-scrollbar", collapsed ? "px-2 space-y-2 mt-2" : "px-3 space-y-0.5 mt-0")}>
         {filteredNavItems.map((item) => {
           const isActive = location.pathname === item.path ||
             (item.path !== "/" && location.pathname.startsWith(item.path));
-          return (
+            
+          const navLink = (
             <Link
               key={item.path}
               to={item.path}
               onClick={handleNavClick}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200",
+                "flex items-center rounded-lg font-medium transition-all duration-200 group",
+                collapsed ? "justify-center p-2.5 mx-auto w-10 h-10" : "gap-3 px-3 py-2.5 text-[13px]",
                 item.isPro
                   ? "bg-primary/10 text-primary border border-primary/25 hover:bg-primary/20 mt-1"
                   : isActive
-                    ? "bg-primary/15 text-primary border border-primary/30"
+                    ? "bg-primary/15 text-primary shadow-sm border border-primary/30"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border border-transparent"
               )}
             >
-              <item.icon className={cn("w-4 h-4 shrink-0", isActive || item.isPro ? "text-primary" : item.badge && !item.isPro ? "text-purple" : "")} />
-              <span>{t(item.tKey)}</span>
-              {item.badge && (
+              <item.icon className={cn("shrink-0 transition-transform group-hover:scale-110", collapsed ? "w-5 h-5" : "w-4.5 h-4.5", isActive || item.isPro ? "text-primary" : item.badge && !item.isPro ? "text-purple" : "")} />
+              {!collapsed && <span>{t(item.tKey)}</span>}
+              {!collapsed && item.badge && (
                 <span className={cn("ml-auto text-[9px] font-extrabold px-1.5 py-0.5 rounded-full",
                   item.isPro ? "gold-gradient text-black" :
                     item.badge === "NEW" ? "bg-emerald-500 text-white" :
@@ -315,12 +338,24 @@ export default function Sidebar({ mobile = false, onClose }) {
               )}
             </Link>
           );
+
+          return collapsed ? (
+            <Tooltip key={item.path}>
+              <TooltipTrigger asChild>
+                {navLink}
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={12} className="font-bold text-xs bg-sidebar border-sidebar-border text-sidebar-foreground">
+                {t(item.tKey)} {item.badge && `(${item.badge})`}
+              </TooltipContent>
+            </Tooltip>
+          ) : navLink;
         })}
       </nav>
 
       {/* Language & Voice Assistant Controls */}
-      <div className="px-3 py-2 border-t border-sidebar-border flex items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-1 bg-secondary/35 rounded-lg p-0.5 border border-border/40">
+      {!collapsed && (
+        <div className="px-3 py-2 border-t border-sidebar-border flex items-center justify-between gap-2 shrink-0 animate-in fade-in duration-300">
+          <div className="flex items-center gap-1 bg-secondary/35 rounded-lg p-0.5 border border-border/40">
           <button
             onClick={() => {
               setLanguage("en");
@@ -365,11 +400,38 @@ export default function Sidebar({ mobile = false, onClose }) {
           {voiceEnabled ? "🔈 Voice ON" : "🔇 Voice OFF"}
         </button>
       </div>
+      )}
 
       {/* User */}
-      <div className="p-3 border-t border-sidebar-border shrink-0">
-        <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary/50">
-          <div className="w-8 h-8 rounded-full gold-gradient flex items-center justify-center text-[13px] font-bold text-black shrink-0">
+      <div className={cn("border-t border-sidebar-border shrink-0 transition-all", collapsed ? "p-2 flex flex-col items-center gap-3 py-4" : "p-3")}>
+        {collapsed ? (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="w-10 h-10 rounded-full gold-gradient flex items-center justify-center text-[14px] font-bold text-black shrink-0 cursor-pointer shadow-md hover:scale-105 transition-transform">
+                  {(user?.full_name || "U")[0]}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={12}>
+                <p className="font-bold">{user?.full_name || "User"}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => base44.auth.logout()}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors mt-2"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={12}>Logout</TooltipContent>
+            </Tooltip>
+          </>
+        ) : (
+          <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary/50 animate-in fade-in duration-300">
+            <div className="w-8 h-8 rounded-full gold-gradient flex items-center justify-center text-[13px] font-bold text-black shrink-0">
             {(user?.full_name || "U")[0]}
           </div>
           <div className="flex-1 min-w-0">
@@ -377,15 +439,18 @@ export default function Sidebar({ mobile = false, onClose }) {
             <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
           </div>
           <ThemeToggle />
-          <button
-            onClick={() => base44.auth.logout()}
-            className="text-muted-foreground hover:text-destructive transition-colors"
-            title={t("nav.logout")}
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
-        </div>
+            <button
+              onClick={() => base44.auth.logout()}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+              title={t("nav.logout")}
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
-    </aside>
+      </div>
+      </aside>
+    </TooltipProvider>
   );
 }

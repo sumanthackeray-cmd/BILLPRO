@@ -19,6 +19,7 @@ import OrgStructure from "./hrms/OrgStructure";
 
 // Master seed trigger logic & compliance utilities
 import { ensureHRMSeedData } from "./hrms/hrmsUtils";
+import ResponsiveTabs from "@/components/ui/ResponsiveTabs";
 
 const AVAILABLE_ROLES = [
   { id: "role-owner", role_name: "owner", label: "Owner", hierarchy_level: 1 },
@@ -246,58 +247,21 @@ export default function HRMS() {
       </div>
 
       {/* Main Glassmorphic Sub-tab Switchers */}
-      <div className="border-b border-border/30 overflow-x-auto pb-2 scrollbar-thin">
-        <div className="flex bg-secondary/15 p-1 rounded-xl border border-border/40 w-max max-w-none">
-          <button 
-            onClick={() => setActiveTab("dashboard")}
-            className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "dashboard" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <Cpu className="w-3.5 h-3.5 text-primary" /> HCM Insights
-          </button>
-          <button 
-            onClick={() => setActiveTab("employees")}
-            className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "employees" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <Users className="w-3.5 h-3.5 text-blue-400" /> Employee Master
-          </button>
-          <button 
-            onClick={() => setActiveTab("org_structure")}
-            className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "org_structure" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <Briefcase className="w-3.5 h-3.5 text-pink-400" /> Departments &amp; Roles
-          </button>
-          <button 
-            onClick={() => setActiveTab("salary")}
-            className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "salary" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Salary &amp; Payroll Engine
-          </button>
-          <button 
-            onClick={() => setActiveTab("accounting")}
-            className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "accounting" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <BookOpen className="w-3.5 h-3.5 text-amber-500" /> Accounting sync
-          </button>
-          <button 
-            onClick={() => setActiveTab("mes")}
-            className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "mes" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <Factory className="w-3.5 h-3.5 text-purple-400" /> Biometrics &amp; MES Terminal
-          </button>
-          <button 
-            onClick={() => setActiveTab("compliance")}
-            className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "compliance" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <Sliders className="w-3.5 h-3.5 text-red-400" /> Regulatory compliance
-          </button>
-          <button 
-            onClick={() => setActiveTab("vault")}
-            className={`font-bold px-4 py-2 rounded-lg transition text-[10px] flex items-center gap-1.5 ${activeTab === "vault" ? "bg-background text-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <FileText className="w-3.5 h-3.5 text-indigo-400" /> Document Vault
-          </button>
-        </div>
-      </div>
+      <ResponsiveTabs 
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        containerClassName="border-b border-border/30 overflow-x-auto pb-2 scrollbar-thin bg-transparent shadow-none"
+        tabs={[
+          { id: "dashboard", label: "HCM Insights", icon: <Cpu className="w-3.5 h-3.5 text-primary" /> },
+          { id: "employees", label: "Employee Master", icon: <Users className="w-3.5 h-3.5 text-blue-400" /> },
+          { id: "org_structure", label: "Departments & Roles", icon: <Briefcase className="w-3.5 h-3.5 text-pink-400" /> },
+          { id: "salary", label: "Salary & Payroll Engine", icon: <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> },
+          { id: "accounting", label: "Accounting sync", icon: <BookOpen className="w-3.5 h-3.5 text-amber-500" /> },
+          { id: "mes", label: "Biometrics & MES Terminal", icon: <Factory className="w-3.5 h-3.5 text-purple-400" /> },
+          { id: "compliance", label: "Regulatory compliance", icon: <Sliders className="w-3.5 h-3.5 text-red-400" /> },
+          { id: "vault", label: "Document Vault", icon: <FileText className="w-3.5 h-3.5 text-indigo-400" /> }
+        ]}
+      />
 
       {/* RENDER MODULAR SUB-TAB WITH REAL STATE BINDINGS */}
       <div className="space-y-6">

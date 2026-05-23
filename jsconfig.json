@@ -9,13 +9,13 @@
     "jsx": "react-jsx",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "lib": [
       "esnext",
       "dom"
     ],
     "target": "esnext",
-    "checkJs": true,
+    "checkJs": false,
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,

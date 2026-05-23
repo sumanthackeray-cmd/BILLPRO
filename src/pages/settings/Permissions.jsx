@@ -43,7 +43,7 @@ export default function PermissionsSettings() {
 
   // Set default active tab
   useEffect(() => {
-    if (roles.length > 0 && !activeRoleId) {
+    if (roles.length > 0 && currentUser && !activeRoleId) {
       // Find the first role strictly below the current user if possible, or fallback to Accountant
       const sortedRoles = [...roles].sort((a, b) => a.hierarchy_level - b.hierarchy_level);
       const editableRole = sortedRoles.find(r => r.hierarchy_level > currentUser.hierarchy_level) || sortedRoles[0];
