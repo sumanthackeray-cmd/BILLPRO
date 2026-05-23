@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
   Users, BarChart3, Settings, Sparkles, ScanBarcode, LogOut, Crown,
@@ -15,7 +16,6 @@ import { useShopSettings } from "@/hooks/useShopSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { getAllBranches, getCachedBranches, createBranch } from "@/api/branchService";
 
 const NAV_ITEMS = [
@@ -84,6 +84,7 @@ export default function Sidebar({ mobile = false, onClose }) {
         { path: "/alterations", icon: Scissors, label: "Alterations", badge: "LIVE", tKey: "nav.alterations" },
         { path: "/inventory", icon: Package, label: "Inventory", tKey: "nav.inventory" },
         { path: "/purchases", icon: ShoppingCart, label: "Purchases", tKey: "nav.purchases" },
+        { path: "/hrms", icon: Users, label: "HRMS & Payroll", badge: "SAP", tKey: "nav.hrms" },
         { path: "/reports", icon: BarChart3, label: "Reports", tKey: "nav.reports" },
         { path: "/settings", icon: Settings, label: "Settings", tKey: "nav.settings" },
         { path: "/subscription", icon: Crown, label: "Upgrade", badge: "PRO", isPro: true, tKey: "nav.upgrade" },
@@ -99,6 +100,7 @@ export default function Sidebar({ mobile = false, onClose }) {
         { path: "/supermarket/expiry", icon: Calendar, label: "Expiry Mgmt", badge: "FEFO", tKey: "nav.supermarket_expiry" },
         { path: "/supermarket/reports", icon: BarChart3, label: "Dept Reports", badge: "P&L", tKey: "nav.supermarket_reports" },
         { path: "/inventory", icon: Package, label: "Inventory", tKey: "nav.inventory" },
+        { path: "/hrms", icon: Users, label: "HRMS & Payroll", badge: "SAP", tKey: "nav.hrms" },
         { path: "/settings", icon: Settings, label: "Settings", tKey: "nav.settings" },
         { path: "/subscription", icon: Crown, label: "Upgrade", badge: "PRO", isPro: true, tKey: "nav.upgrade" },
       ];
@@ -161,7 +163,10 @@ export default function Sidebar({ mobile = false, onClose }) {
           setActiveBranchId('');
           window.dispatchEvent(new Event('branchChanged'));
         }
-      }).catch(() => {});
+      }).catch((err) => {
+        console.error("Failed to refresh branches:", err);
+        toast.error("Failed to load branches");
+      });
     };
     window.addEventListener('branchListChanged', handleRefresh);
     return () => window.removeEventListener('branchListChanged', handleRefresh);
@@ -236,7 +241,7 @@ export default function Sidebar({ mobile = false, onClose }) {
         </div>
         <div className="flex flex-col gap-0.5 mb-2">
           <p className="text-[12px] text-foreground font-extrabold uppercase tracking-wider truncate">
-            🏢 {shopSettings.shop_name || user?.business_name || "EasyBMT Retail"}
+            🏢 {shopSettings.shop_name || user?.business_name || "Business Outlet"}
           </p>
           <div className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 truncate">
             <span className="truncate">{user?.name || "Kamlesh Kkumar"}</span>

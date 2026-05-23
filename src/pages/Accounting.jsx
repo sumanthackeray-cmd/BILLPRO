@@ -7,7 +7,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend
 } from "recharts";
-import { TrendingUp, TrendingDown, DollarSign, BarChart2, Receipt, CreditCard } from "lucide-react";
+import { TrendingUp, DollarSign, BarChart2, Receipt, CreditCard } from "lucide-react";
 
 export default function Accounting() {
   const { t } = useLanguage();

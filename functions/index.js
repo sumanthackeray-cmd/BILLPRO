@@ -289,7 +289,7 @@ exports.registerTenant = functions.https.onCall(async (data, context) => {
       email: email.trim().toLowerCase(),
       contact_email: email.trim().toLowerCase(),
       contact_mobile: phone ? phone.trim() : "",
-      profile_password: password,
+      profile_password: "enc:" + Buffer.from(password).toString("base64"),
       role_id: "role-owner",
       branch_id: null,
       is_active: true,
@@ -438,7 +438,7 @@ exports.manageStaffUser = functions.https.onCall(async (data, context) => {
         contact_email: contact_email ? contact_email.trim().toLowerCase() : "",
         contact_mobile: contact_mobile ? contact_mobile.trim() : "",
         staff_id: staff_id ? staff_id.trim() : "",
-        profile_password: password,
+        profile_password: "enc:" + Buffer.from(password).toString("base64"),
         role_id: roleId,
         branch_id: branchId || "MAIN",
         is_active: true,
@@ -494,20 +494,38 @@ exports.manageStaffUser = functions.https.onCall(async (data, context) => {
       if (data.name) updates.name = data.name;
       if (data.salary !== undefined) updates.salary = Number(data.salary);
       if (data.branchId) updates.branch_id = data.branchId;
+      if (data.roleId) updates.role_id = data.roleId;
+      if (data.userCode) updates.user_code = data.userCode.trim().toUpperCase();
+      if (data.email) updates.email = data.email.trim().toLowerCase();
+      if (data.contact_email !== undefined) updates.contact_email = data.contact_email.trim().toLowerCase();
+      if (data.contact_mobile !== undefined) updates.contact_mobile = data.contact_mobile.trim();
+      if (data.staff_id !== undefined) updates.staff_id = data.staff_id.trim();
+
+      if (data.password) {
+        updates.profile_password = "enc:" + Buffer.from(data.password).toString("base64");
+      }
 
       await db.doc(`companies/${companyId}/users/${uid}`).update(updates);
 
-      // If toggle is_active status, propagate claims and force sign-out
-      if (is_active !== undefined) {
-        const authUser = await auth.getUser(uid);
-        const existingClaims = authUser.customClaims || {};
+      // Securely update password in Firebase Auth if provided
+      if (data.password) {
+        await auth.updateUser(uid, { password: data.password });
+      }
 
+      // Propagate custom claims if role, active status, or user code changes
+      if (data.roleId || is_active !== undefined || data.userCode) {
+        const finalRole = data.roleId ? data.roleId.replace("role-", "") : targetRoleName;
+        const finalActive = is_active !== undefined ? is_active : (targetData.is_active !== undefined ? targetData.is_active : true);
+        const finalUserCode = data.userCode ? data.userCode.trim().toUpperCase() : (targetData.user_code || "");
+        
         await auth.setCustomUserClaims(uid, {
-          ...existingClaims,
-          is_active: is_active
+          company_id: companyId,
+          role: finalRole,
+          is_active: finalActive,
+          user_code: finalUserCode
         });
 
-        // Revoke tokens to force immediate logout if deactivated
+        // Revoke tokens to force immediate logout/refresh
         await auth.revokeRefreshTokens(uid);
       }
 
@@ -518,7 +536,7 @@ exports.manageStaffUser = functions.https.onCall(async (data, context) => {
         entityType: "User",
         entityId: uid,
         branchId: targetData.branch_id || "MAIN",
-        description: `Staff user ${targetData.user_code} updated by ${callerClaims.user_code || callerUid}. Active status set to ${is_active}.`,
+        description: `Staff user ${targetData.user_code} updated by ${callerClaims.user_code || callerUid}.`,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         createdAt: new Date().toISOString()
       });

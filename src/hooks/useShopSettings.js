@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 
 const LOCAL_STORAGE_KEY = "base44_shop_settings";
 
@@ -24,7 +24,11 @@ export function useShopSettings() {
     initialData: getCachedSettings,
   });
 
-  const shopSettings = settings[0] || {};
+  const emptyFallback = React.useMemo(() => ({}), []);
+  const shopSettings = React.useMemo(() => {
+    const activeSettings = settings.length > 0 ? settings : getCachedSettings();
+    return activeSettings.find(s => s.business_entity_type && s.business_entity_type.trim() !== "") || activeSettings[0] || emptyFallback;
+  }, [settings, emptyFallback]);
 
   // Sync back to localStorage when new settings lists are successfully fetched from the database
   useEffect(() => {

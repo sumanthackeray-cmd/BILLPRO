@@ -2,10 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { toast } from "@/lib/toast";
 import { 
-  Building, Factory, Building2, Warehouse, Cpu, Users, DollarSign, BookOpen, 
-  Settings, Sliders, Briefcase, Lock, UserCheck, ShieldCheck, FileText, CheckCircle
+  Building, Factory, Building2, Warehouse, Cpu, Users, DollarSign, BookOpen, Sliders, Briefcase, FileText, CheckCircle
 } from "lucide-react";
 
 // Modular HRMS Sub-components

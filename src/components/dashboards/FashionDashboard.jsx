@@ -5,8 +5,8 @@ import MetricCard from "@/components/dashboard/MetricCard";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { fmtINR } from "@/lib/gst-utils";
 import { 
-  Shirt, ShoppingBag, Undo2, Scissors, Palette, AlertTriangle, 
-  ChevronRight, TrendingUp, CheckCircle, Clock, User
+  Shirt, ShoppingBag, Undo2, Scissors, AlertTriangle, 
+  ChevronRight
 } from "lucide-react";
 
 const PIE_COLORS = ["#06b6d4", "#6366f1", "#ec4899", "#10b981", "#a855f7"];

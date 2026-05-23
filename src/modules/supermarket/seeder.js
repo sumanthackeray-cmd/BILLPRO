@@ -446,35 +446,8 @@ export async function runSupermarketSeeder() {
   // 2. Seed Products if empty
   const existingProducts = await base44.entities.Product.list();
   if (existingProducts.length < 5) {
-    for (const prod of SAMPLE_PRODUCTS) {
-      // Find category ID matching dept_code
-      const deptId = deptMap[prod.dept_code] || "";
-      const productPayload = {
-        name: prod.name,
-        barcode: prod.barcode,
-        sku: `SM-${prod.plu_code}-${Date.now().toString().slice(-4)}`,
-        category: DEPARTMENTS.find(d => d.dept_code === prod.dept_code)?.name || "General",
-        brand: prod.brand,
-        mrp: prod.mrp,
-        rate: prod.rate,
-        purchase_rate: prod.purchase_rate,
-        stock: prod.stock,
-        min_stock: prod.min_stock,
-        unit: prod.unit,
-        hsn: prod.hsn,
-        gst_rate: prod.gst_rate,
-        expiry_date: prod.expiry_date || "",
-        // Supermarket Specific fields
-        plu_code: prod.plu_code,
-        loose_rate_per_kg: prod.loose_rate_per_kg || 0,
-        is_weighed: prod.is_weighed || false,
-        requires_scale: prod.requires_scale || false,
-        is_popular: prod.is_popular || false,
-        is_active: true
-      };
-      await base44.entities.Product.create(productPayload);
-    }
-    console.log("Seeded sample products.");
+    // Disabled auto-seeding of dummy products per user request
+    console.log("Skipping sample product seeding for clean inventory.");
   }
 
   // 3. Seed Sample active offers if empty

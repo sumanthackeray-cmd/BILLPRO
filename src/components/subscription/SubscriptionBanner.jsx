@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getUserSubscription, daysLeft, PLAN_NAMES } from "@/lib/subscription";
+import { getUserSubscription, daysLeft } from "@/lib/subscription";
 import { Crown, X, AlertTriangle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";

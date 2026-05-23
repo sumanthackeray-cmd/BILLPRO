@@ -1,14 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/hooks/useAuth";
+const decryptPassword = (enc) => {
+  if (!enc) return "";
+  if (enc.startsWith("enc:")) {
+    try {
+      return atob(enc.substring(4));
+    } catch (e) {
+      return enc;
+    }
+  }
+  return enc;
+};
 import { manageStaffUser } from "@/firebase/functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
-import { Shield, Users, Plus, UserCheck, UserX, Crown, Landmark, User, DollarSign, ArrowLeft, Eye, EyeOff, Trash2, Edit } from "lucide-react";
+import { Shield, Users, Plus, UserCheck, UserX, Crown, Landmark, User, ArrowLeft, Eye, EyeOff, Trash2, Edit, AlertCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import FieldGuard from "@/components/guards/FieldGuard";
 
@@ -61,6 +72,8 @@ export default function UsersSettings() {
     enabled: !!currentUser,
   });
 
+  const isRosterEmpty = !isLoadingEmployees && (!employees || employees.length === 0);
+
   const filteredEmployees = (employees || []).filter(emp => {
     const s = employeeSearch.toLowerCase();
     const name = (emp.full_name || emp.name || `${emp.first_name || ""} ${emp.last_name || ""}`).toLowerCase();
@@ -103,19 +116,27 @@ export default function UsersSettings() {
       const empSalary = Number(selectedEmployee.basicSalary || 0) + Number(selectedEmployee.hra || 0);
 
       if (editingUser) {
-        // Edit Mode: Update existing User document directly in Firestore
-        await base44.entities.User.update(editingUser.id, {
+        // Edit Mode: Call Cloud Function or fallback to update User profile and Auth password securely
+        const updateParams = {
+          action: "UPDATE",
+          companyId,
+          uid: editingUser.id,
           name: empName.trim(),
           email: internalEmail,
           contact_email: empContactEmail.trim().toLowerCase(),
           contact_mobile: empContactMobile.trim(),
           salary: empSalary || 0,
-          user_code: newUserCode,
-          role_id: form.role_id,
-          branch_id: form.branch_id,
-          staff_id: form.staff_id,
-          profile_password: form.password
-        });
+          userCode: newUserCode,
+          roleId: form.role_id,
+          branchId: form.branch_id,
+          staff_id: form.staff_id
+        };
+
+        if (form.password && form.password.trim() !== decryptPassword(editingUser.profile_password)) {
+          updateParams.password = form.password.trim();
+        }
+
+        await manageStaffUser(updateParams);
 
         const oldEmpId = editingUser.id;
         const newEmpId = selectedEmployee.id;
@@ -420,6 +441,28 @@ export default function UsersSettings() {
             </div>
             
             <form onSubmit={handleCreateStaff} className="space-y-4">
+              {isRosterEmpty && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-xs text-amber-500 font-bold space-y-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 animate-pulse text-amber-500" />
+                    <div className="space-y-1 text-left">
+                      <p className="uppercase tracking-wider text-[9px] font-black text-amber-500">Compliance Guard: HRMS Roster Required</p>
+                      <p className="text-muted-foreground font-medium text-[11px] leading-relaxed">
+                        To provision a user login or assign a billing cashier, you must first register the staff member in the HRMS Employee Master. Dummy profiles and mock bypassing are strictly prohibited by active SaaS security modules.
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => navigate("/hrms")} 
+                    className="w-full font-bold border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/15 text-amber-500 gap-1.5 h-8 text-[11px] transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Register Employee in HRMS
+                  </Button>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-bold text-muted-foreground">🔑 USER CODE (e.g. CASHIER-01) *</Label>
                 <Input 
@@ -428,14 +471,19 @@ export default function UsersSettings() {
                   placeholder="CASHIER-01"
                   className="bg-background/50"
                   required
+                  disabled={isRosterEmpty}
                 />
               </div>
 
               <div className="space-y-1.5 relative w-full text-xs text-left">
                 <Label className="text-[11px] font-bold text-muted-foreground uppercase">👤 SELECT EMPLOYEE FROM HR *</Label>
                 <div 
-                  onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)} 
-                  className="w-full bg-background border border-border/60 rounded-xl py-2.5 px-3 h-10 text-xs font-bold flex items-center justify-between cursor-pointer hover:border-indigo-500/50 transition bg-background/50"
+                  onClick={() => !isRosterEmpty && setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)} 
+                  className={`w-full bg-background border border-border/60 rounded-xl py-2.5 px-3 h-10 text-xs font-bold flex items-center justify-between transition bg-background/50 ${
+                    isRosterEmpty 
+                      ? "opacity-50 cursor-not-allowed bg-secondary/30" 
+                      : "cursor-pointer hover:border-indigo-500/50"
+                  }`}
                 >
                   <span className="text-foreground">
                     {selectedEmployee 
@@ -445,7 +493,7 @@ export default function UsersSettings() {
                   <span className="text-muted-foreground text-[8px]">▼</span>
                 </div>
 
-                {isEmployeeDropdownOpen && (
+                {!isRosterEmpty && isEmployeeDropdownOpen && (
                   <>
                     <div 
                       className="fixed inset-0 z-40" 
@@ -472,39 +520,39 @@ export default function UsersSettings() {
                           <div className="p-2 text-center text-muted-foreground text-[10px]">No results found.</div>
                         ) : (
                           filteredEmployees.map((emp) => {
-                            const empName = emp.full_name || emp.name || `${emp.first_name || ""} ${emp.last_name || ""}`;
-                            const empCode = emp.employee_code || emp.employeeId || "No ID";
-                            const empPhone = emp.personal_phone || emp.work_phone || "No Phone";
-                            const empEmail = emp.personal_email || emp.work_email || "No Email";
-                            return (
-                              <div 
-                                key={emp.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedEmployee(emp);
-                                  setForm(f => ({
-                                    ...f,
-                                    name: empName,
-                                    staff_id: empCode,
-                                    branch_id: emp.work_location || "MAIN"
-                                  }));
-                                  setIsEmployeeDropdownOpen(false);
-                                  setEmployeeSearch("");
-                                }}
-                                className={`p-2 rounded-lg cursor-pointer hover:bg-slate-500/10 transition text-left flex flex-col gap-0.5 border border-transparent hover:border-border/30 ${
-                                  selectedEmployee?.id === emp.id ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "text-foreground"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between font-bold text-xs">
-                                  <span>{empName}</span>
-                                  <span className="text-[9px] px-1.5 py-0.2 bg-slate-500/10 rounded font-mono text-muted-foreground">{empCode}</span>
-                                </div>
-                                <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
-                                  <span>📞 {empPhone}</span>
-                                  <span>📧 {empEmail}</span>
-                                </div>
-                              </div>
-                            );
+                             const empName = emp.full_name || emp.name || `${emp.first_name || ""} ${emp.last_name || ""}`;
+                             const empCode = emp.employee_code || emp.employeeId || "No ID";
+                             const empPhone = emp.personal_phone || emp.work_phone || "No Phone";
+                             const empEmail = emp.personal_email || emp.work_email || "No Email";
+                             return (
+                               <div 
+                                 key={emp.id}
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setSelectedEmployee(emp);
+                                   setForm(f => ({
+                                     ...f,
+                                     name: empName,
+                                     staff_id: empCode,
+                                     branch_id: emp.work_location || "MAIN"
+                                   }));
+                                   setIsEmployeeDropdownOpen(false);
+                                   setEmployeeSearch("");
+                                 }}
+                                 className={`p-2 rounded-lg cursor-pointer hover:bg-slate-500/10 transition text-left flex flex-col gap-0.5 border border-transparent hover:border-border/30 ${
+                                   selectedEmployee?.id === emp.id ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "text-foreground"
+                                 }`}
+                               >
+                                 <div className="flex items-center justify-between font-bold text-xs">
+                                   <span>{empName}</span>
+                                   <span className="text-[9px] px-1.5 py-0.2 bg-slate-500/10 rounded font-mono text-muted-foreground">{empCode}</span>
+                                 </div>
+                                 <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                                   <span>📞 {empPhone}</span>
+                                   <span>📧 {empEmail}</span>
+                                 </div>
+                               </div>
+                             );
                           })
                         )}
                       </div>
@@ -518,6 +566,7 @@ export default function UsersSettings() {
                 <Select 
                   value={form.role_id}
                   onValueChange={v => setForm(f => ({ ...f, role_id: v }))}
+                  disabled={isRosterEmpty}
                 >
                   <SelectTrigger className="bg-background/50">
                     <SelectValue placeholder="Select SAP Role Profile" />
@@ -546,6 +595,7 @@ export default function UsersSettings() {
                     onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))}
                     placeholder="MAIN"
                     className="bg-background/50"
+                    disabled={isRosterEmpty}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -555,6 +605,7 @@ export default function UsersSettings() {
                     onChange={e => setForm(f => ({ ...f, staff_id: e.target.value }))}
                     placeholder="STF-001"
                     className="bg-background/50"
+                    disabled={isRosterEmpty}
                   />
                 </div>
               </div>
@@ -569,11 +620,13 @@ export default function UsersSettings() {
                     placeholder="••••••••"
                     className="bg-background/50 pr-10"
                     required
+                    disabled={isRosterEmpty}
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => !isRosterEmpty && setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 focus:outline-none"
+                    disabled={isRosterEmpty}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -583,7 +636,7 @@ export default function UsersSettings() {
               <Button 
                 type="submit" 
                 className="w-full font-bold gold-gradient text-black mt-2 shadow-lg shadow-amber-500/10"
-                disabled={saving || assignableRoles.length === 0}
+                disabled={isRosterEmpty || saving || assignableRoles.length === 0}
               >
                 {saving ? (editingUser ? "Saving..." : "Provisioning...") : editingUser ? "Update Staff Member" : "Provision Staff Member"}
               </Button>
@@ -592,6 +645,7 @@ export default function UsersSettings() {
                   type="button" 
                   variant="outline"
                   className="w-full font-bold border-border hover:bg-muted mt-1.5"
+                  disabled={isRosterEmpty}
                   onClick={() => {
                     setForm({
                       userCode: "",
@@ -707,7 +761,7 @@ export default function UsersSettings() {
                                 role_id: staff.role_id || "role-cashier",
                                 salary: staff.salary || "",
                                 branch_id: staff.branch_id || "MAIN",
-                                password: staff.profile_password || ""
+                                password: decryptPassword(staff.profile_password) || ""
                               });
                             }}
                           >

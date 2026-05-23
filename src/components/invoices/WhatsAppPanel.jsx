@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Bell, Clock, ChevronDown, ChevronUp, Send, Loader2 } from "lucide-react";
+import { MessageCircle, Bell, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { fmtINR, fmtDate, isOverdue } from "@/lib/gst-utils";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";

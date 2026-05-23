@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { fmtINR, fmtDate, isOverdue, today } from "@/lib/gst-utils";
+import { fmtINR, fmtDate, isOverdue } from "@/lib/gst-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

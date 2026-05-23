@@ -1,8 +1,10 @@
+// @ts-nocheck
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { auth, db } from '@/api/firebase';
 import { initTokenManager } from '@/firebase/tokenManager';
+
 
 const AuthContext = createContext();
 
@@ -74,32 +76,65 @@ export const AuthProvider = ({ children }) => {
           const token = await firebaseUser.getIdToken();
           localStorage.setItem('base44_access_token', token);
 
-          // Ensure active companyId is restored to localStorage from token claims or Firestore fallback
-          let companyId = localStorage.getItem('company_id');
-          if (!companyId) {
-            const tokenResult = await firebaseUser.getIdTokenResult(true);
-            companyId = tokenResult.claims.company_id;
-            if (companyId) {
-              localStorage.setItem('company_id', companyId);
-            } else {
-              // Fallback lookup: check if they are the owner of a registered company
-              const { query, collection, where, getDocs } = await import("firebase/firestore");
+          // Tenant isolation: always resolve company_id for the CURRENT firebaseUser.uid.
+          // Never trust previously cached localStorage.company_id (it can belong to another admin).
+          const tokenResult = await firebaseUser.getIdTokenResult(true);
+          const claimedCompanyId = tokenResult.claims?.company_id;
+          let resolvedCompanyId = claimedCompanyId ? String(claimedCompanyId) : null;
+
+          if (!resolvedCompanyId) {
+            const { doc, getDoc, query, collection, where, getDocs } = await import("firebase/firestore");
+            
+            // Fallback 1: Safely validate existing cached company_id for this specific user
+            const cachedCompanyId = localStorage.getItem('company_id');
+            if (cachedCompanyId) {
+              const userDocSnap = await getDoc(doc(db, `companies/${cachedCompanyId}/users`, firebaseUser.uid));
+              if (userDocSnap.exists()) {
+                resolvedCompanyId = cachedCompanyId;
+              }
+            }
+
+            // Fallback 2: Check if they are the owner via owner_uid
+            if (!resolvedCompanyId) {
               const q = query(collection(db, "companies"), where("owner_uid", "==", firebaseUser.uid));
               const querySnapshot = await getDocs(q);
               if (!querySnapshot.empty) {
-                companyId = querySnapshot.docs[0].id;
-                localStorage.setItem('company_id', companyId);
+                resolvedCompanyId = querySnapshot.docs[0].id;
+              }
+            }
+
+            // Fallback 3: Check if they are the owner via admin_email
+            if (!resolvedCompanyId && firebaseUser.email) {
+              const emailQ = query(collection(db, "companies"), where("admin_email", "==", firebaseUser.email.toLowerCase()));
+              const emailSnap = await getDocs(emailQ);
+              if (!emailSnap.empty) {
+                resolvedCompanyId = emailSnap.docs[0].id;
               }
             }
           }
 
+          if (resolvedCompanyId) {
+            localStorage.setItem('company_id', resolvedCompanyId);
+          } else {
+            localStorage.removeItem('company_id');
+          }
+
+
           // Fetch all authentication resources in parallel (Users, Roles, Permissions, field access maps)
-          const [usersList, roles, permissions, sensitiveFieldAccess] = await Promise.all([
-            base44.entities.User.list().catch(e => { console.error("Error listing users:", e); return []; }),
-            base44.entities.Role.list().catch(e => { console.error("Error listing roles:", e); return []; }),
-            base44.entities.Permission.list().catch(e => { console.error("Error listing permissions:", e); return []; }),
-            base44.entities.SensitiveFieldAccess.list().catch(e => { console.error("Error listing sensitive field access:", e); return []; })
-          ]);
+          let usersList = [], roles = [], permissions = [], sensitiveFieldAccess = [];
+          try {
+            [usersList, roles, permissions, sensitiveFieldAccess] = await Promise.all([
+              base44.entities.User.list(),
+              base44.entities.Role.list(),
+              base44.entities.Permission.list(),
+              base44.entities.SensitiveFieldAccess.list()
+            ]);
+          } catch (e) {
+            console.error("Failed to load auth resources:", e);
+            setAuthError({ type: 'load_failed', message: 'Failed to load authorization data. Please check your connection and reload.' });
+            setLoading(false);
+            return;
+          }
 
           let userRecord = usersList.find(u => u.id === firebaseUser.uid);
           
@@ -186,8 +221,6 @@ export const AuthProvider = ({ children }) => {
             phone: userRecord.contact_mobile || userRecord.phone || userRecord.mobile || firebaseUser.phoneNumber || "",
             contact_mobile: userRecord.contact_mobile || "",
             contact_email: userRecord.contact_email || userRecord.email || firebaseUser.email || "",
-            password: userRecord.profile_password || userRecord.password || "",
-            profile_password: userRecord.profile_password || "",
             user_code: userRecord.user_code || localStorage.getItem('user_code') || "",
           };
 

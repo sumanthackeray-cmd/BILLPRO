@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/lib/toast";
 import { 
-  Users, Search, Plus, Sparkles, Sliders, Calendar, Phone, Heart, Shirt, Palette, Edit2, Check, MessageSquare, Gift
+  Users, Search, Sparkles, Sliders, Phone, Shirt, Palette, Edit2, MessageSquare, Gift
 } from "lucide-react";
 
 export default function CustomerStyleProfiles() {
@@ -44,49 +44,13 @@ export default function CustomerStyleProfiles() {
       "walk-in": {
         customer_id: "walk-in",
         gender: "male",
-        measurements: { chest: 90, waist: 78, hip: 94, shoulder: 42, sleeve: 60, inseam: 74, neck: 38, height: 170, weight: 65 },
-        preferred_sizes: { shirt: "M", trouser: "30", ethnic: "M" },
-        preferred_colors: ["#ffffff", "#000000", "#1B2A6B"],
-        preferred_colors_names: ["White", "Black", "Navy Blue"],
-        style_notes: "Prefers relaxed custom fits",
+        measurements: { chest: null, waist: null, hip: null, shoulder: null, sleeve: null, inseam: null, neck: null, height: null, weight: null },
+        preferred_sizes: { shirt: null, trouser: null, ethnic: null },
+        preferred_colors: [],
+        preferred_colors_names: [],
+        style_notes: "No customer profile registered yet.",
       }
     };
-
-    // Make mock data for regular customers from list
-    customers.forEach((c, idx) => {
-      if (c.id === "walk-in") return;
-      
-      const mGenders = ["male", "female"];
-      const mSizes = ["S", "M", "L", "XL"];
-      const mTrouser = ["30", "32", "34", "36"];
-      
-      map[c.id] = map[c.id] || {
-        id: `profile-${c.id}`,
-        customer_id: c.id,
-        gender: mGenders[idx % 2],
-        measurements: { 
-          chest: 88 + (idx * 4) % 24, 
-          waist: 76 + (idx * 3) % 20, 
-          hip: 92 + (idx * 3) % 20, 
-          shoulder: 40 + (idx) % 6, 
-          sleeve: 58 + (idx) % 6, 
-          inseam: 72 + (idx) % 6, 
-          neck: 36 + (idx) % 6, 
-          height: 165 + (idx * 2) % 15, 
-          weight: 60 + (idx * 3) % 25 
-        },
-        preferred_sizes: { 
-          shirt: mSizes[idx % mSizes.length], 
-          trouser: mTrouser[idx % mTrouser.length], 
-          ethnic: mSizes[(idx + 1) % mSizes.length] 
-        },
-        preferred_colors: idx % 2 === 0 ? ["#1B2A6B", "#ffffff", "#000000"] : ["#ec4899", "#a855f7", "#3b82f6"],
-        preferred_colors_names: idx % 2 === 0 ? ["Navy Blue", "White", "Black"] : ["Pink", "Purple", "Blue"],
-        style_notes: idx % 2 === 0 ? "Prefers regular, classic cuts" : "Enjoys slim and tailored aesthetic look",
-        birthday: "1994-06-18",
-        anniversary: "2018-11-22"
-      };
-    });
 
     return { ...fallbackProfiles, ...map };
   }, [customers, rawProfiles]);
@@ -110,11 +74,11 @@ export default function CustomerStyleProfiles() {
   const selectedProfile = useMemo(() => {
     return profiles[selectedCustomerId] || {
       customer_id: selectedCustomerId,
-      measurements: { chest: 96, waist: 82, hip: 100, shoulder: 44, sleeve: 62, inseam: 76, neck: 39, height: 172, weight: 72 },
-      preferred_sizes: { shirt: "L", trouser: "32", ethnic: "M" },
-      preferred_colors: ["#1B2A6B", "#ffffff", "#000000"],
-      preferred_colors_names: ["Navy", "White", "Black"],
-      style_notes: "Prefers comfort elastic waist options"
+      measurements: { chest: null, waist: null, hip: null, shoulder: null, sleeve: null, inseam: null, neck: null, height: null, weight: null },
+      preferred_sizes: { shirt: null, trouser: null, ethnic: null },
+      preferred_colors: [],
+      preferred_colors_names: [],
+      style_notes: ""
     };
   }, [profiles, selectedCustomerId]);
 

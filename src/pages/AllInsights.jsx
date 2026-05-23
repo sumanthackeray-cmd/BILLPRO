@@ -6,7 +6,7 @@ import { fmtINR, isOverdue, getMonth } from "@/lib/gst-utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Sparkles, TrendingUp, TrendingDown, AlertTriangle, Brain, RefreshCw,
+  Sparkles, TrendingUp, AlertTriangle, Brain, RefreshCw,
   Users, Package, BarChart3, Target, Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";

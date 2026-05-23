@@ -1,7 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { 
-  FileText, Upload, Calendar, Clock, AlertTriangle, CheckCircle, Search, Eye, 
-  Trash2, ShieldCheck, Download, FileSignature, Sparkles, Building, UserCheck
+import { Upload, AlertTriangle, Search, Download, FileSignature, Building, UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
 import { base44 } from "@/api/base44Client";
 import jsPDF from "jspdf";
+import { matchesQuery, matchesSelect, makeStableKey } from "@/utils/smartFilter";
 
 export default function DocumentVault({ 
   employees = [], 
@@ -45,15 +44,25 @@ export default function DocumentVault({
   const filteredDocs = useMemo(() => {
     return safeDocumentsList.filter(doc => {
       if (!doc) return false;
+
       const emp = safeEmployees.find(e => e.id === doc.employeeId) || {};
       const empName = emp.name || emp.full_name || "";
-      const matchesSearch = 
-        (doc.doc_name || "").toLowerCase().includes(searchVault.toLowerCase()) ||
-        (doc.doc_type || "").toLowerCase().includes(searchVault.toLowerCase()) ||
-        empName.toLowerCase().includes(searchVault.toLowerCase());
-      
-      const matchesCategory = categoryFilter === "ALL" || doc.doc_type === categoryFilter;
-      
+
+      const matchesSearch = matchesQuery({
+        query: searchVault,
+        fields: [
+          doc.doc_name || "",
+          doc.doc_type || "",
+          empName
+        ]
+      });
+
+      const matchesCategory = matchesSelect({
+        value: doc.doc_type,
+        selected: categoryFilter,
+        defaultValue: "ALL"
+      });
+
       return matchesSearch && matchesCategory;
     });
   }, [safeDocumentsList, safeEmployees, searchVault, categoryFilter]);
@@ -530,7 +539,7 @@ export default function DocumentVault({
                       const emp = safeEmployees.find(e => e.id === doc.employeeId) || {};
                       const empName = emp.name || emp.full_name || "Unassigned";
                       return (
-                        <tr key={doc.id || i} className="hover:bg-secondary/15 font-medium">
+                        <tr key={makeStableKey(doc.id, i)} className="hover:bg-secondary/15 font-medium">
                           <td className="p-3 capitalize font-bold text-primary">{doc.doc_type}</td>
                           <td className="p-3">
                             <div className="font-semibold text-slate-200">{doc.doc_name}</div>

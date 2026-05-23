@@ -1,11 +1,10 @@
 import { useMemo } from "react";
 import { 
-  Users, Calendar, DollarSign, Cpu, Clock, Zap, ShieldAlert, Award, ChevronRight, FileSpreadsheet
+  Users, Calendar, DollarSign, Clock, Zap, ShieldAlert, Award
 } from "lucide-react";
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell 
 } from "recharts";
-import { fmtINR } from "@/modules/accounting/accountingService";
 
 export default function HRMSDashboard({ employees = [], attendanceLogs = [], leaveRequests = [], holidays = [], stats }) {
   

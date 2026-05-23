@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import DOMPurify from "dompurify";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBackButton } from "@/hooks/useBackButton";
 import { base44 } from "@/api/base44Client";
@@ -32,6 +33,11 @@ export default function SupermarketPOS() {
   const queryClient = useQueryClient();
   const [activeSession, setActiveSession] = useState(null);
   const [seeding, setSeeding] = useState(false);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => { isMounted.current = false; };
+  }, []);
 
   // Queries
   const { data: posSessions = [], isLoading: isLoadingSessions } = useQuery({
@@ -631,6 +637,10 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
       toast.error("Cart is empty.");
       return;
     }
+    if (!activeMember) {
+      toast.error("Please add customer.");
+      return;
+    }
 
     // Split payment check
     const totalDue = cartTotals.grandTotal - (overrideApproved ? manualDiscount : 0);
@@ -715,10 +725,12 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
         upi_sales: upiAmt
       });
 
-      setLastInvoice(createdInvoice);
-      setShowCheckout(false);
-      setShowReceipt(true);
-      resetPOS();
+      if (isMounted.current) {
+        setLastInvoice(createdInvoice);
+        setShowCheckout(false);
+        setShowReceipt(true);
+        resetPOS();
+      }
       toast.success("Transaction Checked Out Successfully!");
     } catch (e) {
       toast.error("Checkout failed: " + e.message);
@@ -1800,7 +1812,7 @@ function Terminal({ activeSession, products, activeOffers, loyaltyCards, onClose
 
           {/*  Scrollable receipt content  */}
           <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 bg-[#1a1a2e] flex justify-center thermal-receipt-print-area">
-             {lastInvoice && <div dangerouslySetInnerHTML={{ __html: generateThermalHTML(lastInvoice, shopSettings, selectedPrintSize) }} />}
+             {lastInvoice && <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(generateThermalHTML(lastInvoice, shopSettings, selectedPrintSize)) }} />}
           </div>
 
           {lastInvoice && (

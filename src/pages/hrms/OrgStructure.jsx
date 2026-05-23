@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { 
-  Building2, Award, Plus, Trash2, ShieldAlert, Sparkles, Cpu, RefreshCw
+  Building2, Award, Plus, Trash2, ShieldAlert, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

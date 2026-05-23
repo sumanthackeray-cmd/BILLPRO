@@ -34,17 +34,6 @@ export default function DepartmentReports() {
   // 1. Department-wise P&L calculations
   const deptData = useMemo(() => {
     const summary = {};
-    
-    // Default mock data to populate initial view
-    const defaultDepts = [
-      { name: "Fruits & Vegetables", sales: 18200, cogs: 10920, expenses: 1500 },
-      { name: "Grocery & Staples", sales: 34500, cogs: 29325, expenses: 2000 },
-      { name: "Dairy & Eggs", sales: 22100, cogs: 18785, expenses: 1000 },
-      { name: "Snacks & Beverages", sales: 16800, cogs: 12600, expenses: 800 },
-      { name: "Personal Care", sales: 14200, cogs: 9940, expenses: 1200 },
-      { name: "Home Care", sales: 10500, cogs: 7350, expenses: 500 },
-      { name: "Frozen & Refrigerated", sales: 8200, cogs: 5740, expenses: 600 }
-    ];
 
     // Compute from real invoices if present
     invoices.forEach(inv => {
@@ -56,7 +45,7 @@ export default function DepartmentReports() {
         }
         const revenue = Number(item.finalPrice || item.rate || 0) * Number(item.qty || 1);
         summary[cat].sales += revenue;
-        // Estimate COGS as 75% of sale value if not present on product, else use purchase_rate
+        // Estimate COGS as 70% of sale value if not present on product, else use purchase_rate
         const matchProd = products.find(p => p.id === item.id || p.name === item.name);
         const purchaseRate = matchProd ? Number(matchProd.purchase_rate || 0) : 0;
         summary[cat].cogs += purchaseRate > 0 ? purchaseRate * Number(item.qty || 1) : revenue * 0.70;
@@ -79,56 +68,139 @@ export default function DepartmentReports() {
       };
     });
 
-    return list.length > 0 ? list : defaultDepts.map(d => ({
-      ...d,
-      profit: d.sales - d.cogs - d.expenses,
-      margin: ((d.sales - d.cogs - d.expenses) / d.sales * 100).toFixed(1)
-    }));
+    return list;
   }, [invoices, products]);
 
   // 2. Hourly Sales Heatmap
   const hourlyData = useMemo(() => {
-    return [
-      { hour: "09:00 AM", sales: 12000, bills: 45 },
-      { hour: "10:00 AM", sales: 24500, bills: 72 },
-      { hour: "11:00 AM", sales: 29000, bills: 88 },
-      { hour: "12:00 PM", sales: 18500, bills: 54 },
-      { hour: "01:00 PM", sales: 15200, bills: 41 },
-      { hour: "02:00 PM", sales: 11000, bills: 32 },
-      { hour: "03:00 PM", sales: 16500, bills: 49 },
-      { hour: "04:00 PM", sales: 22000, bills: 65 },
-      { hour: "05:00 PM", sales: 34000, bills: 98 },
-      { hour: "06:00 PM", sales: 48000, bills: 125 },
-      { hour: "07:00 PM", sales: 52000, bills: 140 },
-      { hour: "08:00 PM", sales: 41000, bills: 112 },
-      { hour: "09:00 PM", sales: 22000, bills: 60 }
-    ];
-  }, []);
+    if (invoices.length === 0) return [];
+
+    const hours = Array.from({ length: 13 }, (_, i) => {
+      const h = i + 9; // 9 AM to 9 PM
+      const suffix = h >= 12 ? "PM" : "AM";
+      const displayHour = h > 12 ? h - 12 : h;
+      return {
+        key: `${String(displayHour).padStart(2, "0")}:00 ${suffix}`,
+        hourVal: h,
+        sales: 0,
+        bills: 0
+      };
+    });
+
+    invoices.forEach(inv => {
+      if (!inv.created_date) return;
+      try {
+        const dateObj = new Date(inv.created_date);
+        const hr = dateObj.getHours();
+        const matchingHour = hours.find(h => h.hourVal === hr);
+        if (matchingHour) {
+          matchingHour.sales += Number(inv.grand_total || 0);
+          matchingHour.bills += 1;
+        }
+      } catch (e) {
+        // safe ignore
+      }
+    });
+
+    return hours.map(h => ({
+      hour: h.key,
+      sales: Math.round(h.sales),
+      bills: h.bills
+    }));
+  }, [invoices]);
 
   // 3. Category Performance ABC analysis
   const abcData = useMemo(() => {
-    return [
-      { rank: 1, name: "Amul Taaza Milk 1L", sales: 15912, share: "12.8%", class: "A" },
-      { rank: 2, name: "Fortune Sunflower Oil 1L", sales: 12015, share: "9.6%", class: "A" },
-      { rank: 3, name: "Tomato (Fresh Loose)", sales: 7200, share: "5.8%", class: "A" },
-      { rank: 4, name: "Basmati Rice 5kg", sales: 5988, share: "4.8%", class: "B" },
-      { rank: 5, name: "Lays Chips Classic", sales: 5400, share: "4.3%", class: "B" },
-      { rank: 6, name: "Onion (Fresh Loose)", sales: 4320, share: "3.5%", class: "B" },
-      { rank: 7, name: "Amul Butter 500g", sales: 3850, share: "3.1%", class: "C" },
-      { rank: 8, name: "Dettol Liquid Handwash", sales: 3120, share: "2.5%", class: "C" }
-    ];
-  }, []);
+    if (invoices.length === 0) return [];
+
+    const productSales = {};
+    let grandTotalSales = 0;
+
+    invoices.forEach(inv => {
+      const items = Array.isArray(inv.items) ? inv.items : [];
+      items.forEach(item => {
+        const name = item.name || "Unknown Item";
+        const revenue = Number(item.finalPrice || item.rate || 0) * Number(item.qty || 1);
+        productSales[name] = (productSales[name] || 0) + revenue;
+        grandTotalSales += revenue;
+      });
+    });
+
+    const sortedProducts = Object.keys(productSales).map(name => ({
+      name,
+      sales: Math.round(productSales[name]),
+    })).sort((a, b) => b.sales - a.sales);
+
+    let cumulativeSales = 0;
+    return sortedProducts.map((p, idx) => {
+      cumulativeSales += p.sales;
+      const sharePct = grandTotalSales > 0 ? (p.sales / grandTotalSales) * 100 : 0;
+      const cumulativePct = grandTotalSales > 0 ? (cumulativeSales / grandTotalSales) * 100 : 0;
+      
+      let classification = "C";
+      if (cumulativePct <= 80) classification = "A";
+      else if (cumulativePct <= 95) classification = "B";
+
+      return {
+        rank: idx + 1,
+        name: p.name,
+        sales: p.sales,
+        share: `${sharePct.toFixed(1)}%`,
+        class: classification
+      };
+    });
+  }, [invoices]);
 
   // 4. Basket Market Analysis
   const basketData = useMemo(() => {
-    return [
-      { itemA: "Bread / Bakery", itemB: "Milk / Dairy", support: "48%", confidence: "85%", lift: "1.8" },
-      { itemA: "Tea / Coffee Powder", itemB: "Sugar / Staples", support: "36%", confidence: "72%", lift: "1.5" },
-      { itemA: "Maggi / Instant Noodles", itemB: "Soft Drinks / Juices", support: "28%", confidence: "68%", lift: "1.4" },
-      { itemA: "Tomato / Veggies", itemB: "Onion (Fresh Loose)", support: "55%", confidence: "92%", lift: "2.1" },
-      { itemA: "Surf Excel Detergent", itemB: "Vim Dishwash Liquid", support: "22%", confidence: "60%", lift: "1.9" }
-    ];
-  }, []);
+    if (invoices.length === 0) return [];
+
+    const pairs = {};
+    const categoryCounts = {};
+    let totalTransactions = invoices.length;
+
+    invoices.forEach(inv => {
+      const items = Array.isArray(inv.items) ? inv.items : [];
+      const categoriesInInvoice = Array.from(new Set(items.map(item => item.category || "General")));
+
+      categoriesInInvoice.forEach(cat => {
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+      });
+
+      for (let i = 0; i < categoriesInInvoice.length; i++) {
+        for (let j = i + 1; j < categoriesInInvoice.length; j++) {
+          const catA = categoriesInInvoice[i];
+          const catB = categoriesInInvoice[j];
+          const key = catA < catB ? `${catA}|||${catB}` : `${catB}|||${catA}`;
+          pairs[key] = (pairs[key] || 0) + 1;
+        }
+      }
+    });
+
+    const list = Object.keys(pairs).map(key => {
+      const [catA, catB] = key.split("|||");
+      const pairCount = pairs[key];
+      const support = (pairCount / totalTransactions) * 100;
+      
+      const countA = categoryCounts[catA] || 1;
+      const confidence = (pairCount / countA) * 100;
+
+      const countB = categoryCounts[catB] || 1;
+      const supportB = countB / totalTransactions;
+      const lift = supportB > 0 ? (confidence / 100) / supportB : 1;
+
+      return {
+        itemA: catA,
+        itemB: catB,
+        support: `${support.toFixed(0)}%`,
+        confidence: `${confidence.toFixed(0)}%`,
+        lift: lift.toFixed(1),
+        rawSupport: support
+      };
+    }).sort((a, b) => b.rawSupport - a.rawSupport);
+
+    return list.slice(0, 5);
+  }, [invoices]);
 
   // Export CSV helper
   const handleExportCSV = () => {
@@ -218,20 +290,28 @@ export default function DepartmentReports() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {deptData.map((d, index) => (
-                      <TableRow key={d.name} className="hover:bg-slate-100/20 dark:hover:bg-slate-900/10">
-                        <TableCell className="font-bold text-slate-800 dark:text-slate-200">{d.name}</TableCell>
-                        <TableCell className="text-right font-mono font-semibold">₹{d.sales.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono text-slate-500">₹{d.cogs.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono text-slate-500">₹{d.expenses.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono font-black text-emerald-600 dark:text-emerald-400">₹{d.profit.toLocaleString()}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10 border-none font-bold">
-                            {d.margin}%
-                          </Badge>
+                    {deptData.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-xs font-bold">
+                          No sales records found. Register invoices to view department profitability ledger.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      deptData.map((d, index) => (
+                        <TableRow key={d.name} className="hover:bg-slate-100/20 dark:hover:bg-slate-900/10">
+                          <TableCell className="font-bold text-slate-800 dark:text-slate-200">{d.name}</TableCell>
+                          <TableCell className="text-right font-mono font-semibold">₹{d.sales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-mono text-slate-500">₹{d.cogs.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-mono text-slate-500">₹{d.expenses.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-mono font-black text-emerald-600 dark:text-emerald-400">₹{d.profit.toLocaleString()}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10 border-none font-bold">
+                              {d.margin}%
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -244,32 +324,40 @@ export default function DepartmentReports() {
               <CardDescription>Comparative department share of total store revenue.</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={deptData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="sales"
-                  >
-                    {deptData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              {deptData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-slate-400 text-xs font-bold text-center p-6">
+                  No sales data available. Begin checkouts to view department share.
+                </div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={deptData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="sales"
+                      >
+                        {deptData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v) => "₹" + v.toLocaleString()} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="grid grid-cols-2 gap-2 text-xs mt-4">
+                    {deptData.slice(0, 6).map((d, index) => (
+                      <div key={d.name} className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <span className="truncate max-w-[120px] font-medium text-slate-600 dark:text-slate-400">{d.name}</span>
+                      </div>
                     ))}
-                  </Pie>
-                  <Tooltip formatter={(v) => "₹" + v.toLocaleString()} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-2 text-xs mt-4">
-                {deptData.slice(0, 6).map((d, index) => (
-                  <div key={d.name} className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="truncate max-w-[120px] font-medium text-slate-600 dark:text-slate-400">{d.name}</span>
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -282,21 +370,27 @@ export default function DepartmentReports() {
             <CardDescription>Hourly checkout volumes for scheduling staff shifts.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={hourlyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0066CC" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#0066CC" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="hour" stroke="#888888" fontSize={11} />
-                <YAxis stroke="#888888" fontSize={11} formatter={(v) => "₹" + v / 1000 + "k"} />
-                <Tooltip formatter={(v) => "₹" + v.toLocaleString()} />
-                <Area type="monotone" dataKey="sales" stroke="#0066CC" fillOpacity={1} fill="url(#colorSales)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {hourlyData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-slate-400 text-xs font-bold text-center">
+                No sales logged today. Begin checkout to track hourly checkout loads.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={hourlyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#0066CC" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#0066CC" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="hour" stroke="#888888" fontSize={11} />
+                  <YAxis stroke="#888888" fontSize={11} formatter={(v) => "₹" + v / 1000 + "k"} />
+                  <Tooltip formatter={(v) => "₹" + v.toLocaleString()} />
+                  <Area type="monotone" dataKey="sales" stroke="#0066CC" fillOpacity={1} fill="url(#colorSales)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       )}
@@ -325,23 +419,31 @@ export default function DepartmentReports() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {abcData.map((item) => (
-                      <TableRow key={item.rank} className="hover:bg-slate-100/20 dark:hover:bg-slate-900/10">
-                        <TableCell className="text-center font-mono font-bold">{item.rank}</TableCell>
-                        <TableCell className="font-bold text-slate-800 dark:text-slate-200">{item.name}</TableCell>
-                        <TableCell className="text-right font-mono font-semibold">₹{item.sales.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono text-slate-500">{item.share}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge className={
-                            item.class === "A" ? "bg-red-500 text-white border-none font-bold" :
-                            item.class === "B" ? "bg-yellow-500 text-slate-900 border-none font-bold" :
-                            "bg-slate-400 text-white border-none font-bold"
-                          }>
-                            Class {item.class}
-                          </Badge>
+                    {abcData.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-xs font-bold">
+                          No inventory items sold. Complete a sale to rank products under ABC class.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      abcData.map((item) => (
+                        <TableRow key={item.rank} className="hover:bg-slate-100/20 dark:hover:bg-slate-900/10">
+                          <TableCell className="text-center font-mono font-bold">{item.rank}</TableCell>
+                          <TableCell className="font-bold text-slate-800 dark:text-slate-200">{item.name}</TableCell>
+                          <TableCell className="text-right font-mono font-semibold">₹{item.sales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-mono text-slate-500">{item.share}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge className={
+                              item.class === "A" ? "bg-red-500 text-white border-none font-bold" :
+                              item.class === "B" ? "bg-yellow-500 text-slate-900 border-none font-bold" :
+                              "bg-slate-400 text-white border-none font-bold"
+                            }>
+                              Class {item.class}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -354,14 +456,20 @@ export default function DepartmentReports() {
                 💡
               </div>
               <h3 className="text-lg font-black text-blue-600">ABC Strategy Suggestion</h3>
-              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                Your **Class A** items (Milk, Sunola Oil, Tomatoes) represent **80% of total revenue**. Ensure these items NEVER experience stockouts by configuring auto-reorder levels.
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-bold">
+                {abcData.length === 0 ? (
+                  "No Class A items identified yet. Register products and begin invoicing to get strategy suggestions."
+                ) : (
+                  <>Your **Class A** items ({abcData.slice(0, 3).map(i => i.name).join(", ")}) represent **80% of total revenue**. Ensure these items NEVER experience stockouts by configuring auto-reorder levels.</>
+                )}
               </p>
-              <div className="pt-2">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9">
-                  Auto Reorder Config
-                </Button>
-              </div>
+              {abcData.length > 0 && (
+                <div className="pt-2">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9">
+                    Auto Reorder Config
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -387,21 +495,29 @@ export default function DepartmentReports() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {basketData.map((b, index) => (
-                    <TableRow key={index} className="hover:bg-slate-100/20 dark:hover:bg-slate-900/10">
-                      <TableCell className="font-bold text-slate-800 dark:text-slate-200">{b.itemA}</TableCell>
-                      <TableCell className="font-bold text-blue-600 dark:text-blue-400">{b.itemB}</TableCell>
-                      <TableCell className="text-center font-mono font-semibold">{b.support}</TableCell>
-                      <TableCell className="text-center font-mono font-semibold text-emerald-600 dark:text-emerald-400">{b.confidence}</TableCell>
-                      <TableCell className="text-center font-mono font-bold text-amber-600 dark:text-amber-400">{b.lift}</TableCell>
-                      <TableCell className="text-right text-xs font-medium text-slate-500">
-                        {index === 0 ? "Place Bread counter next to Dairy fridge" :
-                         index === 1 ? "Arrange Sugar packs below Tea shelves" :
-                         index === 3 ? "Keep Onions adjacent to Tomato bins" :
-                         "Position adjacent on secondary aisle display"}
+                  {basketData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-xs font-bold">
+                        No cross-shopping association calculated. Invoices with multiple product categories are required for shelf-placement suggestions.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    basketData.map((b, index) => (
+                      <TableRow key={index} className="hover:bg-slate-100/20 dark:hover:bg-slate-900/10">
+                        <TableCell className="font-bold text-slate-800 dark:text-slate-200">{b.itemA}</TableCell>
+                        <TableCell className="font-bold text-blue-600 dark:text-blue-400">{b.itemB}</TableCell>
+                        <TableCell className="text-center font-mono font-semibold">{b.support}</TableCell>
+                        <TableCell className="text-center font-mono font-semibold text-emerald-600 dark:text-emerald-400">{b.confidence}</TableCell>
+                        <TableCell className="text-center font-mono font-bold text-amber-600 dark:text-amber-400">{b.lift}</TableCell>
+                        <TableCell className="text-right text-xs font-medium text-slate-500">
+                          {index === 0 ? "Place Bread counter next to Dairy fridge" :
+                           index === 1 ? "Arrange Sugar packs below Tea shelves" :
+                           index === 3 ? "Keep Onions adjacent to Tomato bins" :
+                           "Position adjacent on secondary aisle display"}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>

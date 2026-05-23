@@ -1,0 +1,27 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to verify tenant ownership
+    function isTenantUser(companyId) {
+      return isAuthenticated() && (
+        request.auth.token.company_id == companyId
+      );
+    }
+
+    // Secure tenant uploads folder: companies/{companyId}/*
+    match /companies/{companyId}/{allPaths=**} {
+      allow read, write: if isTenantUser(companyId);
+    }
+    
+    // Fallback for user-specific uploads: users/{userId}/*
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+  }
+}

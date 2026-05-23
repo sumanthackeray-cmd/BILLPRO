@@ -20,6 +20,23 @@ import {
 import { logAuditAction } from './auditLogging';
 import { queryClientInstance } from '../lib/query-client';
 
+const getSecureUserClaims = () => {
+  try {
+    const token = localStorage.getItem('base44_access_token');
+    if (token) {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    }
+  } catch (e) {
+    console.warn("Failed to parse secure user claims from JWT:", e);
+  }
+  return null;
+};
+
 const getUserId = () => {
   const user = auth.currentUser;
   if (!user) {
@@ -93,15 +110,75 @@ const createFirebaseEntityRepository = (entityName) => {
             freshItems.push({ id: doc.id, ...doc.data() });
           });
           
+          // Self-healing database restore from local storage cache
+          if (colName === "shopSettings" && freshItems.length === 0) {
+            let localBackup = null;
+            try {
+              const mainCache = localStorage.getItem("base44_shop_settings");
+              if (mainCache) {
+                const parsed = JSON.parse(mainCache);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  localBackup = parsed.find(s => s.shop_name && s.business_entity_type);
+                }
+              }
+              
+              if (!localBackup) {
+                const entityCache = localStorage.getItem(cacheKey);
+                if (entityCache) {
+                  const parsed = JSON.parse(entityCache);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    localBackup = parsed.find(s => s.shop_name && s.business_entity_type);
+                  }
+                }
+              }
+            } catch (cacheErr) {
+              console.warn("Self-healing: Error parsing cached backup settings:", cacheErr);
+            }
+
+            if (localBackup) {
+              console.log("Self-healing: Empty Firestore shopSettings detected but valid local backup exists. Restoring to cloud...");
+              try {
+                const docId = localBackup.id && !localBackup.id.startsWith("temp-") ? localBackup.id : "seed-settings";
+                const docRef = doc(db, "companies", companyId, colName, docId);
+                
+                const restoreData = {
+                  ...localBackup,
+                  id: docId,
+                  companyId: companyId,
+                  userId: uid,
+                  updated_date: new Date().toISOString()
+                };
+                
+                const cleanedRestoreData = {};
+                Object.keys(restoreData).forEach(k => {
+                  if (restoreData[k] !== undefined) {
+                    cleanedRestoreData[k] = restoreData[k];
+                  }
+                });
+
+                await setDoc(docRef, cleanedRestoreData);
+                console.log("Self-healing: Successfully restored shopSettings to Firestore ID:", docId);
+                freshItems.push(cleanedRestoreData);
+              } catch (restoreErr) {
+                console.error("Self-healing: Failed to restore settings to Firestore:", restoreErr);
+              }
+            }
+          }
+          
           // Secure field masking layer
           try {
             const currentUserUid = auth.currentUser?.uid;
             if (currentUserUid) {
               let userRole = 'cashier';
-              const cachedProfileStr = localStorage.getItem(`rbac_profile_${currentUserUid}`);
-              if (cachedProfileStr) {
-                const cachedProfile = JSON.parse(cachedProfileStr);
-                userRole = cachedProfile.role_name;
+              const secureClaims = getSecureUserClaims();
+              if (secureClaims && secureClaims.role) {
+                userRole = secureClaims.role;
+              } else {
+                const cachedProfileStr = localStorage.getItem(`rbac_profile_${currentUserUid}`);
+                if (cachedProfileStr) {
+                  const cachedProfile = JSON.parse(cachedProfileStr);
+                  userRole = cachedProfile.role_name;
+                }
               }
               
               if (entityName === 'Product') {
@@ -163,12 +240,14 @@ const createFirebaseEntityRepository = (entityName) => {
 
           // Programmatically update the React Query cache
           try {
-            const queries = queryClientInstance.getQueryCache().getAll();
-            queries.forEach(q => {
-              if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
-                queryClientInstance.setQueryData(q.queryKey, freshItems);
-              }
-            });
+            if (queryClientInstance && typeof queryClientInstance.getQueryCache === 'function') {
+              const queries = queryClientInstance.getQueryCache().getAll();
+              queries.forEach(q => {
+                if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
+                  queryClientInstance.setQueryData(q.queryKey, freshItems);
+                }
+              });
+            }
           } catch (e) {
             console.warn("Error updating React Query on sync:", e);
           }
@@ -193,12 +272,17 @@ const createFirebaseEntityRepository = (entityName) => {
       const uid = getUserId();
       
       // Perform security checks on write
-      const cachedProfileStr = localStorage.getItem(`rbac_profile_${uid}`);
-      if (cachedProfileStr) {
-        const cachedProfile = JSON.parse(cachedProfileStr);
-        if (cachedProfile.is_active === false) {
-          throw new Error("403 Forbidden: User account is deactivated.");
+      try {
+        const cachedProfileStr = localStorage.getItem(`rbac_profile_${uid}`);
+        if (cachedProfileStr) {
+          const cachedProfile = JSON.parse(cachedProfileStr);
+          if (cachedProfile && cachedProfile.is_active === false) {
+            throw new Error("403 Forbidden: User account is deactivated.");
+          }
         }
+      } catch (e) {
+        if (e.message?.includes("403 Forbidden")) throw e;
+        console.warn("Error parsing rbac_profile from localStorage:", e);
       }
 
       const colName = getCollectionName(entityName);
@@ -248,12 +332,14 @@ const createFirebaseEntityRepository = (entityName) => {
         localStorage.setItem(cacheKey, JSON.stringify(cachedItems));
 
         // Programmatically update React Query immediately to show in UI
-        const queries = queryClientInstance.getQueryCache().getAll();
-        queries.forEach(q => {
-          if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
-            queryClientInstance.setQueryData(q.queryKey, cachedItems);
-          }
-        });
+        if (queryClientInstance && typeof queryClientInstance.getQueryCache === 'function') {
+          const queries = queryClientInstance.getQueryCache().getAll();
+          queries.forEach(q => {
+            if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
+              queryClientInstance.setQueryData(q.queryKey, cachedItems);
+            }
+          });
+        }
       } catch (e) {
         console.warn("Error updating cache on create:", e);
       }
@@ -278,12 +364,17 @@ const createFirebaseEntityRepository = (entityName) => {
       const uid = getUserId();
 
       // Perform security checks on write
-      const cachedProfileStr = localStorage.getItem(`rbac_profile_${uid}`);
-      if (cachedProfileStr) {
-        const cachedProfile = JSON.parse(cachedProfileStr);
-        if (cachedProfile.is_active === false) {
-          throw new Error("403 Forbidden: User account is deactivated.");
+      try {
+        const cachedProfileStr = localStorage.getItem(`rbac_profile_${uid}`);
+        if (cachedProfileStr) {
+          const cachedProfile = JSON.parse(cachedProfileStr);
+          if (cachedProfile && cachedProfile.is_active === false) {
+            throw new Error("403 Forbidden: User account is deactivated.");
+          }
         }
+      } catch (e) {
+        if (e.message?.includes("403 Forbidden")) throw e;
+        console.warn("Error parsing rbac_profile from localStorage:", e);
       }
 
       const colName = getCollectionName(entityName);
@@ -330,12 +421,14 @@ const createFirebaseEntityRepository = (entityName) => {
           localStorage.setItem(cacheKey, JSON.stringify(cachedItems));
 
           // Programmatically update React Query immediately to show in UI
-          const queries = queryClientInstance.getQueryCache().getAll();
-          queries.forEach(q => {
-            if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
-              queryClientInstance.setQueryData(q.queryKey, cachedItems);
-            }
-          });
+          if (queryClientInstance && typeof queryClientInstance.getQueryCache === 'function') {
+            const queries = queryClientInstance.getQueryCache().getAll();
+            queries.forEach(q => {
+              if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
+                queryClientInstance.setQueryData(q.queryKey, cachedItems);
+              }
+            });
+          }
         }
       } catch (e) {
         console.warn("Error updating cache on update:", e);
@@ -361,12 +454,17 @@ const createFirebaseEntityRepository = (entityName) => {
       const uid = getUserId();
 
       // Perform security checks on write
-      const cachedProfileStr = localStorage.getItem(`rbac_profile_${uid}`);
-      if (cachedProfileStr) {
-        const cachedProfile = JSON.parse(cachedProfileStr);
-        if (cachedProfile.is_active === false) {
-          throw new Error("403 Forbidden: User account is deactivated.");
+      try {
+        const cachedProfileStr = localStorage.getItem(`rbac_profile_${uid}`);
+        if (cachedProfileStr) {
+          const cachedProfile = JSON.parse(cachedProfileStr);
+          if (cachedProfile && cachedProfile.is_active === false) {
+            throw new Error("403 Forbidden: User account is deactivated.");
+          }
         }
+      } catch (e) {
+        if (e.message?.includes("403 Forbidden")) throw e;
+        console.warn("Error parsing rbac_profile from localStorage:", e);
       }
 
       const colName = getCollectionName(entityName);
@@ -399,12 +497,14 @@ const createFirebaseEntityRepository = (entityName) => {
           localStorage.setItem(cacheKey, JSON.stringify(cachedItems));
 
           // Programmatically update React Query immediately to show in UI
-          const queries = queryClientInstance.getQueryCache().getAll();
-          queries.forEach(q => {
-            if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
-              queryClientInstance.setQueryData(q.queryKey, cachedItems);
-            }
-          });
+          if (queryClientInstance && typeof queryClientInstance.getQueryCache === 'function') {
+            const queries = queryClientInstance.getQueryCache().getAll();
+            queries.forEach(q => {
+              if (Array.isArray(q.queryKey) && q.queryKey[0] === colName) {
+                queryClientInstance.setQueryData(q.queryKey, cachedItems);
+              }
+            });
+          }
         }
       } catch (e) {
         console.warn("Error updating cache on delete:", e);
@@ -505,7 +605,18 @@ const mockInvokeLLM = async ({ prompt, response_json_schema, file }) => {
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) {
-        return JSON.parse(text.trim());
+        let cleanedText = text.trim();
+        if (cleanedText.startsWith("```")) {
+          cleanedText = cleanedText.replace(/^```[a-zA-Z]*\n?/, "");
+          cleanedText = cleanedText.replace(/\n?```$/, "");
+          cleanedText = cleanedText.trim();
+        }
+        try {
+          return JSON.parse(cleanedText);
+        } catch (jsonErr) {
+          console.error("Gemini OCR response failed to parse as JSON:", jsonErr, "Raw text:", text);
+          throw new Error("Failed to parse AI model response as structured data.");
+        }
       }
     } else {
       console.warn(`Gemini API responded with status ${response.status}:`, await response.text());
@@ -668,12 +779,18 @@ export const base44 = {
     Core: {
       InvokeLLM: mockInvokeLLM,
       SendEmail: async (params) => {
-        console.log("Mock SendEmail called with:", params);
         return { success: true };
       },
       UploadFile: async ({ file }) => {
         const uid = getUserId();
-        const fileRef = ref(storage, `users/${uid}/${Date.now()}_${file.name}`);
+        const companyId = localStorage.getItem("company_id");
+        let path = `users/${uid}/${Date.now()}_${file.name}`;
+        
+        if (companyId) {
+          path = `companies/${companyId}/uploads/${Date.now()}_${file.name}`;
+        }
+        
+        const fileRef = ref(storage, path);
         const snapshot = await uploadBytes(fileRef, file);
         const file_url = await getDownloadURL(snapshot.ref);
         return { file_url };

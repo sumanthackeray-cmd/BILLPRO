@@ -145,7 +145,7 @@ export default function Customers() {
   };
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.toLowerCase().trim();
     return customers.filter(c => {
       const matchesSearch = !q ||
         c.name?.toLowerCase().includes(q) ||
@@ -159,7 +159,7 @@ export default function Customers() {
     });
   }, [customers, search, cityFilter, statusFilter]);
 
-  const hasActiveFilters = search || cityFilter !== "all" || statusFilter !== "all";
+  const hasActiveFilters = search.trim() || cityFilter !== "all" || statusFilter !== "all";
 
   const clearFilters = () => {
     setSearch("");
@@ -224,19 +224,19 @@ export default function Customers() {
       </div>
 
       {/* Results summary + clear */}
-      {hasActiveFilters && (
-        <div className="flex items-center justify-between text-[12px]">
-          <span className="text-muted-foreground">
-            Showing <span className="font-bold text-foreground">{filtered.length}</span> of {customers.length} customers
-          </span>
+      <div className="flex items-center justify-between gap-3 text-[12px] flex-wrap">
+        <span className="text-muted-foreground">
+          Showing <span className="font-bold text-foreground">{filtered.length}</span> of {customers.length} customers
+        </span>
+        {hasActiveFilters && (
           <button
             onClick={clearFilters}
-            className="flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 transition font-semibold"
+            className="flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 transition font-semibold uppercase tracking-wide"
           >
             <X className="w-3 h-3" /> Clear filters
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Customer Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -247,7 +247,7 @@ export default function Customers() {
               {customers.length === 0 ? t("customers.no_customers") : "No customers match your filters"}
             </p>
             {hasActiveFilters && (
-              <button onClick={clearFilters} className="mt-3 text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition">
+              <button onClick={clearFilters} className="mt-3 text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition font-semibold">
                 Clear filters
               </button>
             )}

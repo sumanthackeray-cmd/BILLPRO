@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { getUserSubscription, daysLeft, PLAN_NAMES } from "@/lib/subscription";
-import { Check, Zap, Star, Building2, Gift, Crown, Loader2, CheckCircle, AlertTriangle, Calendar } from "lucide-react";
+import { Check, Zap, Star, Building2, Gift, Crown, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";

@@ -5,6 +5,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import { ChevronDown, ChevronUp, Save, Building2, Copy, CheckCircle } from 'lucide-react';
 import SkippableField from '../../modules/registration/SkippableField';
+import { useShopSettings } from '../../hooks/useShopSettings';
+import { base44 } from '../../api/base44Client';
 
 const ExpandableSection = ({ title, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -77,6 +79,9 @@ export default function CompanyProfile() {
     fetchProfile();
   }, [user]);
 
+  // Try to load from ShopSettings if local document doesn't have it
+  const { shopSettings, updateSettingsOptimistically } = useShopSettings();
+
   const handleGroupChange = (group, field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -96,6 +101,19 @@ export default function CompanyProfile() {
     try {
       const docRef = doc(db, `companies/${cid}`);
       await updateDoc(docRef, formData);
+      
+      // Also update shopSettings to keep sidebar in sync
+      if (formData.business_name && shopSettings) {
+        try {
+          updateSettingsOptimistically({ shop_name: formData.business_name });
+          if (shopSettings.id) {
+            await base44.entities.ShopSettings.update(shopSettings.id, { shop_name: formData.business_name });
+          }
+        } catch(e) {
+          console.warn("Failed to sync shop name to shopSettings", e);
+        }
+      }
+      
       toast.success("Company profile updated successfully!");
     } catch (err) {
       toast.error("Failed to update profile");
@@ -155,8 +173,8 @@ export default function CompanyProfile() {
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-500 uppercase">Business Name</label>
             <input 
-              value={formData.business_name || formData.name || ""} 
-              onChange={e => setFormData(f => ({ ...f, business_name: e.target.value, name: e.target.value }))}
+              value={formData.business_name || formData.name || formData.companyName || shopSettings?.shop_name || ""} 
+              onChange={e => setFormData(f => ({ ...f, business_name: e.target.value, name: e.target.value, companyName: e.target.value }))}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg py-2 px-3 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
             />
           </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Plus, Edit2, Trash2, MapPin, Phone, Mail,
+  Plus, Edit2, Trash2, MapPin, Phone,
   Building2, GitBranch, CheckCircle, AlertCircle, Store, Warehouse, Landmark, Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,9 +38,7 @@ export default function BranchManagement() {
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
 
-  useEffect(() => { loadBranches(); }, []);
-
-  const loadBranches = async () => {
+  const loadBranches = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getAllBranches();
@@ -50,7 +48,9 @@ export default function BranchManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => { loadBranches(); }, [loadBranches]);
 
   const resetForm = () => {
     setFormData(EMPTY_FORM);

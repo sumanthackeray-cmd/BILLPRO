@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { INDIAN_STATES } from "@/lib/gst-utils";
 import { auth } from "@/api/firebase";
@@ -9,12 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
-import { Store, Building2, User, Landmark, FileText, Image as ImageIcon, Pen, Upload, ChevronRight, ChevronLeft, Check, ChevronsUpDown } from "lucide-react";
+import { Store, Landmark, FileText, Image as ImageIcon, Pen, Upload, ChevronRight, ChevronLeft } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BUSINESS_TYPES } from "@/lib/shopCategories";
 import { useShopSettings } from "@/hooks/useShopSettings";
@@ -48,16 +45,45 @@ export default function OnboardingModal() {
   const [savedInSession, setSavedInSession] = useState(false);
 
   const currentUid = user?.id;
-  const hasSaved = savedInSession || (currentUid ? sessionStorage.getItem(`onboarding_completed_${currentUid}`) === "true" : false);
-  
+  const isOwner = user?.role === 'owner' || user?.role_id === 'role-owner';
+  const hasSaved = savedInSession || 
+    localStorage.getItem("onboarding_completed") === "true" ||
+    (currentUid ? sessionStorage.getItem(`onboarding_completed_${currentUid}`) === "true" : false);
+
   const { settings, shopSettings: existing, updateSettingsOptimistically, isLoading } = useShopSettings();
 
-  // Clean duplicate settings documents if any
+
+  // Determine onboarding completion using DB-backed signals.
+  // We MUST do this after the settings query resolves, otherwise already-registered users
+  // may see onboarding again due to initial cached/empty states.
+  const hasCompletedOnboarding = !isLoading && Array.isArray(settings) && settings.length > 0 && settings.some(s =>
+    s &&
+    s.business_entity_type &&
+    String(s.business_entity_type).trim() !== "" &&
+    s.shop_name &&
+    String(s.shop_name).trim() !== "" &&
+    s.id &&
+    !String(s.id).startsWith("temp-")
+  );
+
+  // Clean duplicate settings documents if any, prioritizing the completed one and a real database ID
   useEffect(() => {
     if (settings && settings.length > 1) {
-      const duplicates = settings.slice(1);
-      duplicates.forEach(dup => {
-        base44.entities.ShopSettings.delete(dup.id);
+      const realCompleteSettings = settings.find(s => 
+        s.business_entity_type && 
+        s.business_entity_type.trim() !== "" && 
+        s.id && 
+        !s.id.startsWith("temp-")
+      );
+      
+      const toKeep = realCompleteSettings || 
+                     settings.find(s => s.id && !s.id.startsWith("temp-")) || 
+                     settings[0];
+      
+      settings.forEach(s => {
+        if (s.id !== toKeep.id && s.id && !s.id.startsWith("temp-")) {
+          base44.entities.ShopSettings.delete(s.id);
+        }
       });
     }
   }, [settings]);
@@ -75,7 +101,22 @@ export default function OnboardingModal() {
   useEffect(() => {
     if (isLoading) return;
 
+    // Fast path: if onboarding was completed in this browser session, never re-open.
+    // This avoids any UI flash for already-registered users (admin/staff) during login.
     if (hasSaved) {
+      setOpen(false);
+      return;
+    }
+
+
+    // Hard stop: if onboarding is already completed, never show onboarding again.
+    // This prevents "already registered user" from re-opening the wizard on every login.
+    if (hasCompletedOnboarding) {
+      setOpen(false);
+      return;
+    }
+
+    if (hasSaved || !isOwner) {
       setOpen(false);
       return;
     }
@@ -156,7 +197,8 @@ export default function OnboardingModal() {
       const latestSettings = await base44.entities.ShopSettings.list();
       let savedSettings;
       if (latestSettings && latestSettings.length > 0) {
-        savedSettings = await base44.entities.ShopSettings.update(latestSettings[0].id, form);
+        const toUpdate = latestSettings.find(s => s.business_entity_type) || latestSettings[0];
+        savedSettings = await base44.entities.ShopSettings.update(toUpdate.id, form);
       } else {
         savedSettings = await base44.entities.ShopSettings.create({ 
           ...form, 
@@ -173,6 +215,7 @@ export default function OnboardingModal() {
       queryClient.invalidateQueries({ queryKey: ["shopSettings"] });
       if (currentUid) {
         sessionStorage.setItem(`onboarding_completed_${currentUid}`, "true");
+        localStorage.setItem("onboarding_completed", "true");
       }
       setSavedInSession(true);
       toast.success("Profile setup complete!");
@@ -241,7 +284,7 @@ export default function OnboardingModal() {
                   <div className="space-y-2">
                     <Label className="text-[12px] font-bold">Business Entity Type <span className="text-destructive">*</span></Label>
                     <SearchableSelect
-                      options={ENTITY_TYPES}
+                      options={ENTITY_TYPES.map(v => ({ label: v, value: v }))}
                       value={form.business_entity_type}
                       onValueChange={v => set("business_entity_type", v)}
                       placeholder="Select Entity Type"

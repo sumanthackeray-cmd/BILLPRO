@@ -43,30 +43,78 @@ service cloud.firestore {
               getAfter(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role_id == 'role-' + roleName);
     }
 
+    // Helper: branch-level row security
+    function getUserBranchId(companyId) {
+      return exists(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.branch_id
+        : null;
+    }
+
+    function branchIdMatchesUser(companyId, docBranchId) {
+      // Direct boolean logic instead of "if-else"
+      return docBranchId == null || 
+             getUserBranchId(companyId) == null || 
+             getUserBranchId(companyId) == 'null' || 
+             getUserBranchId(companyId) == docBranchId;
+    }
+
+    function getDocBranchIdForRead() {
+      // Safe property access using "in" operator
+      return ('branchId' in resource.data) ? resource.data.branchId :
+             ('branch_id' in resource.data) ? resource.data.branch_id : null;
+    }
+
+    function getDocBranchIdForWrite() {
+      return ('branchId' in request.resource.data) ? request.resource.data.branchId :
+             ('branch_id' in request.resource.data) ? request.resource.data.branch_id : null;
+    }
+
     // Tenant-scoped matches: All multi-tenant data is located under /companies/{companyId}
     match /companies/{companyId}/{collectionName}/{documentId} {
-      
-      // Default: read if tenant member, write if active tenant member
-      allow read: if isMemberOfTenant(companyId);
-      allow write: if isActiveMember(companyId);
 
-      // Audit Logs are immutable (create only, read-only for admin roles)
+      // Inventory journal / accounting journal: append-only (create only)
+      match /inventoryMovements/{movementId} {
+        allow read: if isMemberOfTenant(companyId) && branchIdMatchesUser(companyId, getDocBranchIdForRead());
+        allow create: if isActiveMember(companyId) && branchIdMatchesUser(companyId, getDocBranchIdForWrite());
+        allow update, delete: if false;
+      }
+
+      match /journalEntries/{journalId} {
+        allow read: if isMemberOfTenant(companyId) && branchIdMatchesUser(companyId, getDocBranchIdForRead());
+        allow create: if isActiveMember(companyId) && branchIdMatchesUser(companyId, getDocBranchIdForWrite());
+        allow update, delete: if false;
+      }
+
       match /auditLogs/{logId} {
         allow read: if isMemberOfTenant(companyId) && (isRole(companyId, 'owner') || isRole(companyId, 'ceo') || isRole(companyId, 'ca'));
         allow create: if isActiveMember(companyId);
         allow update, delete: if false;
       }
+
+      // Default: read if tenant member, write if active tenant member
+      // Apply branch row security when the document contains branch identifiers
+      allow read: if isMemberOfTenant(companyId) && branchIdMatchesUser(companyId, getDocBranchIdForRead());
+      allow write: if isActiveMember(companyId) && branchIdMatchesUser(companyId, getDocBranchIdForWrite());
     }
 
     // Root-level companies metadata (read access for login/existence checks)
     match /companies/{companyId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && request.resource.data.owner_uid == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.owner_uid == request.auth.uid;
+      allow get: if true;
+      allow list: if isAuthenticated() && (
+        resource.data.owner_uid == request.auth.uid || 
+        (request.auth.token.email != null && resource.data.admin_email == request.auth.token.email)
+      );
+      // 🔥 Security Enforced: API keys and Passwords are hard-blocked from being saved in this public doc
+      allow create: if isAuthenticated() && request.resource.data.owner_uid == request.auth.uid
+                    && !('profile_password' in request.resource.data) 
+                    && !('api_key' in request.resource.data);
+      allow update: if isAuthenticated() && resource.data.owner_uid == request.auth.uid
+                    && !('profile_password' in request.resource.data) 
+                    && !('api_key' in request.resource.data);
       allow delete: if false;
     }
 
-    // Legacy/Migration path (just in case they fall back or for system metadata)
+    // Legacy/Migration path
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && request.auth.uid == userId;

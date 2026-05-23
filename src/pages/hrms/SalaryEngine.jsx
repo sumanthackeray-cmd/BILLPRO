@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { 
-  Calculator, Settings, UserCheck, DollarSign, ArrowRight, CheckCircle2, ChevronRight, 
-  ChevronLeft, Users, Download, AlertTriangle, FileSpreadsheet, Eye, Plus, Sparkles, Layers,
+  Calculator, UserCheck, ArrowRight, CheckCircle2, ChevronRight, 
+  ChevronLeft, Download, AlertTriangle,
   Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

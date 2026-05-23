@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, Package, BarChart3, Receipt, Settings, Menu, X, Zap, Info } from "lucide-react";
+import { LayoutDashboard, FileText, Receipt, Settings, Menu, X, Zap, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";

@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if the user belongs to the tenant
+    function isTenantUser(companyId) {
+      return isAuthenticated() && (
+        request.auth.token.company_id == companyId || 
+        // Fallback for cases where custom claims haven't fully propagated yet
+        exists(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid))
+      );
+    }
+    
+    // Helper function to check if the user is an owner, CEO, or CA (clearance <= 3)
+    function isCompanyAdmin(companyId) {
+      return isAuthenticated() && (
+        request.auth.token.role == "owner" ||
+        request.auth.token.role == "ceo" ||
+        request.auth.token.role == "ca" ||
+        get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role_id in ["role-owner", "role-ceo", "role-ca"]
+      );
+    }
+
+    // Rules for top-level companies collection
+    match /companies/{companyId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.owner_uid || isTenantUser(companyId));
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.owner_uid);
+      
+      // Strict isolation: all subcollections default to matching the user's company claim
+      match /{subcollection}/{document} {
+        allow read, write: if isTenantUser(companyId);
+      }
+
+      // Add granular controls for sensitive access collections
+      match /users/{userId} {
+        allow read: if isTenantUser(companyId);
+        // Only admins can create/update/delete staff profiles
+        allow write: if isCompanyAdmin(companyId);
+      }
+
+      match /roles/{roleId} {
+        allow read: if isTenantUser(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+
+      match /permissions/{permissionId} {
+        allow read: if isTenantUser(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+
+      match /sensitiveFieldAccess/{sfaId} {
+        allow read: if isTenantUser(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+
+      match /auditLogs/{logId} {
+        allow read: if isTenantUser(companyId);
+        // Audit logs are append-only to ensure absolute immutability and compliance
+        allow create: if isTenantUser(companyId);
+        allow update, delete: if false;
+      }
+    }
+
+    // Restrict top-level default auditLogs collection to authenticated users
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+  }
+}

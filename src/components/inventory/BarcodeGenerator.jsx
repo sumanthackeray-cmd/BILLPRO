@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Printer, Download, RefreshCw, Barcode, QrCode } from "lucide-react";
+import { Printer, RefreshCw, Barcode, QrCode } from "lucide-react";
 
 // Simple QR Code Version 1 Generator (21x21 modules)
 function generateQRMatrix(text) {

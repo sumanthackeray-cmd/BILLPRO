@@ -1,8 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Download, X } from "lucide-react";
-import { fmtINR, numToWords } from "@/lib/gst-utils";
-import { jsPDF } from "jspdf";
+import { numToWords } from "@/lib/gst-utils";
 import html2canvas from "html2canvas";
 import { toast } from "@/lib/toast";
 import { downloadInvoicePDF } from "@/lib/pdf-share-utils";

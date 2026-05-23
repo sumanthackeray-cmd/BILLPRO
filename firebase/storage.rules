@@ -1,16 +1,47 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Rules for user-specific uploads (logo and signature)
-    match /users/{userId}/{allPaths=**} {
-      // Anyone can read user logos and signatures to render invoices/POS publicly
-      allow read: if true;
-      
-      // Only the user themselves can upload, update or delete their files
-      allow write: if request.auth != null 
-        && request.auth.uid == userId
-        && request.resource.size < 5 * 1024 * 1024 // limit file size to 5MB
-        && request.resource.contentType.matches('image/.*'); // restrict to image content types only
+    
+    // ==========================================
+    // SECURITY HELPERS FOR STORAGE
+    // ==========================================
+    
+    // Check if the user is logged in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if the user is the registered Owner or Admin of the company in Firestore
+    function isCompanyOwnerOrAdmin(companyId) {
+      let company = firestore.get(/databases/(default)/documents/companies/$(companyId));
+      return company != null && (
+        company.data.owner_uid == request.auth.uid || 
+        company.data.admin_email == request.auth.token.email
+      );
+    }
+    
+    // Check if the user is listed under the company staff users in Firestore
+    function isCompanyStaff(companyId) {
+      return firestore.exists(/databases/(default)/documents/companies/$(companyId)/users/$(request.auth.uid));
+    }
+    
+    // Verify if the user has active membership inside the company tenant
+    function belongsToCompany(companyId) {
+      return isAuthenticated() && (isCompanyOwnerOrAdmin(companyId) || isCompanyStaff(companyId));
+    }
+
+    // ==========================================
+    // STORAGE LOCATION RULES
+    // ==========================================
+
+    // Company uploads (Logos, signatures, employee face images, documents)
+    match /companies/{companyId}/uploads/{fileName} {
+      allow read, write: if belongsToCompany(companyId);
+    }
+
+    // Fallback individual user folders
+    match /users/{userId}/{fileName} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
   }
 }

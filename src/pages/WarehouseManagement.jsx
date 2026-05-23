@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Building2, Users, Layers, AlertTriangle, FileText, CheckSquare, Plus,
-  Search, Printer, ArrowRight, MapPin, TrendingUp, Percent, Trash2, Edit2, CheckCircle2, ChevronRight, Barcode, Calendar, Grid, List, Activity, Sparkles, RefreshCw
+  Search, Printer, MapPin, TrendingUp, Trash2, Edit2, CheckCircle2, Barcode, Calendar, Grid, List, Activity, Sparkles, RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/lib/LanguageContext';
 import { base44 } from '@/api/base44Client';
-import { db } from '@/api/firebase';
-import { collection, getDocs } from 'firebase/firestore';
 import { toast } from 'sonner';
 import PermissionGuard from '@/components/PermissionGuard';
 import { useNavigate } from 'react-router-dom';
@@ -562,6 +560,11 @@ export default function WarehouseManagement() {
 
   const handlePrintPO = (po) => {
     const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("Unable to open print window. Please allow popups for this site.");
+      return;
+    }
+
     const itemsHtml = po.items.map(item => `
       <tr>
         <td style="border: 1px solid #ddd; padding: 8px;">${item.name}</td>
@@ -571,64 +574,70 @@ export default function WarehouseManagement() {
       </tr>
     `).join('');
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${po.poNumber}</title>
-          <style>
-            body { font-family: 'Inter', sans-serif; padding: 30px; color: #333; }
-            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }
-            .logo { font-size: 24px; font-weight: 800; color: #d97706; }
-            .title { font-size: 20px; font-weight: 700; text-align: right; }
-            .po-info { display: flex; justify-content: space-between; margin-bottom: 30px; font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th { background-color: #f8fafc; font-weight: 600; text-align: left; }
-            .totals { font-size: 16px; font-weight: 700; text-align: right; }
-          </style>
-        </head>
-        <body onload="window.print()">
-          <div class="header">
-            <div>
-              <div class="logo">EasyBMT</div>
-              <div>SAP-Level Wholesale & Retail Group</div>
+    try {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${po.poNumber}</title>
+            <style>
+              body { font-family: 'Inter', sans-serif; padding: 30px; color: #333; }
+              .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }
+              .logo { font-size: 24px; font-weight: 800; color: #d97706; }
+              .title { font-size: 20px; font-weight: 700; text-align: right; }
+              .po-info { display: flex; justify-content: space-between; margin-bottom: 30px; font-size: 14px; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+              th { background-color: #f8fafc; font-weight: 600; text-align: left; }
+              .totals { font-size: 16px; font-weight: 700; text-align: right; }
+            </style>
+          </head>
+          <body onload="window.print()">
+            <div class="header">
+              <div>
+                <div class="logo">EasyBMT</div>
+                <div>SAP-Level Wholesale & Retail Group</div>
+              </div>
+              <div class="title">PURCHASE ORDER</div>
             </div>
-            <div class="title">PURCHASE ORDER</div>
-          </div>
-          <div class="po-info">
-            <div>
-              <strong>Vendor Supplier:</strong><br>
-              ${po.vendorName}<br>
-              Terms: Net30 Terms
+            <div class="po-info">
+              <div>
+                <strong>Vendor Supplier:</strong><br>
+                ${po.vendorName}<br>
+                Terms: Net30 Terms
+              </div>
+              <div style="text-align: right;">
+                <strong>PO Number:</strong> ${po.poNumber}<br>
+                <strong>Date:</strong> ${new Date(po.createdAt).toLocaleDateString()}<br>
+                <strong>Status:</strong> ${po.status}
+              </div>
             </div>
-            <div style="text-align: right;">
-              <strong>PO Number:</strong> ${po.poNumber}<br>
-              <strong>Date:</strong> ${new Date(po.createdAt).toLocaleDateString()}<br>
-              <strong>Status:</strong> ${po.status}
+            <table>
+              <thead>
+                <tr>
+                  <th style="border: 1px solid #ddd; padding: 8px;">Item Description</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Qty Ordered</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Unit Price</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+            </table>
+            <div class="totals">
+              Grand Total: ₹${po.total.toLocaleString('en-IN')}.00
             </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th style="border: 1px solid #ddd; padding: 8px;">Item Description</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Qty Ordered</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Unit Price</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-          <div class="totals">
-            Grand Total: ₹${po.total.toLocaleString('en-IN')}.00
-          </div>
-          <div style="margin-top: 50px; font-size: 12px; color: #777; text-align: center; border-top: 1px solid #eee; padding-top: 10px;">
-            This is an automated system generated purchase order of SAP Retail Core.
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+            <div style="margin-top: 50px; font-size: 12px; color: #777; text-align: center; border-top: 1px solid #eee; padding-top: 10px;">
+              This is an automated system generated purchase order of SAP Retail Core.
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to generate print layout");
+      printWindow.close();
+    }
   };
 
   // Expiring batch counts

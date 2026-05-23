@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+/* @ts-nocheck */
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBackButton } from "@/hooks/useBackButton";
 import { base44 } from "@/api/base44Client";
@@ -10,13 +11,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { 
   Zap, Search, ShoppingCart, User, Plus, Minus, Trash2, 
-  Printer, ArrowLeft, RotateCcw, CreditCard, Sparkles, AlertTriangle, Edit,
-  Utensils, Pill, Shirt, Store, Package, Check, Keyboard, Scan, ChevronRight, Scale,
-  History, Mic, MicOff, X, FileText, RefreshCw, Eye, Camera, ClipboardList,
-  TrendingUp, Calendar, Filter, ChevronDown, Clock, IndianRupee, BarChart2,
+  Printer, ArrowLeft, RotateCcw, CreditCard, AlertTriangle, Edit,
+  Utensils, Pill, Shirt, Store, Package, Check, Scan, Scale,
+  History, Mic, MicOff, X, FileText, RefreshCw, Camera,
+  TrendingUp, Calendar, Clock, IndianRupee, BarChart2,
   Moon, Sun
 } from "lucide-react";
 import { toast } from "@/lib/toast";
@@ -26,7 +26,7 @@ import { useLanguage } from "@/lib/LanguageContext";
 import { useAuth } from "@/lib/AuthContext";
 import { usePermission } from "@/hooks/usePermission";
 import { useTheme } from "next-themes";
-import { generateAndUploadInvoicePDF, downloadInvoicePDF, getInvoicePDFBlob, generateThermalHTML } from "@/lib/pdf-share-utils";
+import { downloadInvoicePDF, getInvoicePDFBlob, generateThermalHTML } from "@/lib/pdf-share-utils";
 import InvoicePrintPreview from "@/components/invoices/InvoicePrintPreview";
 import { 
   sendEscPosToPrinter, 
@@ -37,6 +37,7 @@ import {
 } from "@/lib/escpos-utils";
 import { getCategoriesByShopType } from "@/lib/shopCategories";
 import { subscribeToBranchInventory, updateInventory } from "@/api/inventorySyncService";
+import { accountingService, buildSaleJournalEntry, buildReturnJournalEntry } from "@/modules/accounting/accountingService";
 import { INDIAN_STATES } from "@/lib/gst-utils";
 import { useFashionMode } from "@/hooks/useFashionMode";
 import FashionPOS from "./FashionPOS";
@@ -86,11 +87,11 @@ function mapShopTypeToLayout(businessType) {
 // Helper to get initials for shop logo avatar fallback
 const getInitials = (name) => {
   if (!name || name === "Vogats") return "GS";
-  const words = name.trim().split(/\s+/);
-  if (words.length >= 2) {
+  const words = (name.trim() || "").split(/\s+/).filter(w => w);
+  if (words.length >= 2 && words[0].length > 0 && words[1].length > 0) {
     return (words[0][0] + words[1][0]).toUpperCase();
   }
-  return name.slice(0, 2).toUpperCase();
+  return (name || "").slice(0, 2).toUpperCase();
 };
 
 // Helper to format date into "D MMM YYYY" (e.g., "20 May 2026")
@@ -296,7 +297,7 @@ function POSContent() {
       id: Date.now(),
       counter: currentCounter,
       cashier: currentCashier,
-      openedAt: new Date(shiftInvoices[0]?.date || Date.now()).toLocaleString(),
+      openedAt: new Date(shiftInvoices[0]?.date || localStorage.getItem('shiftOpenedAt') || new Date().toISOString()).toLocaleString(),
       closedAt: new Date().toLocaleString(),
       startingCash: startingDrawerCash,
       countedCash,
@@ -463,7 +464,38 @@ function POSContent() {
           delete cleanInv.id;
           delete cleanInv.isOfflinePending;
           
-          await base44.entities.Invoice.create(cleanInv);
+          const sanitizedCleanInv = JSON.parse(JSON.stringify(cleanInv, (k, v) => (v === undefined ? null : v)));
+          await base44.entities.Invoice.create(sanitizedCleanInv);
+
+          // Best-effort: create sale JournalEntry (double-entry) for offline invoices
+          try {
+            const journalPayload = buildSaleJournalEntry(cleanInv);
+            // createJournalEntry validates debit/credit balance
+            await accountingService.createJournalEntry(journalPayload);
+          } catch (e) {
+            console.error("Offline sync: failed to post sale JournalEntry (best-effort).", e);
+          }
+          
+          // Reconcile stock for each item in the offline invoice
+          for (const item of cleanInv.items) {
+             const prodId = item.product_id;
+             if (!prodId) continue;
+             // 1. branch inventory
+             if (cleanInv.branchId) {
+                try {
+                   await updateInventory(prodId, cleanInv.branchId, -item.qty, 'pos_offline_sync');
+                } catch(e) { console.error(`Error updating branch inventory for offline sync ${prodId}:`, e); }
+             }
+             // 2. Global product catalog
+             try {
+                const realProd = await base44.entities.Product.get(prodId);
+                if (realProd) {
+                   const newStock = Math.max(0, (realProd.stock || 0) - item.qty);
+                   await base44.entities.Product.update(prodId, { stock: newStock });
+                }
+             } catch(e) { console.error(`Error updating global stock for offline sync ${prodId}:`, e); }
+          }
+          
           syncedCount++;
         } catch (err) {
           console.error("Failed to sync invoice:", err);
@@ -602,12 +634,25 @@ function POSContent() {
     enabled: !!user,
   });
 
-  // Clean duplicate settings documents if any
+  // Clean duplicate settings documents if any, prioritizing the completed one and a real database ID
   useEffect(() => {
     if (settings && settings.length > 1) {
-      const duplicates = settings.slice(1);
-      duplicates.forEach(dup => {
-        base44.entities.ShopSettings.delete(dup.id);
+      const realCompleteSettings = settings.find(s => 
+        s.business_entity_type && 
+        s.business_entity_type.trim() !== "" && 
+        s.id && 
+        !s.id.startsWith("temp-")
+      );
+      
+      const toKeep = realCompleteSettings || 
+                     settings.find(s => s.id && !s.id.startsWith("temp-")) || 
+                     settings[0];
+      
+      settings.forEach(s => {
+        if (s.id !== toKeep.id && s.id && !s.id.startsWith("temp-")) {
+          // Changed to dry-run warning instead of automatic destruction
+          console.warn(`[Dry-Run] Detected duplicate ShopSettings. Found valid config ${toKeep.id}. Duplicate ${s.id} should be deleted manually or via Admin to prevent operational config loss.`);
+        }
       });
     }
   }, [settings]);
@@ -1026,6 +1071,10 @@ function POSContent() {
       toast.error("Cart is empty");
       return;
     }
+    if (!selectedCustomerId || selectedCustomerId === "walk-in") {
+      toast.error("Please add customer.");
+      return;
+    }
     // Auto-activate shift silently if not active (shift is optional tracking  never block checkout)
     if (!isShiftActive) {
       const defaultCashier = currentCashier || myDeviceCounter || "Cashier";
@@ -1141,6 +1190,20 @@ function POSContent() {
           const sanitizedUpdatedInvoice = JSON.parse(JSON.stringify(updatedInvoice, (k, v) => v === undefined ? null : v));
           createdInvoice = await base44.entities.Invoice.update(editingInvoiceId, sanitizedUpdatedInvoice);
 
+          // Best-effort: create/replace sale JournalEntry (double-entry) for edit checkout
+          // Note: we do not attempt to find/update an existing JE here (Phase 1 minimal correctness).
+          try {
+            const journalPayload = buildSaleJournalEntry({
+              ...sanitizedUpdatedInvoice,
+              invoice_number: sanitizedUpdatedInvoice.invoice_number || (invoices.find(inv => inv.id === editingInvoiceId)?.invoice_number),
+              date: sanitizedUpdatedInvoice.date || (invoices.find(inv => inv.id === editingInvoiceId)?.date),
+              customer_name: sanitizedUpdatedInvoice.customer_name,
+            });
+            await accountingService.createJournalEntry(journalPayload);
+          } catch (e) {
+            console.error("Edit checkout: failed to post sale JournalEntry (best-effort).", e);
+          }
+
           // Combined Stock Adjustment logic (branch specific and global catalog):
           const stockAdjustments = {};
           for (const item of editingInvoiceOriginalItems) {
@@ -1164,9 +1227,12 @@ function POSContent() {
                 }
                 // 2. Global product catalog stock update
                 try {
-                  const currentStock = prod.stock || 0;
-                  const newStock = Math.max(0, currentStock - delta);
-                  await base44.entities.Product.update(prodId, { stock: newStock });
+                  const realProd = await base44.entities.Product.get(prodId);
+                  if (realProd) {
+                    const currentStock = realProd.stock || 0;
+                    const newStock = Math.max(0, currentStock - delta);
+                    await base44.entities.Product.update(prodId, { stock: newStock });
+                  }
                 } catch (err) {
                   console.error(`Error updating global stock for product ${prodId} during edit:`, err);
                 }
@@ -1217,9 +1283,25 @@ function POSContent() {
           };
 
           // Sanitize to remove any remaining undefined values that crash Firebase
-          const sanitizedInvoice = JSON.parse(JSON.stringify(newInvoice, (k, v) => v === undefined ? null : v));
-
+          const sanitizedInvoice = JSON.parse(JSON.stringify(newInvoice, (k, v) => (v === undefined ? null : v)));
+          
           createdInvoice = await base44.entities.Invoice.create(sanitizedInvoice);
+
+          // Best-effort: create sale JournalEntry (double-entry) for online new checkout
+          try {
+            const journalPayload = buildSaleJournalEntry({
+              ...sanitizedInvoice,
+              // buildSaleJournalEntry expects invoice.grand_total + tax_amount + invoice_number + date + customer_name
+              grand_total: sanitizedInvoice.grand_total,
+              tax_amount: sanitizedInvoice.tax_amount,
+              invoice_number: sanitizedInvoice.invoice_number,
+              date: sanitizedInvoice.date,
+              customer_name: sanitizedInvoice.customer_name,
+            });
+            await accountingService.createJournalEntry(journalPayload);
+          } catch (e) {
+            console.error("Checkout: failed to post sale JournalEntry (best-effort).", e);
+          }
 
           // Decrement stock in database (branch specific and global catalog)
           for (const item of cart) {
@@ -1235,8 +1317,11 @@ function POSContent() {
               }
               // 2. Decrement global product catalog stock
               try {
-                const newStock = Math.max(0, (prod.stock || 0) - item.qty);
-                await base44.entities.Product.update(item.id, { stock: newStock });
+                const realProd = await base44.entities.Product.get(item.id);
+                if (realProd) {
+                  const newStock = Math.max(0, (realProd.stock || 0) - item.qty);
+                  await base44.entities.Product.update(item.id, { stock: newStock });
+                }
               } catch (err) {
                 console.error(`Error updating global catalog stock for product ${item.id}:`, err);
               }
@@ -1535,16 +1620,50 @@ function POSContent() {
     if (!window.confirm(`Return invoice ${invoice.invoice_number}? Stock will be restored.`)) return;
     setIsProcessingReturn(true);
     try {
-      // Restore stock for each item
+      const targetBranchId =
+        invoice.branchId ||
+        invoice.branch_id ||
+        activeBranchId ||
+        null;
+
+      // Restore stock for each item (BOTH: branch inventory + global product stock)
       for (const item of (invoice.items || [])) {
         const prod = products.find(p => p.id === item.product_id);
         if (prod) {
+          // 1) Global catalog stock restore
           await base44.entities.Product.update(item.product_id, { stock: (prod.stock || 0) + item.qty });
+
+          // 2) Branch inventory restore (Phase 1 requirement)
+          if (targetBranchId) {
+            try {
+              await updateInventory(item.product_id, targetBranchId, +item.qty, 'pos_return');
+            } catch (e) {
+              console.error("Return: failed to restore branch inventory (best-effort).", e);
+            }
+          }
         }
       }
+
       await base44.entities.Invoice.update(invoice.id, { status: "returned" });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+
+      // Best-effort: post return JournalEntry (double-entry reversal)
+      try {
+        const journalPayload = buildReturnJournalEntry({
+          ...invoice,
+          // buildReturnJournalEntry expects grand_total/tax_amount/invoice_number/date/customer_name
+          grand_total: invoice.grand_total,
+          tax_amount: invoice.tax_amount,
+          invoice_number: invoice.invoice_number,
+          date: invoice.date,
+          customer_name: invoice.customer_name,
+        });
+        await accountingService.createJournalEntry(journalPayload);
+      } catch (e) {
+        console.error("Return: failed to post return JournalEntry (best-effort).", e);
+      }
+
       setSelectedHistoryInvoice(null);
       toast.success(`Invoice ${invoice.invoice_number} returned. Stock restored.`);
     } catch (err) {
@@ -1574,7 +1693,7 @@ function POSContent() {
       setShowSuggestions(true);
       toast.success(` "${transcript}"`);
     };
-    recognition.onerror = () => { setIsListening(false); toast.error("Voice search error"); };
+    recognition.onerror = (e) => { setIsListening(false); console.error("Voice recognition error:", e); toast.error(`Voice search error: ${e.error || e.message || 'unknown'}`); };
     recognition.onend = () => setIsListening(false);
     recognition.start();
   };
@@ -2816,6 +2935,8 @@ function POSContent() {
                           if (ok) successCount++;
                           else newQueue.push(job);
                         } catch (e) {
+                          console.error(`Offline print sync failed for job (invoice: ${job.invoice?.invoice_number}):`, e);
+                          job.lastError = e.message;
                           newQueue.push(job);
                         }
                       }

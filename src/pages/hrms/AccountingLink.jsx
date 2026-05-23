@@ -1,12 +1,10 @@
 import { useState, useMemo } from "react";
 import { 
-  Link2, BookOpen, TrendingDown, CheckCircle2, AlertCircle, RefreshCw, Sliders, DollarSign, 
-  Building, ArrowRight, Layers, FileText, CheckCircle, Search
+  Link2, BookOpen, CheckCircle2, RefreshCw, Sliders, ArrowRight, Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/toast";
-import { base44 } from "@/api/base44Client";
 
 export default function AccountingLink({ 
   employees = [], 

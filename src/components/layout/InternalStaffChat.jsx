@@ -10,9 +10,9 @@ import {
   orderBy
 } from "firebase/firestore";
 import { 
-  MessageSquare, Send, Paperclip, X, User, Info,
-  Check, CheckCheck, Clock, FileText, ChevronRight,
-  ShoppingCart, ShieldAlert, Phone, Video, Search, MoreVertical,
+  MessageSquare, Send, Paperclip, X, Info,
+  Check, CheckCheck, FileText, ChevronRight,
+  ShoppingCart, ShieldAlert, Phone, Video,
   Smile, File, Image, Download, Mic, Inbox, Loader2, Maximize2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

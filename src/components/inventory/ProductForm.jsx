@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { RefreshCw, Upload, Image as ImageIcon, Trash2, Eye, X, Check, Loader2, Printer, Barcode, QrCode } from "lucide-react";
+import { RefreshCw, Upload, Image as ImageIcon, Trash2, X, Check, Loader2, Printer, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { base44 } from "@/api/base44Client";
 import { toast } from "@/lib/toast";
@@ -72,9 +72,8 @@ export function ProductForm({ open, onOpenChange, product, onSave, businessType 
     async function loadSettings() {
       try {
         const settings = await base44.entities.ShopSettings.list();
-        if (settings && settings.length > 0 && settings[0].business_type) {
-          setActiveBusinessType(settings[0].business_type);
-        }
+        const bType = settings?.[0]?.business_type || "retail";
+        setActiveBusinessType(bType);
       } catch (err) {
         console.error("Failed to load settings in ProductForm:", err);
       }
@@ -98,13 +97,24 @@ export function ProductForm({ open, onOpenChange, product, onSave, businessType 
   }, [categoriesList]);
 
   const handleCategoryChange = (catName) => {
-    set("category", catName);
-    const matched = categoriesList.find(c => c.name === catName);
+    // Guard against accidental object value coming from UI/select
+    // Expected value shape: string category name
+    const normalizedCatName =
+      catName && typeof catName === "object" && "name" in catName
+        ? catName.name
+        : catName;
+
+    if (!normalizedCatName || typeof normalizedCatName !== "string") return;
+
+    set("category", normalizedCatName);
+    const matched = categoriesList.find((c) => c.name === normalizedCatName);
     if (matched) {
       set("gst_rate", matched.defaultGst);
       set("hsn", matched.defaultHsn);
       set("unit", matched.defaultUnit);
-      toast.info(`Auto-filled: GST ${matched.defaultGst}%, HSN ${matched.defaultHsn}, UOM ${matched.defaultUnit}`);
+      toast.info(
+        `Auto-filled: GST ${matched.defaultGst}%, HSN ${matched.defaultHsn}, UOM ${matched.defaultUnit}`
+      );
     }
   };
 
@@ -133,6 +143,10 @@ export function ProductForm({ open, onOpenChange, product, onSave, businessType 
     };
 
     recognition.onresult = (event) => {
+      if (!event.results?.[0]?.[0]?.transcript) {
+        toast.warning("Could not recognize speech. Please try again.");
+        return;
+      }
       const speechToText = event.results[0][0].transcript.toLowerCase();
       console.log("Voice speech recognized:", speechToText);
 
@@ -233,13 +247,24 @@ export function ProductForm({ open, onOpenChange, product, onSave, businessType 
     `).join("");
 
     const win = window.open("", "_blank");
-    win.document.write(`<!DOCTYPE html><html><head><title>Barcode Labels</title>
-    <style>body{margin:8px;background:#fff;}@media print{body{margin:0;}}</style>
-    </head><body>
-    <div style="display:flex;flex-wrap:wrap;">${labels}</div>
-    <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),1000);}</script>
-    </body></html>`);
-    win.document.close();
+    if (!win) {
+      toast.error("Popup blocked! Please allow popups to print barcode labels.");
+      return;
+    }
+
+    try {
+      win.document.write(`<!DOCTYPE html><html><head><title>Barcode Labels</title>
+      <style>body{margin:8px;background:#fff;}@media print{body{margin:0;}}</style>
+      </head><body>
+      <div style="display:flex;flex-wrap:wrap;">${labels}</div>
+      <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),1000);}</script>
+      </body></html>`);
+      win.document.close();
+    } catch (e) {
+      console.error("Print error:", e);
+      toast.error("Failed to generate print layout");
+      win.close();
+    }
   };
 
   function generateBarsHTML(val) {

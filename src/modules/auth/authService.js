@@ -84,8 +84,6 @@ export async function prePopulateLoginCache(firebaseUser, companyId, userCode) {
       phone: userRecord.contact_mobile || userRecord.phone || userRecord.mobile || firebaseUser.phoneNumber || "",
       contact_mobile: userRecord.contact_mobile || "",
       contact_email: userRecord.contact_email || userRecord.email || firebaseUser.email || "",
-      password: userRecord.profile_password || userRecord.password || "",
-      profile_password: userRecord.profile_password || "",
       user_code: userRecord.user_code || userCode || localStorage.getItem('user_code') || "",
     };
 
@@ -153,6 +151,7 @@ export async function staffLogin(companyId, userCode, password) {
   localStorage.setItem("company_id", formattedCompanyId);
   localStorage.setItem("user_code", formattedUserCode);
   localStorage.setItem("base44_access_token", tokenResult.token);
+  localStorage.setItem("onboarding_completed", "true"); // Guarantee modal bypass
 
   // 6. Create Session document in Firestore
   const sessionId = doc(collection(db, "temp")).id; // generate unique ID
@@ -238,7 +237,7 @@ export async function ownerLogin(emailOrCompanyId, password) {
 
     // Secondary fallback: check admin_email if owner_uid is missing
     if (querySnapshot.empty) {
-      const emailQuery = query(companiesRef, where("admin_email", "==", email.trim().toLowerCase()));
+      const emailQuery = query(companiesRef, where("admin_email", "==", finalEmail));
       querySnapshot = await getDocs(emailQuery);
     }
 
@@ -256,6 +255,7 @@ export async function ownerLogin(emailOrCompanyId, password) {
   localStorage.setItem("company_id", companyId);
   localStorage.setItem("user_code", userCode);
   localStorage.setItem("base44_access_token", tokenResult.token);
+  localStorage.setItem("onboarding_completed", "true"); // Guarantee modal bypass
 
   // Pre-populate caching layer instantly to support instant startup loading bypass
   await prePopulateLoginCache(userCredential.user, companyId, userCode);

@@ -1,14 +1,12 @@
 import { useState, useMemo } from "react";
 import { 
-  Building2, FileSpreadsheet, ShieldAlert, HeartPulse, Award, FileText, CheckCircle2, 
-  HelpCircle, Sparkles, HelpCircle as HelpIcon, ArrowDownToLine, Calculator, Globe, Settings2
+  Building2, HeartPulse, Award, FileText, ArrowDownToLine, Calculator, Globe, Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
-import { 
-  calculatePF, calculateESIC, calculatePT, calculateStatutoryBonus, calculateGratuity,
+import { calculateStatutoryBonus, calculateGratuity,
   getRegulatoryConfig, saveRegulatoryConfig 
 } from "./hrmsUtils";
 

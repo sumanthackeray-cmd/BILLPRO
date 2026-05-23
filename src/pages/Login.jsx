@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useTheme } from "next-themes";
 import { Link } from "react-router-dom";
-import { LogIn, Mail, Lock, Building2, User, Loader2, ShieldAlert, ArrowRight, Eye, EyeOff, ShieldCheck, CheckCircle2, Moon, Sun } from "lucide-react";
-import GoogleIcon from "@/components/GoogleIcon";
+import { Mail, Lock, Building2, User, Loader2, ShieldAlert, ArrowRight, Eye, EyeOff, ShieldCheck, Moon, Sun } from "lucide-react";
 import { staffLogin, ownerLogin, prePopulateLoginCache } from "@/modules/auth/authService";
 import { setPersistence, browserLocalPersistence } from "firebase/auth";
 import { auth } from "@/firebase/config";

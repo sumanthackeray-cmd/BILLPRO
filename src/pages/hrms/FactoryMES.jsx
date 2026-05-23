@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { 
-  Cpu, Users, ShieldAlert, CheckCircle2, Navigation, AlertCircle, Play, 
-  Layers, MapPin, Award, PenTool, Sparkles, UserCheck, Compass
+  Cpu, Users, ShieldAlert, CheckCircle2, Navigation, Play, Award, PenTool, Compass
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

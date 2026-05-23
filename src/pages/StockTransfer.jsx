@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   transferInventory,
   getInventory,
-  getBranchInventory,
 } from '@/api/inventorySyncService';
 import { getAllBranches } from '@/api/branchService';
 import { useLanguage } from '@/lib/LanguageContext';

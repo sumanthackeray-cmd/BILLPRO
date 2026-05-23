@@ -9,6 +9,7 @@
     "jsx": "react-jsx",
     "module": "esnext",
     "moduleResolution": "bundler",
+    "ignoreDeprecations": "6.0",
     "lib": [
       "esnext",
       "dom"

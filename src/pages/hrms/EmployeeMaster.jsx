@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { 
-  Users, Search, UserPlus, FileSpreadsheet, Eye, Plus, Calendar, DollarSign, Award, Settings, Briefcase, 
-  MapPin, ShieldAlert, Trash2, CheckCircle2, ChevronRight, UserCheck, AlertCircle, Edit, ShieldCheck, HeartPulse,
-  Fingerprint, Sparkles, Cpu
+  Users, Search, UserPlus, Eye, Trash2, CheckCircle2, UserCheck, Edit, ShieldCheck, HeartPulse,
+  Fingerprint, Cpu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

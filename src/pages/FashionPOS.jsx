@@ -1,15 +1,13 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBackButton } from "@/hooks/useBackButton";
 import { base44 } from "@/api/base44Client";
 import { toast } from "@/lib/toast";
 import { 
   Zap, Search, ShoppingCart, User, Plus, Minus, Trash2, 
-  Printer, RotateCcw, CreditCard, Sparkles, AlertTriangle, Edit3, Edit,
-  Shirt, Store, Package, Check, Keyboard, Scan, ChevronRight, Scale,
-  Mic, MicOff, X, FileText, RefreshCw, Eye, ClipboardList,
-  TrendingUp, Calendar, Filter, ChevronDown, Clock, IndianRupee, BarChart2,
-  Scissors, Palette, Heart, CheckCircle2, UserCheck, Send, ShoppingBag,
+  Printer, Sparkles, Edit3, Edit,
+  Shirt, Package, Check, Scan, X, FileText, RefreshCw, Clock,
+  Scissors, ShoppingBag,
   ArrowLeft, Sun, Moon, History
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -24,7 +22,6 @@ import { useTheme } from "next-themes";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Sliders } from "lucide-react";
 import { 
-  generateAndUploadInvoicePDF, 
   downloadInvoicePDF, 
   getInvoicePDFBlob, 
   generateThermalHTML 
@@ -673,6 +670,10 @@ export default function FashionPOS() {
   const handleCheckoutSubmit = async () => {
     if (cart.length === 0) {
       toast.error("POS Counter Error: Cart is empty");
+      return;
+    }
+    if (!selectedCustomerId || selectedCustomerId === "walk-in") {
+      toast.error("Please add customer.");
       return;
     }
 

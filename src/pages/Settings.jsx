@@ -22,6 +22,18 @@ import { MOCK_PRINTER_DEVICES, sendEscPosToPrinter, generateEscPosPayload } from
 import { BUSINESS_TYPES } from "@/lib/shopCategories";
 import { useLanguage } from "@/lib/LanguageContext";
 
+const decryptPassword = (enc) => {
+  if (!enc) return "";
+  if (enc.startsWith("enc:")) {
+    try {
+      return atob(enc.substring(4));
+    } catch (e) {
+      return enc;
+    }
+  }
+  return enc;
+};
+
 export default function Settings() {
   const { user, updateAuthUser } = useAuth();
   const queryClient = useQueryClient();
@@ -70,12 +82,24 @@ export default function Settings() {
   const userDesignation = currentEmployee?.designation || currentEmployee?.designation_id || (user?.role_id ? user.role_id.replace("role-", "").replace("_", " ") : user?.role ? user.role : "Administrator");
 
 
-  // Clean duplicate settings documents if any
+  // Clean duplicate settings documents if any, prioritizing the completed one and a real database ID
   useEffect(() => {
     if (settings && settings.length > 1) {
-      const duplicates = settings.slice(1);
-      duplicates.forEach(dup => {
-        base44.entities.ShopSettings.delete(dup.id);
+      const realCompleteSettings = settings.find(s => 
+        s.business_entity_type && 
+        s.business_entity_type.trim() !== "" && 
+        s.id && 
+        !s.id.startsWith("temp-")
+      );
+      
+      const toKeep = realCompleteSettings || 
+                     settings.find(s => s.id && !s.id.startsWith("temp-")) || 
+                     settings[0];
+      
+      settings.forEach(s => {
+        if (s.id !== toKeep.id && s.id && !s.id.startsWith("temp-")) {
+          base44.entities.ShopSettings.delete(s.id);
+        }
       });
     }
   }, [settings]);
@@ -106,10 +130,10 @@ export default function Settings() {
       setForm({
         shop_name: existing.shop_name === "Vogats" ? "" : (existing.shop_name || ""),
         gstin: existing.gstin || "",
-        phone: existing.phone || "",
-        email: existing.email || "",
+        phone: existing.phone || user?.contact_mobile || user?.phone || "",
+        email: existing.email || user?.contact_email || user?.email || "",
         pan: existing.pan || "",
-        owner_name: existing.owner_name || "",
+        owner_name: existing.owner_name || user?.name || user?.full_name || "",
         address: existing.address || "",
         city: existing.city || "",
         state: existing.state || "",
@@ -164,11 +188,12 @@ export default function Settings() {
         updateAuthUser(form.owner_name);
       }
       
-      // 2. Perform backend operations in background (up to 1 second)
+      // 2. Perform backend operations in background
       const latestSettings = await base44.entities.ShopSettings.list();
       let savedSettings;
-      if (latestSettings && latestSettings.length > 0 && !latestSettings[0].id.startsWith("seed")) {
-        savedSettings = await base44.entities.ShopSettings.update(latestSettings[0].id, form);
+      if (latestSettings && latestSettings.length > 0) {
+        const targetSetting = latestSettings.find(s => s.business_entity_type && s.business_entity_type.trim() !== "") || latestSettings[0];
+        savedSettings = await base44.entities.ShopSettings.update(targetSetting.id, form);
       } else {
         savedSettings = await base44.entities.ShopSettings.create({ ...form, invoice_counter: 0, purchase_counter: 0 });
       }
@@ -443,17 +468,19 @@ export default function Settings() {
                     <div>
                       <p className="text-[11px] font-semibold text-muted-foreground uppercase">Profile Password</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <p className="font-mono text-[14px] bg-white dark:bg-black px-2 py-1 rounded border tracking-wider flex-1 truncate">
-                          {showProfilePassword ? (user?.password || user?.profile_password || "••••••••") : "••••••••"}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowProfilePassword(!showProfilePassword)}
-                          className="p-1.5 text-slate-500 hover:text-indigo-500 bg-white dark:bg-black hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded border transition-colors"
-                          title={showProfilePassword ? "Hide Password" : "Show Password"}
-                        >
-                          {showProfilePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
+                        <div className="relative flex-1">
+                          <p className="font-mono text-[13px] bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-lg border border-border tracking-wider pr-10 flex items-center h-10 select-all truncate">
+                            {showProfilePassword ? (decryptPassword(user?.profile_password) || "••••••••") : "••••••••"}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setShowProfilePassword(!showProfilePassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors focus:outline-none"
+                            title={showProfilePassword ? "Hide Password" : "Show Password"}
+                          >
+                            {showProfilePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

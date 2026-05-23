@@ -6,10 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { INDIAN_STATES, GST_RATES, calcItems, numToWords, fmtINR, today, addDays } from "@/lib/gst-utils";
-import { X, Search, Plus, Eye } from "lucide-react";
+import { X, Search, Eye } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export default function InvoiceForm({ open, onOpenChange, invoice, customers, products, onSave, type = "sale" }) {

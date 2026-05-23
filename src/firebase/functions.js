@@ -9,6 +9,27 @@ const functions = getFunctions(app);
 const registerTenantFn = httpsCallable(functions, 'registerTenant');
 const manageStaffUserFn = httpsCallable(functions, 'manageStaffUser');
 
+export const encryptPassword = (pwd) => {
+  if (!pwd) return "";
+  try {
+    return pwd.startsWith("enc:") ? pwd : "enc:" + btoa(pwd);
+  } catch (e) {
+    return pwd;
+  }
+};
+
+export const decryptPassword = (enc) => {
+  if (!enc) return "";
+  if (enc.startsWith("enc:")) {
+    try {
+      return atob(enc.substring(4));
+    } catch (e) {
+      return enc;
+    }
+  }
+  return enc;
+};
+
 export const registerTenant = async (data) => {
   try {
     const res = await registerTenantFn(data);
@@ -167,7 +188,7 @@ export const registerTenant = async (data) => {
     const batch1 = writeBatch(db);
 
     // Write Company Metadata with complete schema initialized
-    const companyRef = doc(db, `companies/${companyId}`);
+    const companyRef = doc(db, "companies", companyId);
     batch1.set(companyRef, {
       name: companyName.trim(),
       business_name: companyName.trim(),
@@ -269,7 +290,7 @@ export const registerTenant = async (data) => {
     });
 
     // Write ShopSettings seed
-    const settingsRef = doc(db, `companies/${companyId}/shopSettings/seed-settings`);
+    const settingsRef = doc(db, "companies", companyId, "shopSettings", "seed-settings");
     batch1.set(settingsRef, {
       shop_name: companyName.trim(),
       business_type: "retail",
@@ -280,14 +301,14 @@ export const registerTenant = async (data) => {
       updated_date: new Date().toISOString()
     });
 
-    const ownerProfileRef = doc(db, `companies/${companyId}/users/${ownerUser.uid}`);
+    const ownerProfileRef = doc(db, "companies", companyId, "users", ownerUser.uid);
     batch1.set(ownerProfileRef, {
       id: ownerUser.uid,
       name: "Owner",
       email: email.trim().toLowerCase(),
       contact_email: email.trim().toLowerCase(),
       contact_mobile: phone ? phone.trim() : "",
-      profile_password: password,
+      profile_password: encryptPassword(password),
       role_id: "role-owner",
       branch_id: null,
       is_active: true,
@@ -297,7 +318,7 @@ export const registerTenant = async (data) => {
     });
 
     // Write onboarding audit log
-    const auditLogsRef = doc(collection(db, `companies/${companyId}/auditLogs`));
+    const auditLogsRef = doc(collection(db, "companies", companyId, "auditLogs"));
     batch1.set(auditLogsRef, {
       action: "COMPANY_ONBOARD",
       userId: ownerUser.uid,
@@ -316,21 +337,21 @@ export const registerTenant = async (data) => {
     // to avoid the 20 document getAfter limit in Firestore rules.
     const batch2 = writeBatch(db);
     defaultRoles.forEach(role => {
-      const ref = doc(db, `companies/${companyId}/roles/${role.id}`);
+      const ref = doc(db, "companies", companyId, "roles", role.id);
       batch2.set(ref, role);
     });
     await batch2.commit();
 
     const batch3 = writeBatch(db);
     defaultPermissions.forEach(perm => {
-      const ref = doc(db, `companies/${companyId}/permissions/${perm.id}`);
+      const ref = doc(db, "companies", companyId, "permissions", perm.id);
       batch3.set(ref, perm);
     });
     await batch3.commit();
 
     const batch4 = writeBatch(db);
     defaultSensitiveFieldAccess.forEach(sfa => {
-      const ref = doc(db, `companies/${companyId}/sensitiveFieldAccess/${sfa.id}`);
+      const ref = doc(db, "companies", companyId, "sensitiveFieldAccess", sfa.id);
       batch4.set(ref, sfa);
     });
     await batch4.commit();
@@ -373,7 +394,7 @@ export const manageStaffUser = async (data) => {
       }
 
       // Check if userCode is already taken in this tenant
-      const q = query(collection(db, `companies/${companyId}/users`), where("user_code", "==", userCode.trim().toUpperCase()));
+      const q = query(collection(db, "companies", companyId, "users"), where("user_code", "==", userCode.trim().toUpperCase()));
       const snap = await getDocs(q);
       if (!snap.empty) {
         throw new Error(`User Code ${userCode} is already registered under this company.`);
@@ -387,7 +408,7 @@ export const manageStaffUser = async (data) => {
         const newStaffUser = userCredential.user;
 
         // Write user details to tenant's user collection
-        const userDocRef = doc(db, `companies/${companyId}/users`, newStaffUser.uid);
+        const userDocRef = doc(db, "companies", companyId, "users", newStaffUser.uid);
         const batch = writeBatch(db);
         batch.set(userDocRef, {
           id: newStaffUser.uid,
@@ -396,7 +417,7 @@ export const manageStaffUser = async (data) => {
           contact_email: contact_email ? contact_email.trim().toLowerCase() : "",
           contact_mobile: contact_mobile ? contact_mobile.trim() : "",
           staff_id: staff_id ? staff_id.trim() : "",
-          profile_password: password,
+          profile_password: encryptPassword(password),
           role_id: roleId,
           branch_id: branchId || "MAIN",
           is_active: true,
@@ -407,7 +428,7 @@ export const manageStaffUser = async (data) => {
         });
 
         // Log action to Tenant Audit Log subcollection
-        const auditRef = doc(collection(db, `companies/${companyId}/auditLogs`));
+        const auditRef = doc(collection(db, "companies", companyId, "auditLogs"));
         batch.set(auditRef, {
           action: "USER_CREATE",
           userId: auth.currentUser?.uid || null,
@@ -437,7 +458,7 @@ export const manageStaffUser = async (data) => {
         throw new Error("Missing target user UID.");
       }
 
-      const userRef = doc(db, `companies/${companyId}/users`, uid);
+      const userRef = doc(db, "companies", companyId, "users", uid);
       const userSnap = await getDoc(userRef);
       if (!userSnap.exists()) {
         throw new Error("Target user profile not found.");
@@ -449,11 +470,21 @@ export const manageStaffUser = async (data) => {
       if (data.name) updates.name = data.name;
       if (data.salary !== undefined) updates.salary = Number(data.salary);
       if (data.branchId) updates.branch_id = data.branchId;
+      if (data.roleId) updates.role_id = data.roleId;
+      if (data.userCode) updates.user_code = data.userCode.trim().toUpperCase();
+      if (data.email) updates.email = data.email.trim().toLowerCase();
+      if (data.contact_email !== undefined) updates.contact_email = data.contact_email.trim().toLowerCase();
+      if (data.contact_mobile !== undefined) updates.contact_mobile = data.contact_mobile.trim();
+      if (data.staff_id !== undefined) updates.staff_id = data.staff_id.trim();
+
+      if (data.password) {
+        updates.profile_password = encryptPassword(data.password);
+      }
 
       await updateDoc(userRef, updates);
 
       // Log action to Tenant Audit Log
-      const auditRef = doc(collection(db, `companies/${companyId}/auditLogs`));
+      const auditRef = doc(collection(db, "companies", companyId, "auditLogs"));
       const batch = writeBatch(db);
       batch.set(auditRef, {
         action: "USER_UPDATE",
@@ -461,7 +492,7 @@ export const manageStaffUser = async (data) => {
         entityType: "User",
         entityId: uid,
         branchId: targetData.branch_id || "MAIN",
-        description: `Staff user ${targetData.user_code} updated. Active status set to ${is_active} (Client Fallback).`,
+        description: `Staff user ${targetData.user_code} updated (Client Fallback).`,
         timestamp: serverTimestamp(),
         createdAt: new Date().toISOString()
       });
@@ -474,7 +505,7 @@ export const manageStaffUser = async (data) => {
         throw new Error("Missing target user UID.");
       }
 
-      const userRef = doc(db, `companies/${companyId}/users`, uid);
+      const userRef = doc(db, "companies", companyId, "users", uid);
       const userSnap = await getDoc(userRef);
       if (!userSnap.exists()) {
         throw new Error("Target user profile not found.");
@@ -484,7 +515,7 @@ export const manageStaffUser = async (data) => {
       await deleteDoc(userRef);
 
       // Log action to Tenant Audit Log
-      const auditRef = doc(collection(db, `companies/${companyId}/auditLogs`));
+      const auditRef = doc(collection(db, "companies", companyId, "auditLogs"));
       const batch = writeBatch(db);
       batch.set(auditRef, {
         action: "USER_DELETE",

@@ -1,12 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/toast";
 import { 
-  Scissors, Search, Calendar, Phone, Plus, Check, Clock, User, Sparkles, TrendingUp, CheckCircle, RefreshCw, Send, AlertTriangle, UserCheck, ChevronRight
+  Scissors, Search, Calendar, Plus, Check, User, Send, UserCheck
 } from "lucide-react";
 
 export default function Alterations() {
@@ -31,70 +30,7 @@ export default function Alterations() {
 
   // Fallback seed alterations if empty
   const alterations = useMemo(() => {
-    if (rawAlterations.length > 0) return rawAlterations;
-
-    // Generate mock seed alterations from invoices or default seeds
-    const sampleDates = [
-      new Date().toISOString().split("T")[0],
-      new Date(Date.now() + 86400000).toISOString().split("T")[0],
-      new Date(Date.now() + 172800000).toISOString().split("T")[0],
-      new Date(Date.now() - 86400000).toISOString().split("T")[0],
-    ];
-
-    return [
-      {
-        id: "alt-1",
-        alteration_no: "ALT-2026-001",
-        customer_name: "Rahul Sharma",
-        customer_phone: "9876543210",
-        item_name: "Men's Oxford Shirt",
-        details: "Waist Taper (L to M), Hemming",
-        charge: 120,
-        tailor_name: "Ramesh Kumar",
-        delivery_date: sampleDates[0],
-        status: "in_progress",
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: "alt-2",
-        alteration_no: "ALT-2026-002",
-        customer_name: "Priya Patel",
-        customer_phone: "9812345678",
-        item_name: "Women's Salwar Set",
-        details: "Hemming (Shorten 2 inches)",
-        charge: 80,
-        tailor_name: "Anil Master",
-        delivery_date: sampleDates[1],
-        status: "received",
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: "alt-3",
-        alteration_no: "ALT-2026-003",
-        customer_name: "Vikram Singh",
-        customer_phone: "9988776655",
-        item_name: "Slim Fit Denim Jeans",
-        details: "Waist alter (34 to 32)",
-        charge: 150,
-        tailor_name: "Sunita Devi",
-        delivery_date: sampleDates[2],
-        status: "ready",
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: "alt-4",
-        alteration_no: "ALT-2026-004",
-        customer_name: "Aman Gupta",
-        customer_phone: "9871234560",
-        item_name: "Classic Blazer Black",
-        details: "Sleeve shorten (1.5 inches)",
-        charge: 200,
-        tailor_name: "Ramesh Kumar",
-        delivery_date: sampleDates[3],
-        status: "delivered",
-        created_at: new Date(Date.now() - 172800000).toISOString(),
-      }
-    ];
+    return rawAlterations || [];
   }, [rawAlterations]);
 
   const tailors = ["Ramesh Kumar", "Anil Master", "Sunita Devi"];
