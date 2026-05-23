@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { sendEmail } from './emailService';
+import { emailService } from './emailService';
 
 /**
  * Email Verification Service
