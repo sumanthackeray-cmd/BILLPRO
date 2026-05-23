@@ -29,6 +29,7 @@ if (typeof window !== 'undefined') {
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { registerSW } from 'virtual:pwa-register'
 import App from '@/App.jsx'
 import '@/index.css'
 import { ThemeProvider } from "@/components/theme-provider"
@@ -43,6 +44,10 @@ initializeBranchService(db);
 initializeInventorySyncService(db);
 initializeAuditLogging(db);
 
+// Register PWA Service Worker
+if ('serviceWorker' in navigator) {
+  registerSW({ immediate: true })
+}
 
 // Global error listener to capture early loading errors
 window.addEventListener('error', (event) => {

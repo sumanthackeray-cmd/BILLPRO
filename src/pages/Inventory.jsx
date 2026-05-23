@@ -1223,26 +1223,36 @@ export default function Inventory() {
             </Button>
           )}
           {activeSubTab === "purchase-orders" && (
-            <Button
-              className="h-9 gold-gradient text-black font-bold gap-1.5 text-xs"
-              onClick={() => {
-                setEditingPO(null);
-                setPoForm({
-                  date: new Date().toISOString().split("T")[0],
-                  vendor_name: "",
-                  vendor_gstin: "",
-                  vendor_phone: "",
-                  indent_id: "",
-                  indent_number: "",
-                  items: [],
-                  discount: 0,
-                  notes: ""
-                });
-                setShowPOForm(true);
-              }}
-            >
-              <Plus className="w-3.5 h-3.5" /> Draft PO
-            </Button>
+            <div className="flex gap-2">
+              {stats.lowStock > 0 && (
+                <Button
+                  onClick={handleAutoPOReorder}
+                  className="h-9 bg-purple-600 hover:bg-purple-700 text-white font-bold gap-1.5 text-xs shadow-md border border-purple-500/20"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5" /> Auto-Suggest ({stats.lowStock})
+                </Button>
+              )}
+              <Button
+                className="h-9 gold-gradient text-black font-bold gap-1.5 text-xs"
+                onClick={() => {
+                  setEditingPO(null);
+                  setPoForm({
+                    date: new Date().toISOString().split("T")[0],
+                    vendor_name: "",
+                    vendor_gstin: "",
+                    vendor_phone: "",
+                    indent_id: "",
+                    indent_number: "",
+                    items: [],
+                    discount: 0,
+                    notes: ""
+                  });
+                  setShowPOForm(true);
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" /> Draft PO
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -2111,6 +2121,27 @@ export default function Inventory() {
               <p className="text-xs text-muted-foreground">Draft POs, manage vendor supplier relations, and process executive authorization. Click converting to native stock purchases dynamically.</p>
             </div>
           </div>
+
+          {stats.lowStock > 0 && (
+            <div className="bg-purple-950/15 border border-purple-500/30 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest block">💡 Smart Restock Engine</span>
+                <span className="font-bold text-xs text-foreground block">
+                  {stats.lowStock} catalog products are currently below their minimum safety stock threshold!
+                </span>
+                <span className="text-[10px] text-muted-foreground block">
+                  Click below to automatically draft a consolidated replenishment Purchase Order for all deficient products.
+                </span>
+              </div>
+              <Button 
+                onClick={handleAutoPOReorder}
+                size="sm"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px] h-8 px-3 rounded-lg flex items-center gap-1.5 shrink-0"
+              >
+                <ShoppingCart className="w-3.5 h-3.5" /> Suggest & Draft PO
+              </Button>
+            </div>
+          )}
 
           {/* PO Table */}
           <div className="overflow-x-auto rounded-xl border border-border bg-card">

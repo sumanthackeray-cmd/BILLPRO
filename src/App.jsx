@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from "@/lib/AuthContext";
 import UserNotRegisteredError from "@/components/UserNotRegisteredError";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { base44 } from "@/api/base44Client";
+import AppInstallPrompt from "@/components/AppInstallPrompt";
 
 // Critical / Initial Routes
 import Login from "@/pages/Login";
@@ -176,6 +177,7 @@ function App() {
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthenticatedApp />
         </Router>
+        <AppInstallPrompt />
         <ToastContainer />
       </QueryClientProvider>
     </AuthProvider>

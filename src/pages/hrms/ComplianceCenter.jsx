@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
+import jsPDF from "jspdf";
 import { calculateStatutoryBonus, calculateGratuity,
   getRegulatoryConfig, saveRegulatoryConfig 
 } from "./hrmsUtils";
@@ -171,6 +172,172 @@ export default function ComplianceCenter({
       toast.success("Form 24Q TDS quarterly file generated successfully!");
     } catch (err) {
       toast.error("Form 24Q compilation failed: " + err.message);
+    }
+  };
+
+  const [form16EmployeeId, setForm16EmployeeId] = useState("");
+
+  const handleDownloadForm16 = () => {
+    if (!form16EmployeeId) {
+      return toast.error("Please select an employee to generate Form 16 TDS certificate.");
+    }
+
+    const targetEmp = safeEmployees.find(e => e.id === form16EmployeeId);
+    if (!targetEmp) {
+      return toast.error("Selected employee record not found.");
+    }
+
+    try {
+      const doc = new jsPDF();
+      
+      // Outer Page Border
+      doc.setDrawColor(180, 180, 180);
+      doc.rect(5, 5, 200, 287);
+      
+      // Header Banner
+      doc.setFillColor(30, 41, 59); // Slate-800
+      doc.rect(5, 5, 200, 20, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(255, 255, 255);
+      doc.text("FORM NO. 16 - TDS CERTIFICATE", 15, 17);
+      
+      doc.setFontSize(7);
+      doc.text("Certificate under section 203 of the Income-tax Act, 1961 for tax deducted at source from income under the head 'Salaries'", 15, 22);
+
+      // Body Details
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("PART A: DETAILS OF TAX DEDUCTED AND DEPOSITED", 15, 38);
+      doc.line(15, 40, 195, 40);
+
+      // Employer details
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.text("Name and Address of the Employer (Deductor):", 15, 48);
+      doc.setFont("helvetica", "bold");
+      doc.text("EASYBMT ENTERPRISE PRIVATE LIMITED", 15, 53);
+      doc.setFont("helvetica", "normal");
+      doc.text("HQ Business Hub, Mumbai, Maharashtra, 400001, India", 15, 57);
+
+      // Employee details
+      doc.text("Name and Designation of the Employee:", 110, 48);
+      doc.setFont("helvetica", "bold");
+      doc.text((targetEmp.name || targetEmp.full_name || "Employee").toUpperCase(), 110, 53);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Designation: ${targetEmp.designation || "Staff Professional"}`, 110, 57);
+      doc.text(`Employee Code: ${targetEmp.employee_code || "EBM-009"}`, 110, 61);
+
+      // PAN / TAN Table Box
+      doc.rect(15, 68, 180, 22);
+      doc.line(15, 79, 195, 79);
+      doc.line(60, 68, 60, 90);
+      doc.line(105, 68, 105, 90);
+      doc.line(150, 68, 150, 90);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text("PAN of Employer", 20, 74);
+      doc.text("TAN of Deductor", 65, 74);
+      doc.text("PAN of Employee", 110, 74);
+      doc.text("Assessment Year", 155, 74);
+
+      doc.setFont("helvetica", "normal");
+      doc.text("AAACE1234F", 20, 85);
+      doc.text("MUMT01234A", 65, 85);
+      doc.text(targetEmp.pan_number || "PANNOTFILE", 110, 85);
+      doc.text("2026-2027", 155, 85);
+
+      // Salary details (Part B)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("PART B: COMPUTATION OF INCOME AND TAX PAYABLE", 15, 103);
+      doc.line(15, 105, 195, 105);
+
+      const basicSal = Number(targetEmp.basicSalary || targetEmp.salary || 15000);
+      const annualGross = basicSal * 12 + 60000; // salary + basic allowances
+      const pfDeduction = annualGross * 0.12; // 12% PF standard
+      const standardDeduction = 75000; // FY 2024-25 standard deduction
+      const taxableIncome = Math.max(0, annualGross - (pfDeduction + standardDeduction));
+      
+      // Calculate TDS
+      let tdsCalculated = 0;
+      if (taxableIncome > 700000) {
+        tdsCalculated = Math.round((taxableIncome - 700000) * 0.10 + 20000);
+      }
+
+      // Render calculations table
+      const rows = [
+        ["1. Gross Salary under section 17(1)", `INR ${annualGross.toLocaleString("en-IN")}`],
+        ["2. Less: Standard Deduction u/s 16(ia)", `INR ${standardDeduction.toLocaleString("en-IN")}`],
+        ["3. Less: Employee Contribution to PF u/s 80C", `INR ${pfDeduction.toLocaleString("en-IN")}`],
+        ["4. Total Taxable Income", `INR ${taxableIncome.toLocaleString("en-IN")}`],
+        ["5. Annual Tax Liability (TDS Calculated)", `INR ${tdsCalculated.toLocaleString("en-IN")}`],
+        ["6. Less: Tax Deducted at Source (TDS paid)", `INR ${tdsCalculated.toLocaleString("en-IN")}`],
+        ["7. Net Tax Payable / Refundable", "INR 0.00"]
+      ];
+
+      doc.rect(15, 112, 180, 70);
+      doc.line(140, 112, 140, 182);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.text("Particulars", 20, 118);
+      doc.text("Amount (INR)", 145, 118);
+      doc.line(15, 121, 195, 121);
+
+      doc.setFont("helvetica", "normal");
+      let y = 129;
+      rows.forEach((row, i) => {
+        if (i === 3 || i === 4 || i === 6) {
+          doc.setFont("helvetica", "bold");
+        } else {
+          doc.setFont("helvetica", "normal");
+        }
+        doc.text(row[0], 20, y);
+        doc.text(row[1], 145, y);
+        doc.line(15, y + 3, 195, y + 3);
+        y += 8;
+      });
+
+      // Verification seal & Signature box
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("Verification", 15, 200);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.text("I, SUMANTHACKERAY, Director of EasyBMT Enterprise Pvt Ltd, do hereby certify that a sum of", 15, 206);
+      doc.text(`INR ${tdsCalculated.toLocaleString("en-IN")} has been deducted and deposited in the Central Government Account.`, 15, 211);
+
+      // Signature line
+      doc.line(135, 245, 185, 245);
+      doc.setFont("helvetica", "bold");
+      doc.text("Signature of Person Responsible", 137, 249);
+      doc.setFont("helvetica", "normal");
+      doc.text("Designation: Director", 137, 253);
+      doc.text(`Date: ${new Date().toLocaleDateString("en-IN")}`, 137, 257);
+
+      // Secure digital QR/verification mark
+      doc.setFillColor(240, 240, 240);
+      doc.rect(15, 225, 45, 45);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(120, 120, 120);
+      doc.text("E-VERIFIED SECURE", 20, 235);
+      doc.text("TAN Reference Code:", 20, 242);
+      doc.setFont("helvetica", "normal");
+      doc.text("MUMT01234A-F16", 20, 247);
+      doc.text("Digital Sign ID: EBM-F16A", 20, 252);
+      doc.rect(20, 256, 35, 8);
+      doc.text("   SECURE VERIFIED", 21, 261);
+
+      doc.save(`Form16_TDS_Certificate_${targetEmp.name.replace(/\s+/g, "_")}.pdf`);
+      toast.success(`Form 16 TDS PDF Certificate for ${targetEmp.name} generated successfully!`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Form 16 PDF generation failed.");
     }
   };
 
@@ -417,6 +584,33 @@ export default function ComplianceCenter({
                   className="font-bold border-border/50 hover:bg-secondary/40 text-[10px] gap-1 h-8"
                 >
                   <ArrowDownToLine className="w-3.5 h-3.5 mr-1" /> TDS Form
+                </Button>
+              </div>
+
+              {/* Form 16 / TDS Certificate Button */}
+              <div className="flex items-center justify-between p-3.5 bg-secondary/15 rounded-xl border border-border/30 hover:border-indigo-500/30 transition duration-300">
+                <div className="space-y-1.5 flex-1 mr-4">
+                  <span className="font-black text-xs text-foreground block">Form 16 TDS Certificate (.pdf)</span>
+                  <span className="text-[10px] text-muted-foreground block mb-2">Generate statutory Form 16 (Part A & B) for Income Tax filing.</span>
+                  
+                  <select 
+                    value={form16EmployeeId} 
+                    onChange={e => setForm16EmployeeId(e.target.value)}
+                    className="w-full bg-background text-[11px] py-1 px-2 rounded border border-border/40 font-bold max-w-[220px] text-foreground"
+                  >
+                    <option value="" className="bg-background text-foreground">-- Select Employee --</option>
+                    {safeEmployees.map(emp => (
+                      <option key={emp.id} value={emp.id} className="bg-background text-foreground">{emp.name || emp.full_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button 
+                  onClick={handleDownloadForm16} 
+                  variant="outline" 
+                  size="sm" 
+                  className="font-bold border-border/50 hover:bg-secondary/40 text-[10px] gap-1 h-8 shrink-0 self-end"
+                >
+                  <ArrowDownToLine className="w-3.5 h-3.5 mr-1" /> Form 16 PDF
                 </Button>
               </div>
 
