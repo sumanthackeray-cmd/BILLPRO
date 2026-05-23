@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Sparkles, TrendingUp, Award, Sliders, Search, Plus, Trash2,
   ShieldAlert, DollarSign, Clock, Activity, ChevronRight, RefreshCw,
